@@ -1,0 +1,20 @@
+.DS_Store
+Thumbs.db
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+node_modules/
+
+# Personal inspiration and untracked privacy terms never belong in a public repo.
+.pet-studio-private.json
+inputs/*
+!inputs/.gitkeep
+design/
+
+# Generated and installed artifacts.
+build/
+dist/
+*.zip

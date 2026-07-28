@@ -1,0 +1,39 @@
+{
+  "$schema": ".agents/skills/pet-studio/schemas/project.schema.json",
+  "export": {
+    "include": [
+      "pet-studio.json",
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "LICENSE",
+      "CONTRIBUTING.md",
+      "CODE_OF_CONDUCT.md",
+      "SECURITY.md",
+      ".agents/skills/pet-studio/**",
+      ".github/workflows/**",
+      "previewer/**",
+      "templates/**",
+      "examples/neutral-demo/**",
+      "tests/**"
+    ]
+  },
+  "paths": {
+    "exports": "dist",
+    "pet": "build/pet",
+    "previewer": "previewer"
+  },
+  "privacy": {
+    "privateTermsFile": ".pet-studio-private.json"
+  },
+  "project": {
+    "defaultLocale": "en",
+    "displayName": "My Pet",
+    "id": "my-pet",
+    "locales": [
+      "en",
+      "zh-CN"
+    ]
+  },
+  "schemaVersion": 1
+}

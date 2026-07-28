@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Pet Previewer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="top-actions">
+          <button
+            id="tourButton"
+            class="button button-primary"
+            type="button"
+            data-i18n="ui.tourAll"
+          ></button>
+          <button
+            id="stopTourButton"
+            class="button"
+            type="button"
+            data-i18n="ui.stopTour"
+            disabled
+          ></button>
+        </div>
+
+        <div class="top-selectors">
+          <label class="compact-select">
+            <span data-i18n="ui.version"></span>
+            <select id="versionSelect"></select>
+          </label>
+          <label class="compact-select">
+            <span data-i18n="ui.language"></span>
+            <select id="languageSelect"></select>
+          </label>
+        </div>
+      </header>
+
+      <section
+        class="workspace"
+        data-i18n-aria-label="ui.workspaceAria"
+      >
+        <aside class="state-panel">
+          <div class="panel-heading">
+            <span data-i18n="ui.states"></span>
+            <span id="stateCount" class="muted"></span>
+          </div>
+          <nav
+            id="stateList"
+            class="state-list"
+            data-i18n-aria-label="ui.stateListAria"
+          ></nav>
+        </aside>
+
+        <section class="viewer-panel">
+          <div
+            class="mode-tabs"
+            role="tablist"
+            data-i18n-aria-label="ui.previewModeAria"
+          >
+            <button
+              id="animationTab"
+              class="mode-tab is-active"
+              role="tab"
+              aria-selected="true"
+              type="button"
+              data-i18n="ui.animationStates"
+            ></button>
+            <button
+              id="lookTab"
+              class="mode-tab"
+              role="tab"
+              aria-selected="false"
+              type="button"
+              data-i18n="ui.lookDirections"
+            ></button>
+          </div>
+
+          <div id="stage" class="stage stage-paper">
+            <div class="stage-grid" aria-hidden="true"></div>
+            <img id="gifPlayer" class="gif-player" alt="" />
+            <div
+              id="spritePlayer"
+              class="sprite-player"
+              role="img"
+              aria-label=""
+            ></div>
+            <div id="directionTarget" class="direction-target" aria-hidden="true">
+              <span></span>
+            </div>
+            <div class="stage-status" aria-live="polite">
+              <span id="stageModeLabel"></span>
+              <span id="frameReadout"></span>
+            </div>
+          </div>
+
+          <div id="animationControls" class="controls">
+            <div
+              class="segmented"
+              data-i18n-aria-label="ui.playbackAria"
+            >
+              <button
+                id="gifModeButton"
+                class="segment is-active"
+                type="button"
+                data-i18n="ui.gifPlayback"
+              ></button>
+              <button
+                id="runtimeModeButton"
+                class="segment"
+                type="button"
+                data-i18n="ui.runtimeTiming"
+                data-i18n-title="ui.runtimeTimingTitle"
+              ></button>
+              <button
+                id="frameModeButton"
+                class="segment"
+                type="button"
+                data-i18n="ui.frameInspection"
+              ></button>
+            </div>
+
+            <div
+              class="transport"
+              data-i18n-aria-label="ui.transportAria"
+            >
+              <button
+                id="previousFrameButton"
+                class="icon-button"
+                type="button"
+                data-i18n-title="ui.previousFrame"
+              >
+                ←
+              </button>
+              <button id="playPauseButton" class="button" type="button"></button>
+              <button
+                id="nextFrameButton"
+                class="icon-button"
+                type="button"
+                data-i18n-title="ui.nextFrame"
+              >
+                →
+              </button>
+              <button
+                id="restartButton"
+                class="button"
+                type="button"
+                data-i18n="ui.restart"
+              ></button>
+            </div>
+
+            <label class="speed-control">
+              <span data-i18n="ui.speed"></span>
+              <select id="speedSelect">
+                <option value="0.5" data-i18n="ui.speedHalf"></option>
+                <option value="1" data-i18n="ui.speedActual" selected></option>
+                <option value="1.5" data-i18n="ui.speedOneHalf"></option>
+                <option value="2" data-i18n="ui.speedDouble"></option>
+              </select>
+            </label>
+          </div>
+
+          <div id="lookControls" class="look-controls" hidden>
+            <div class="look-actions">
+              <button
+                id="orbitButton"
+                class="button button-primary"
+                type="button"
+              ></button>
+              <button
+                id="followPointerButton"
+                class="button"
+                type="button"
+              ></button>
+            </div>
+            <div
+              id="directionList"
+              class="direction-list"
+              data-i18n-aria-label="ui.directionListAria"
+            ></div>
+            <p class="hint" data-i18n="ui.pointerHint"></p>
+          </div>
+
+          <div
+            class="background-control"
+            data-i18n-aria-label="ui.backgroundAria"
+          >
+            <span data-i18n="ui.background"></span>
+            <button
+              class="swatch is-active"
+              data-background="paper"
+              type="button"
+              data-i18n-aria-label="ui.backgroundPaper"
+            ></button>
+            <button
+              class="swatch swatch-gray"
+              data-background="gray"
+              type="button"
+              data-i18n-aria-label="ui.backgroundGray"
+            ></button>
+            <button
+              class="swatch swatch-dark"
+              data-background="dark"
+              type="button"
+              data-i18n-aria-label="ui.backgroundDark"
+            ></button>
+          </div>
+        </section>
+
+        <aside class="detail-panel">
+          <p id="stateTag" class="state-tag"></p>
+          <h2 id="stateTitle"></h2>
+          <p id="stateDescription" class="state-description"></p>
+
+          <dl class="state-meta">
+            <div>
+              <dt data-i18n="ui.expression"></dt>
+              <dd id="stateIntent"></dd>
+            </div>
+            <div>
+              <dt data-i18n="ui.desktopTrigger"></dt>
+              <dd id="stateTrigger"></dd>
+            </div>
+            <div>
+              <dt data-i18n="ui.actionLength"></dt>
+              <dd id="stateDuration"></dd>
+            </div>
+          </dl>
+
+          <div class="frame-section">
+            <div class="panel-heading">
+              <span data-i18n="ui.keyframes"></span>
+              <span class="muted" data-i18n="ui.keyframeHint"></span>
+            </div>
+            <div id="frameStrip" class="frame-strip"></div>
+          </div>
+
+          <div class="tour-progress" aria-live="polite">
+            <div class="tour-progress-row">
+              <span id="tourLabel"></span>
+              <span id="tourProgressText"></span>
+            </div>
+            <div class="progress-track">
+              <div id="tourProgressBar" class="progress-bar"></div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section
+        class="mechanics-board"
+        data-i18n-aria-label="ui.mechanicsTitle"
+      >
+        <div class="mechanics-heading">
+          <div>
+            <p class="eyebrow" data-i18n="ui.mechanicsEyebrow"></p>
+            <h2 data-i18n="ui.mechanicsTitle"></h2>
+          </div>
+          <p>
+            <span id="versionStatus"></span>
+            <span aria-hidden="true"> · </span>
+            <span id="mechanicsSummary"></span>
+          </p>
+        </div>
+        <div id="mechanicsRows" class="mechanics-rows"></div>
+      </section>
+
+      <footer>
+        <span data-i18n="ui.sourceFooter"></span>
+        <span data-i18n="ui.shortcutFooter"></span>
+      </footer>
+    </main>
+
+    <script src="./i18n.js"></script>
+    <script src="./preview-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
