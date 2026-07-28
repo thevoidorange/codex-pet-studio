@@ -83,6 +83,7 @@ class StudioCliTests(unittest.TestCase):
             self.assertIn("already initialized", second_init.stdout)
             self.assertTrue((root / "pet-studio.json").is_file())
             self.assertTrue((root / ".pet-studio-private.json").is_file())
+            self.assertTrue((root / "design" / "takes").is_dir())
             (root / "previewer").mkdir()
             (root / "previewer" / "index.html").write_text("<!doctype html>", encoding="utf-8")
             doctor = self.run_cli("doctor", "--root", str(root), "--json")

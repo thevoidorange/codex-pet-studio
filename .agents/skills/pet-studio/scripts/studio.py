@@ -676,7 +676,7 @@ def ensure_local_workspace(root: Path) -> list[str]:
     if not private_path.exists():
         write_json(private_path, {"blockedTerms": []})
         created.append(PRIVATE_CONFIG_NAME)
-    for relative in ("inputs", "design", "build/pet", "dist"):
+    for relative in ("inputs", "design", "design/takes", "build/pet", "dist"):
         path = root / relative
         if not path.exists():
             path.mkdir(parents=True)

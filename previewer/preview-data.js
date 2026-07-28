@@ -18,6 +18,24 @@ window.PET_PREVIEW_CONFIG = {
       statusKey: "ui.currentVersion",
       atlasUrl: "./sample-assets/v002/spritesheet.png",
       isDefault: true,
+      frameTakes: [
+        {
+          stateId: "idle",
+          frameIndex: 1,
+          takes: [
+            {
+              id: "t001",
+              label: "Take 01",
+              atlasSlot: { row: 0, column: 0 },
+            },
+            {
+              id: "t002",
+              label: "Take 02",
+              atlasSlot: { row: 0, column: 2 },
+            },
+          ],
+        },
+      ],
     },
   ],
   states: [

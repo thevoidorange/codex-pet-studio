@@ -120,6 +120,14 @@ Do not promise that a Previewer value changes runtime timing. The creative contr
 - Use the Previewer version dropdown to compare like-for-like states.
 - Promote only an explicitly approved version to packaging.
 
+## Single-frame takes
+
+- Use `design/takes/<candidate>/<state>/fNN/` for Codex-managed working Takes.
+- Add a Take to Previewer config only as a temporary, read-only comparison for one exact Candidate, state, and frame.
+- Selecting a Take changes no source atlas, adjacent frame, Candidate, or approval state.
+- If a new Take exposes a continuity problem, create another Take for the requested frame. Never silently adjust either neighboring frame.
+- Do not add upload, save, promote, or QA controls to the Previewer Take Rail.
+
 ## Preview and QA
 
 Preview work before claiming completion.

@@ -168,8 +168,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("function stepFrame(delta)", self.app)
         self.assertIn(
             "function stepFrame(delta) {\n"
-            "    enterFrameInspection();\n"
-            "    setFrame(activeFrameIndex + delta);",
+            "    inspectFrame(activeFrameIndex + delta);",
             self.app,
         )
         self.assertIn('let playbackMode = "runtime";', self.app)
@@ -177,6 +176,59 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("function resumeSelectedPlayback()", self.app)
         self.assertNotIn('setPreviewMode("frames"', self.app)
         self.assertNotIn('playbackMode = "frames"', self.app)
+
+    def test_keyframes_can_reveal_ephemeral_take_rail(self) -> None:
+        self.assertIn("frameTakes: [", self.data)
+        self.assertIn('id: "t001"', self.data)
+        self.assertIn('id: "t002"', self.data)
+        self.assertIn("function frameTakesFor(", self.app)
+        self.assertIn("function renderTakeRail(", self.app)
+        self.assertIn("function positionTakeRail(", self.app)
+        self.assertIn('class="take-rail"', self.app)
+        self.assertIn('class="take-card ${', self.app)
+        self.assertIn("grid-column: 1 / -1;", self.css)
+        self.assertIn("activeFrameTake = {", self.app)
+        self.assertIn("versionId: activeVersionId", self.app)
+        self.assertIn("stateId: state.id", self.app)
+        self.assertIn("frameIndex: activeFrameIndex", self.app)
+        self.assertIn("clearFrameTakeState();", self.app)
+        self.assertNotIn('type="file"', self.html)
+        self.assertNotIn("upload", self.html.lower())
+        self.assertNotIn("promote", self.html.lower())
+
+    def test_take_preview_is_stage_only_and_runtime_uses_base_atlas(self) -> None:
+        render_player = self.app.split(
+            "function renderPlayer() {",
+            1,
+        )[1].split(
+            "function refreshActiveClasses()",
+            1,
+        )[0]
+        self.assertIn("activeTakeForCurrentFrame()", render_player)
+        self.assertIn("setTakeSpriteFrame(take)", render_player)
+        self.assertIn(
+            "const playbackState = displayedState();\n"
+            "    setSpriteFrame(playbackState.row, activeFrameIndex);",
+            self.app,
+        )
+        self.assertNotIn("frameTakes", self.data.split("states: [", 1)[1])
+
+    def test_frame_take_sources_and_ids_are_fail_closed(self) -> None:
+        self.assertIn('const ORIGINAL_TAKE_ID = "original";', self.app)
+        self.assertIn("takeId === ORIGINAL_TAKE_ID", self.app)
+        self.assertIn("Number.isInteger(candidate.frameIndex)", self.app)
+        self.assertIn("candidate.frameIndex < state.durations.length", self.app)
+        self.assertIn("groups.flatMap((group) => group.takes)", self.app)
+        self.assertIn("usedIds.has(takeId)", self.app)
+        self.assertIn("function isSafeTakeAssetUrl(path)", self.app)
+        self.assertIn('return ["http:", "https:"].includes(url.protocol);', self.app)
+        self.assertIn("Boolean(hasAsset) === Boolean(hasAtlasSlot)", self.app)
+
+    def test_candidate_and_take_copy_is_localized(self) -> None:
+        self.assertIn('version: "Candidate"', self.i18n)
+        self.assertIn('version: "方案"', self.i18n)
+        self.assertIn('originalFrame: "Original"', self.i18n)
+        self.assertIn('originalFrame: "原始"', self.i18n)
 
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)

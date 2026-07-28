@@ -48,6 +48,48 @@ Asset paths are resolved relative to the external JSON file.
 
 Any number of project versions is supported. When an external config supplies at least one project version, the Previewer selects the project default (or its first version) on load and appends one bundled `Example` option to the version dropdown. The example remains available for orientation without taking over the first view. Keep the same state IDs and atlas contract across versions for like-for-like review.
 
+## Codex-managed frame takes
+
+A Candidate may optionally expose several temporary visual takes for one
+Keyframe. Codex authors and manages these files and config entries; the
+Previewer does not upload, save, approve, or rewrite them.
+
+```json
+{
+  "id": "v002",
+  "atlasUrl": "./v002/spritesheet.webp",
+  "frameTakes": [
+    {
+      "stateId": "idle",
+      "frameIndex": 1,
+      "takes": [
+        {
+          "id": "t001",
+          "label": "Take 01",
+          "assetUrl": "./v002/takes/idle/f02/t001.webp"
+        },
+        {
+          "id": "t002",
+          "label": "Take 02",
+          "atlasSlot": { "row": 0, "column": 2 }
+        }
+      ]
+    }
+  ]
+}
+```
+
+`assetUrl` points to one standalone 192×208 frame relative to the Previewer
+JSON. `atlasSlot` points to one cell in the Candidate atlas. Supply exactly one
+source per Take. Keep private working files under
+`design/takes/<candidate>/<state>/fNN/`; copy only the review assets that the
+Previewer needs into the generated build beside its JSON.
+
+Clicking a Keyframe with Takes reveals a smaller rail below that Keyframe row.
+Selecting a Take changes only the static Stage preview. Runtime Simulation,
+Endless Loop, the Motion Timing Board, the Candidate atlas, and adjacent frames
+remain untouched. Play or navigation exits the temporary Take preview.
+
 ## Stable state IDs
 
 The bundled defaults use the Codex v2 identifiers:
