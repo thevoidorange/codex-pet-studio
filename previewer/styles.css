@@ -698,14 +698,20 @@ select {
   gap: 12px;
 }
 
-.look-toggle {
+.look-toggle,
+.tour-toggle {
   position: relative;
   min-width: 142px;
   padding-right: 52px;
   text-align: left;
 }
 
-.look-toggle::before {
+.tour-toggle {
+  min-width: 176px;
+}
+
+.look-toggle::before,
+.tour-toggle::before {
   position: absolute;
   top: 50%;
   right: 10px;
@@ -721,7 +727,8 @@ select {
     background 150ms ease;
 }
 
-.look-toggle::after {
+.look-toggle::after,
+.tour-toggle::after {
   position: absolute;
   top: 50%;
   right: 24px;
@@ -735,18 +742,21 @@ select {
   transition: transform 150ms ease;
 }
 
-.look-toggle[aria-pressed="true"] {
+.look-toggle[aria-pressed="true"],
+.tour-toggle[aria-pressed="true"] {
   border-color: #777777;
   color: var(--ink);
   background: #f4f4f4;
 }
 
-.look-toggle[aria-pressed="true"]::before {
+.look-toggle[aria-pressed="true"]::before,
+.tour-toggle[aria-pressed="true"]::before {
   border-color: #333333;
   background: #333333;
 }
 
-.look-toggle[aria-pressed="true"]::after {
+.look-toggle[aria-pressed="true"]::after,
+.tour-toggle[aria-pressed="true"]::after {
   transform: translate(14px, -50%);
 }
 

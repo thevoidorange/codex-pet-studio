@@ -8,8 +8,9 @@ window.PET_PREVIEW_I18N = {
     en: {
       documentTitle: "Pet Previewer",
       ui: {
-        tourAll: "Tour all states",
-        stopTour: "Stop tour",
+        autoPlayAllStates: "Auto-play all states",
+        startAutoPlayTitle: "Start playing every state in sequence",
+        stopAutoPlayTitle: "Stop automatic state playback",
         version: "Version",
         language: "Language",
         workspaceAria: "Animated pet preview",
@@ -101,8 +102,8 @@ window.PET_PREVIEW_I18N = {
         keyframes: "Keyframes",
         keyframeHint: "Select a frame to pause there",
         manualBrowse: "Manual browse",
-        tourComplete: "Tour complete",
-        touring: "Touring · {state}",
+        allStatesPlayed: "All states played",
+        autoPlayingState: "Playing · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",
         mechanicsTitle: "Motion timing board",
         mechanicsSummary:
@@ -426,8 +427,9 @@ window.PET_PREVIEW_I18N = {
     "zh-CN": {
       documentTitle: "宠物预览器",
       ui: {
-        tourAll: "巡演全部状态",
-        stopTour: "停止巡演",
+        autoPlayAllStates: "自动播放全部状态",
+        startAutoPlayTitle: "按顺序自动播放全部状态",
+        stopAutoPlayTitle: "停止自动播放状态",
         version: "版本",
         language: "语言",
         workspaceAria: "动态宠物预览",
@@ -514,8 +516,8 @@ window.PET_PREVIEW_I18N = {
         keyframes: "关键帧",
         keyframeHint: "点击停在该帧",
         manualBrowse: "手动浏览",
-        tourComplete: "巡演完成",
-        touring: "正在巡演 · {state}",
+        allStatesPlayed: "全部状态播放完成",
+        autoPlayingState: "正在播放 · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",
         mechanicsTitle: "动作机制板",
         mechanicsSummary: "{states} 个状态 · {frames} 帧 · 最终帧位与原始毫秒",

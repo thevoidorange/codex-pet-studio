@@ -284,6 +284,20 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('elements.stage.style.setProperty(', self.app)
         self.assertIn('event.target.closest(".preview-size-control")', self.app)
 
+    def test_all_state_autoplay_is_one_clear_toggle(self) -> None:
+        self.assertIn('id="autoPlayStatesToggle"', self.html)
+        self.assertIn('aria-pressed="false"', self.html)
+        self.assertNotIn('id="stopTourButton"', self.html)
+        self.assertIn("function toggleAllStatePlayback()", self.app)
+        self.assertIn(
+            "if (tourState.active) stopTour();\n    else startTour();",
+            self.app,
+        )
+        self.assertIn("autoPlayAllStates: \"Auto-play all states\"", self.i18n)
+        self.assertIn("autoPlayAllStates: \"自动播放全部状态\"", self.i18n)
+        self.assertNotIn("Tour all states", self.i18n)
+        self.assertNotIn("巡演全部状态", self.i18n)
+
     def test_preview_timing_editor_is_live_bounded_and_export_safe(self) -> None:
         for element_id in (
             "timingToggleButton",

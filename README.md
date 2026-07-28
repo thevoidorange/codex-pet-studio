@@ -117,7 +117,7 @@ The Previewer includes:
 
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
-- native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and an all-state tour;
+- native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and automatic all-state playback;
 - a per-frame Preview timing editor with 5 ms target steps and privacy-safe timing override export;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;

@@ -13,6 +13,7 @@
   const elements = {
     animationControls: document.querySelector("#animationControls"),
     animationTab: document.querySelector("#animationTab"),
+    autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     followPointerButton: document.querySelector("#followPointerButton"),
@@ -45,7 +46,6 @@
     stateTag: document.querySelector("#stateTag"),
     stateTitle: document.querySelector("#stateTitle"),
     stateTrigger: document.querySelector("#stateTrigger"),
-    stopTourButton: document.querySelector("#stopTourButton"),
     timingCopyButton: document.querySelector("#timingCopyButton"),
     timingDecreaseButton: document.querySelector("#timingDecreaseButton"),
     timingDurationInput: document.querySelector("#timingDurationInput"),
@@ -60,7 +60,6 @@
     timingStatus: document.querySelector("#timingStatus"),
     timingToggleButton: document.querySelector("#timingToggleButton"),
     timingUndoButton: document.querySelector("#timingUndoButton"),
-    tourButton: document.querySelector("#tourButton"),
     tourLabel: document.querySelector("#tourLabel"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
     tourProgressText: document.querySelector("#tourProgressText"),
@@ -1272,12 +1271,19 @@
   }
 
   function renderTourStatus() {
-    elements.tourButton.disabled = tourState.active;
-    elements.stopTourButton.disabled = !tourState.active;
+    elements.autoPlayStatesToggle.setAttribute(
+      "aria-pressed",
+      String(tourState.active),
+    );
+    elements.autoPlayStatesToggle.title = t(
+      tourState.active
+        ? "ui.stopAutoPlayTitle"
+        : "ui.startAutoPlayTitle",
+    );
 
     if (tourState.active) {
       const state = config.states[tourState.index] || currentState();
-      elements.tourLabel.textContent = t("ui.touring", {
+      elements.tourLabel.textContent = t("ui.autoPlayingState", {
         state: stateCopy(state).title,
       });
       elements.tourProgressText.textContent = `${tourState.index + 1} / ${config.states.length}`;
@@ -1285,7 +1291,7 @@
     }
 
     if (tourState.completed) {
-      elements.tourLabel.textContent = t("ui.tourComplete");
+      elements.tourLabel.textContent = t("ui.allStatesPlayed");
       elements.tourProgressText.textContent = `${config.states.length} / ${config.states.length}`;
       elements.tourProgressBar.style.width = "100%";
       return;
@@ -1826,6 +1832,11 @@
     showNextTourState();
   }
 
+  function toggleAllStatePlayback() {
+    if (tourState.active) stopTour();
+    else startTour();
+  }
+
   function setBackground(name) {
     if (!config.backgrounds.includes(name)) return;
     activeBackground = name;
@@ -1961,8 +1972,10 @@
         elements.directionTarget.style.display = "block";
       }
     });
-    elements.tourButton.addEventListener("click", startTour);
-    elements.stopTourButton.addEventListener("click", () => stopTour());
+    elements.autoPlayStatesToggle.addEventListener(
+      "click",
+      toggleAllStatePlayback,
+    );
     elements.versionSelect.addEventListener("change", () =>
       setVersion(elements.versionSelect.value),
     );
