@@ -190,6 +190,65 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function withStateOverrides(baseStates, projectStates) {
+    if (!Array.isArray(projectStates)) {
+      return baseStates;
+    }
+
+    const overrides = new Map(
+      projectStates
+        .filter((item) => item && item.id)
+        .map((item) => [item.id, item]),
+    );
+    return baseStates.map((state) => {
+      const override = overrides.get(state.id);
+      if (!override) return state;
+      return {
+        ...state,
+        ...override,
+        id: state.id,
+        row: Number.isInteger(override.row) ? override.row : state.row,
+        durations:
+          Array.isArray(override.durations) && override.durations.length
+            ? override.durations
+            : state.durations,
+      };
+    });
+  }
+
+  function withMechanicsOverrides(baseMechanics, projectMechanics) {
+    if (!Array.isArray(projectMechanics)) {
+      return baseMechanics;
+    }
+
+    const overrides = new Map(
+      projectMechanics
+        .filter((item) => item && item.stateId)
+        .map((item) => [item.stateId, item]),
+    );
+    return baseMechanics.map((board) => {
+      const override = overrides.get(board.stateId);
+      if (!override) return board;
+      const overrideAnchors = Array.isArray(override.anchors)
+        ? override.anchors
+        : [];
+      const anchorCount = Math.max(
+        board.anchors.length,
+        overrideAnchors.length,
+      );
+      return {
+        ...board,
+        ...override,
+        stateId: board.stateId,
+        anchors: Array.from(
+          { length: anchorCount },
+          (_, index) =>
+            overrideAnchors[index] || board.anchors[index] || `A${index}`,
+        ),
+      };
+    });
+  }
+
   function withBundledExample(projectVersions, bundledVersions) {
     const versions = cloneValue(projectVersions);
     const usedIds = new Set(versions.map((version) => version.id));
@@ -265,17 +324,12 @@
           ? withBundledExample(projectVersions, base.versions)
           : projectVersions
         : base.versions,
-      states:
-        Array.isArray(next.states) && next.states.length
-          ? next.states
-          : base.states,
+      states: withStateOverrides(base.states, next.states),
       directions:
         Array.isArray(next.directions) && next.directions.length
           ? next.directions
           : base.directions,
-      mechanics: Array.isArray(next.mechanics)
-        ? next.mechanics
-        : base.mechanics,
+      mechanics: withMechanicsOverrides(base.mechanics, next.mechanics),
       backgrounds:
         Array.isArray(next.backgrounds) && next.backgrounds.length
           ? next.backgrounds
@@ -698,20 +752,25 @@
   }
 
   function renderMechanicsBoard() {
-    const totalFrames = config.mechanics.reduce((sum, item) => {
-      const state = config.states.find(
-        (candidate) => candidate.id === item.stateId,
+    const mechanicsBoards = config.states.map((state) => {
+      const configured = config.mechanics.find(
+        (board) => board.stateId === state.id,
       );
-      return sum + (state ? state.durations.length : 0);
-    }, 0);
+      return configured || { stateId: state.id, anchors: [] };
+    });
+    const totalFrames = config.states.reduce(
+      (sum, state) => sum + state.durations.length,
+      0,
+    );
     elements.mechanicsSummary.textContent = t("ui.mechanicsSummary", {
+      states: mechanicsBoards.length,
       frames: totalFrames,
     });
     elements.versionStatus.textContent = t("ui.viewingVersion", {
       version: versionLabel(currentVersion()),
     });
 
-    elements.mechanicsRows.innerHTML = config.mechanics
+    elements.mechanicsRows.innerHTML = mechanicsBoards
       .map((board) => {
         const state = config.states.find(
           (candidate) => candidate.id === board.stateId,
@@ -747,7 +806,10 @@
                     <span>F${index}</span>
                     <span>${Number(duration)} ms</span>
                   </span>
-                  <strong>${escapeHtml(board.anchors[index] || "—")} · ${escapeHtml(beats[index] || "—")}</strong>
+                  <strong>${escapeHtml(
+                    (Array.isArray(board.anchors) && board.anchors[index]) ||
+                      `A${index}`,
+                  )} · ${escapeHtml(beats[index] || "—")}</strong>
                   <p>${escapeHtml(physics[index] || "—")}</p>
                 </span>
               </button>

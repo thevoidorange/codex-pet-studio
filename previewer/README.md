@@ -66,6 +66,8 @@ The bundled defaults use the Codex v2 identifiers:
 
 An external config may override state timing, labels, descriptions, mechanics boards, backgrounds, and runtime behavior. Missing values fall back to `preview-data.js`.
 
+The Production Timing Board always covers all nine standard states in atlas-row order. Partial `states` and `mechanics` overrides are merged by `id` and `stateId`, so a project can replace one state's durations or anchors without making the other eight states disappear.
+
 ## Localized project copy
 
 Keep reusable identifiers in English. Add pet-specific user-facing copy without changing the UI bundle:

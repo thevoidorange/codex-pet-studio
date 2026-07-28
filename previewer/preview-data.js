@@ -103,8 +103,24 @@ window.PET_PREVIEW_CONFIG = {
       anchors: ["A0", "A0 +2", "A0 +4", "A0 +4", "A0 +2", "A0"],
     },
     {
+      stateId: "running-right",
+      anchors: ["A0", "A1R", "A2R", "A3R", "A4R", "A3R", "A2R", "A1R"],
+    },
+    {
+      stateId: "running-left",
+      anchors: ["A0", "A1L", "A2L", "A3L", "A4L", "A3L", "A2L", "A1L"],
+    },
+    {
       stateId: "waving",
       anchors: ["A0", "A1", "A2", "A1"],
+    },
+    {
+      stateId: "jumping",
+      anchors: ["A0", "A1", "A4", "A2", "A0"],
+    },
+    {
+      stateId: "failed",
+      anchors: ["A0", "A1", "A2", "A3", "A4", "A3", "A2", "A1"],
     },
     {
       stateId: "waiting",
@@ -113,6 +129,10 @@ window.PET_PREVIEW_CONFIG = {
     {
       stateId: "running",
       anchors: ["A0", "A3", "A4", "A5", "A6", "A1"],
+    },
+    {
+      stateId: "review",
+      anchors: ["A0", "A1", "A2", "A3", "A2", "A1"],
     },
   ],
   backgrounds: ["paper", "gray", "dark"],

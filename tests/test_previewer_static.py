@@ -43,6 +43,75 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertTrue(expected.issubset(observed))
         self.assertFalse({"moveRight", "moveLeft", "greeting", "working"} & observed)
 
+    def test_timing_board_covers_all_standard_states(self) -> None:
+        expected = [
+            "idle",
+            "running-right",
+            "running-left",
+            "waving",
+            "jumping",
+            "failed",
+            "waiting",
+            "running",
+            "review",
+        ]
+        mechanics_block = self.data.split("mechanics: [", 1)[1].split(
+            "],\n  backgrounds:",
+            1,
+        )[0]
+        observed = re.findall(r'stateId:\s*"([^"]+)"', mechanics_block)
+        self.assertEqual(expected, observed)
+        self.assertIn("function withStateOverrides(", self.app)
+        self.assertIn(
+            "states: withStateOverrides(base.states, next.states)",
+            self.app,
+        )
+        self.assertIn("function withMechanicsOverrides(", self.app)
+        self.assertIn(
+            "mechanics: withMechanicsOverrides(base.mechanics, next.mechanics)",
+            self.app,
+        )
+        self.assertIn("const mechanicsBoards = config.states.map(", self.app)
+        self.assertIn("states: mechanicsBoards.length", self.app)
+
+        motion_boards = self.i18n.split("motionBoard: {")[1:]
+        self.assertEqual(2, len(motion_boards))
+        for board in motion_boards:
+            for state_id in expected:
+                state_key = re.escape(state_id)
+                self.assertRegex(
+                    board,
+                    rf'(?:"{state_key}"|{state_key}):\s*\{{',
+                    state_id,
+                )
+
+        state_frames = {
+            state_id: len(
+                re.search(
+                    rf'id:\s*"{re.escape(state_id)}".*?durations:\s*\[([^\]]+)\]',
+                    self.data,
+                    re.DOTALL,
+                )
+                .group(1)
+                .split(",")
+            )
+            for state_id in expected
+        }
+        mechanic_frames = {
+            state_id: len(
+                re.search(
+                    rf'stateId:\s*"{re.escape(state_id)}".*?anchors:\s*\[([^\]]+)\]',
+                    mechanics_block,
+                    re.DOTALL,
+                )
+                .group(1)
+                .split(",")
+            )
+            for state_id in expected
+        }
+        self.assertEqual(state_frames, mechanic_frames)
+        self.assertEqual(57, sum(state_frames.values()))
+
     def test_version_and_locale_controls_are_generic(self) -> None:
         self.assertIn('id="versionSelect"', self.html)
         self.assertIn('id="languageSelect"', self.html)
