@@ -20,6 +20,23 @@ Codex Pet Studio treats those decisions as a sequence of visible, reversible app
 
 ## Quick start
 
+### Fastest: give the repository link to Codex
+
+You do not need to clone the repository or use a terminal.
+
+1. Start a new blank Codex task.
+2. Paste:
+
+   > I want to use this GitHub project to design my own Codex pet: https://github.com/thevoidorange/codex-pet-studio. I do not use Git or the terminal. Please set up the project for me and guide me through its recommended process one approval gate at a time. Start by asking for my inspiration; do not generate the full pack yet.
+
+3. Give Codex your inspiration when it asks.
+
+Codex should obtain the repository, read its project instructions, prepare a private local workspace, and begin with inspiration understanding. The repository must be public, or the user’s Codex environment must already have permission to access it.
+
+### Manual setup
+
+If you prefer to control the local checkout:
+
 1. Create a repository from this project or clone it locally.
 2. Open the repository as a workspace in Codex.
 3. Attach your inspiration in the Codex task, or place local references in a private, untracked input folder.
