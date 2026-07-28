@@ -118,12 +118,15 @@ The Previewer includes:
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
 - native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and an all-state tour;
+- a per-frame Preview timing editor with 5 ms target steps and privacy-safe timing override export;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
 - grayscale preview backgrounds;
 - external JSON loading through `?config=<relative-or-absolute-url>`.
 
 Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata and is not an exact trace of the Codex client.
+
+Timing drafts apply live to Runtime Simulation and are shared by every visual version in the current preview. They do not alter an existing GIF, the source config, or the installed Codex pet package. The Previewer can copy or download a minimal `timing-overrides.json` containing only changed state IDs and durations; GIF export remains limited to 10 ms timing steps.
 
 The built-in geometric figure is a non-production fixture for testing the UI. Replace `previewer/preview-data.js`, or supply an external JSON config, when a real version is ready.
 It includes native GIF loops for all nine states so the GIF Loop mode can be tested without substituting spritesheet playback.

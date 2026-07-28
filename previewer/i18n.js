@@ -33,6 +33,39 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "Runtime simulation",
         runtimeTimingTitle:
           "Simulate intended playback from Previewer timing metadata; this is not an exact trace of the Codex client",
+        adjustTiming: "Adjust timing",
+        adjustTimingTitle:
+          "Tune the current state's Preview timing in 5 ms target steps",
+        timingEditorAria: "Preview timing editor",
+        previewOnly: "Preview only · Not saved",
+        timingShared: "Applies to every version in this preview",
+        timingFrameListAria: "Frames available for timing adjustment",
+        timingDraftIndicator: "Timing draft changed",
+        timingDecrease: "Reduce frame duration by 5 milliseconds",
+        timingIncrease: "Increase frame duration by 5 milliseconds",
+        frameDuration: "Selected frame duration",
+        undoTiming: "Undo",
+        resetStateTiming: "Reset state",
+        copyForCodex: "Copy for Codex",
+        exportTiming: "Export timing JSON",
+        timingIdleSummary:
+          "{seconds}s per loop · simulated with {slowdown}× slower Idle timing",
+        timingActionSummary:
+          "{seconds}s per loop · action repeats {loops}× in simulation",
+        timingGifRoundingNote:
+          "5 ms is a Preview target step. GIF export uses 10 ms steps and must be regenerated.",
+        timingGifUnchangedNote:
+          "The Runtime draft updates live. The existing GIF stays unchanged until regenerated.",
+        gifTimingDraftNote:
+          "Timing drafts affect Runtime Simulation only; this GIF has not changed.",
+        timingInvalid: "Enter a duration between 20 and 5000 ms.",
+        timingUpdated: "Preview timing updated.",
+        timingSnapped: "Value adjusted to the nearest 5 ms step.",
+        timingUndone: "Last timing change undone.",
+        timingReset: "This state's timing was reset.",
+        timingCopied: "Timing overrides copied for Codex.",
+        timingCopyFailed: "Could not access the clipboard.",
+        timingExported: "Downloaded timing-overrides.json.",
         gifModeHelp:
           "Plays the exported QA GIF at its encoded speed. The browser cannot expose or pause its exact internal frame.",
         runtimeModeHelp:
@@ -415,6 +448,38 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "运行模拟",
         runtimeTimingTitle:
           "根据 Previewer 的时间配置模拟预期播放，不等同于 Codex 客户端的精确内部实现",
+        adjustTiming: "调整节奏",
+        adjustTimingTitle: "以 5 ms 为目标步长调整当前状态的预览节奏",
+        timingEditorAria: "预览节奏编辑器",
+        previewOnly: "仅供预览 · 尚未保存",
+        timingShared: "对本预览里的所有版本共同生效",
+        timingFrameListAria: "可调整节奏的镜帧",
+        timingDraftIndicator: "Timing 草稿已修改",
+        timingDecrease: "将当前镜帧缩短 5 毫秒",
+        timingIncrease: "将当前镜帧延长 5 毫秒",
+        frameDuration: "当前镜帧时长",
+        undoTiming: "撤销",
+        resetStateTiming: "重置当前状态",
+        copyForCodex: "复制给 Codex",
+        exportTiming: "导出 Timing JSON",
+        timingIdleSummary:
+          "每圈 {seconds} 秒 · Idle 在模拟中放慢 {slowdown}×",
+        timingActionSummary:
+          "每圈 {seconds} 秒 · 运行模拟中重复 {loops} 圈",
+        timingGifRoundingNote:
+          "5 ms 是预览目标步长；GIF 只支持 10 ms 步长，需重新生成后才会更新。",
+        timingGifUnchangedNote:
+          "运行模拟会实时采用草稿；现有 GIF 在重新生成前不会改变。",
+        gifTimingDraftNote:
+          "Timing 草稿只影响运行模拟，当前 GIF 尚未改变。",
+        timingInvalid: "请输入 20–5000 ms 之间的时长。",
+        timingUpdated: "预览节奏已更新。",
+        timingSnapped: "已自动调整到最近的 5 ms。",
+        timingUndone: "已撤销上一次节奏修改。",
+        timingReset: "已重置当前状态的节奏。",
+        timingCopied: "Timing overrides 已复制，可交给 Codex。",
+        timingCopyFailed: "无法访问剪贴板。",
+        timingExported: "已下载 timing-overrides.json。",
         gifModeHelp:
           "按导出 GIF 自带的速度循环播放；浏览器无法读取或精确暂停在 GIF 内部的某一帧。",
         runtimeModeHelp:

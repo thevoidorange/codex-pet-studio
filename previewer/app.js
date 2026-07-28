@@ -6,6 +6,9 @@
   const bundledConfig = window.PET_PREVIEW_CONFIG;
   const generatedAtlases = new Map();
   const failedGifs = new Set();
+  const TIMING_STEP_MS = 5;
+  const TIMING_MIN_MS = 20;
+  const TIMING_MAX_MS = 5000;
 
   const elements = {
     animationControls: document.querySelector("#animationControls"),
@@ -43,6 +46,20 @@
     stateTitle: document.querySelector("#stateTitle"),
     stateTrigger: document.querySelector("#stateTrigger"),
     stopTourButton: document.querySelector("#stopTourButton"),
+    timingCopyButton: document.querySelector("#timingCopyButton"),
+    timingDecreaseButton: document.querySelector("#timingDecreaseButton"),
+    timingDurationInput: document.querySelector("#timingDurationInput"),
+    timingEditor: document.querySelector("#timingEditor"),
+    timingExportButton: document.querySelector("#timingExportButton"),
+    timingFrameList: document.querySelector("#timingFrameList"),
+    timingIncreaseButton: document.querySelector("#timingIncreaseButton"),
+    timingLoopSummary: document.querySelector("#timingLoopSummary"),
+    timingPrecisionNote: document.querySelector("#timingPrecisionNote"),
+    timingResetStateButton: document.querySelector("#timingResetStateButton"),
+    timingStateTitle: document.querySelector("#timingStateTitle"),
+    timingStatus: document.querySelector("#timingStatus"),
+    timingToggleButton: document.querySelector("#timingToggleButton"),
+    timingUndoButton: document.querySelector("#timingUndoButton"),
     tourButton: document.querySelector("#tourButton"),
     tourLabel: document.querySelector("#tourLabel"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
@@ -69,6 +86,11 @@
   let lookControlMode = "manual";
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
+  let originalDurations = new Map();
+  let timingHistory = [];
+  let timingPanelOpen = false;
+  let timingSelectedFrameIndex = 0;
+  let timingStatusKey = "";
   let gifRequestSerial = 0;
   let tourTimer = null;
   let tourProgressTimer = null;
@@ -420,6 +442,260 @@
     return state.durations.reduce((sum, duration) => sum + duration, 0);
   }
 
+  function originalDurationsFor(state) {
+    return originalDurations.get(state.id) || state.durations;
+  }
+
+  function durationsMatch(left, right) {
+    return (
+      left.length === right.length &&
+      left.every((duration, index) => duration === right[index])
+    );
+  }
+
+  function timingStateIsDirty(state) {
+    return !durationsMatch(state.durations, originalDurationsFor(state));
+  }
+
+  function dirtyTimingStates() {
+    return config.states.filter(timingStateIsDirty);
+  }
+
+  function normalizeTimingDuration(value) {
+    if (String(value).trim() === "") return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    if (numeric < TIMING_MIN_MS || numeric > TIMING_MAX_MS) return null;
+    const stepped = Math.round(numeric / TIMING_STEP_MS) * TIMING_STEP_MS;
+    return stepped;
+  }
+
+  function pushTimingHistory(state, before) {
+    timingHistory.push({
+      stateId: state.id,
+      before,
+    });
+    if (timingHistory.length > 100) timingHistory.shift();
+  }
+
+  function latestTimingHistoryIndex(stateId) {
+    for (let index = timingHistory.length - 1; index >= 0; index -= 1) {
+      if (timingHistory[index].stateId === stateId) return index;
+    }
+    return -1;
+  }
+
+  function timingOverridesPayload() {
+    return {
+      schemaVersion: 1,
+      type: "pet-studio-timing-overrides",
+      states: dirtyTimingStates().map((state) => ({
+        id: state.id,
+        durations: [...state.durations],
+      })),
+    };
+  }
+
+  function setTimingStatus(messageKey) {
+    timingStatusKey = messageKey || "";
+    elements.timingStatus.textContent = timingStatusKey
+      ? t(timingStatusKey)
+      : "";
+  }
+
+  function renderTimingEditor({ focusSelected = false } = {}) {
+    elements.timingEditor.hidden = !timingPanelOpen;
+    elements.timingToggleButton.setAttribute(
+      "aria-expanded",
+      String(timingPanelOpen),
+    );
+    if (!timingPanelOpen) return;
+
+    const state = currentState();
+    const copy = stateCopy(state);
+    const original = originalDurationsFor(state);
+    timingSelectedFrameIndex = Math.min(
+      timingSelectedFrameIndex,
+      state.durations.length - 1,
+    );
+    const selectedDuration = state.durations[timingSelectedFrameIndex];
+    const dirtyStates = dirtyTimingStates();
+    const isIdle = state.id === idleState().id;
+
+    elements.timingStateTitle.textContent = copy.title;
+    elements.timingLoopSummary.textContent = t(
+      isIdle ? "ui.timingIdleSummary" : "ui.timingActionSummary",
+      {
+        seconds: (totalDuration(state) / 1000).toFixed(3),
+        loops: config.runtime.actionLoops,
+        slowdown: config.runtime.idleSlowdown,
+      },
+    );
+    elements.timingFrameList.innerHTML = state.durations
+      .map(
+        (duration, index) => `
+          <button
+            class="timing-frame-chip ${
+              index === timingSelectedFrameIndex ? "is-selected" : ""
+            } ${duration !== original[index] ? "is-dirty" : ""}"
+            type="button"
+            aria-pressed="${index === timingSelectedFrameIndex}"
+            data-timing-frame-index="${index}"
+          >
+            <strong>F${index + 1}</strong>
+            <span>${Number(duration)} ms</span>
+          </button>
+        `,
+      )
+      .join("");
+    elements.timingFrameList
+      .querySelectorAll(".timing-frame-chip")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          timingSelectedFrameIndex = Number(
+            button.dataset.timingFrameIndex,
+          );
+          setTimingStatus("");
+          renderTimingEditor({ focusSelected: true });
+        });
+      });
+    if (focusSelected) {
+      elements.timingFrameList
+        .querySelector(".timing-frame-chip.is-selected")
+        ?.focus();
+    }
+
+    elements.timingDurationInput.value = String(selectedDuration);
+    elements.timingDecreaseButton.disabled =
+      selectedDuration <= TIMING_MIN_MS;
+    elements.timingIncreaseButton.disabled =
+      selectedDuration >= TIMING_MAX_MS;
+    elements.timingUndoButton.disabled =
+      latestTimingHistoryIndex(state.id) < 0;
+    elements.timingResetStateButton.disabled = !timingStateIsDirty(state);
+    elements.timingCopyButton.disabled = dirtyStates.length === 0;
+    elements.timingExportButton.disabled = dirtyStates.length === 0;
+    elements.timingPrecisionNote.textContent = state.durations.some(
+      (duration) => duration % 10 !== 0,
+    )
+      ? t("ui.timingGifRoundingNote")
+      : t("ui.timingGifUnchangedNote");
+  }
+
+  function refreshTimingDependentViews({ reschedule = false } = {}) {
+    renderStateList();
+    renderDetails();
+    renderMechanicsBoard();
+    renderControlLabels();
+    renderTimingEditor();
+    renderTourStatus();
+    if (reschedule) scheduleNextFrame();
+  }
+
+  function updateSelectedTiming(value) {
+    const state = currentState();
+    const normalized = normalizeTimingDuration(value);
+    if (normalized === null) {
+      elements.timingDurationInput.value = String(
+        state.durations[timingSelectedFrameIndex],
+      );
+      setTimingStatus("ui.timingInvalid");
+      return;
+    }
+
+    const currentDuration = state.durations[timingSelectedFrameIndex];
+    if (currentDuration === normalized) {
+      elements.timingDurationInput.value = String(normalized);
+      return;
+    }
+
+    pushTimingHistory(state, [...state.durations]);
+    state.durations[timingSelectedFrameIndex] = normalized;
+    setTimingStatus(
+      Number(value) === normalized ? "ui.timingUpdated" : "ui.timingSnapped",
+    );
+    refreshTimingDependentViews({
+      reschedule:
+        shouldScheduleFrames() &&
+        displayedState().id === state.id &&
+        activeFrameIndex === timingSelectedFrameIndex,
+    });
+  }
+
+  function stepSelectedTiming(delta) {
+    const state = currentState();
+    updateSelectedTiming(
+      state.durations[timingSelectedFrameIndex] + delta,
+    );
+  }
+
+  function undoTimingChange() {
+    const state = currentState();
+    const historyIndex = latestTimingHistoryIndex(state.id);
+    if (historyIndex < 0) return;
+    const [entry] = timingHistory.splice(historyIndex, 1);
+    state.durations = [...entry.before];
+    timingSelectedFrameIndex = Math.min(
+      timingSelectedFrameIndex,
+      state.durations.length - 1,
+    );
+    setTimingStatus("ui.timingUndone");
+    refreshTimingDependentViews({ reschedule: shouldScheduleFrames() });
+  }
+
+  function resetCurrentStateTiming() {
+    const state = currentState();
+    if (!timingStateIsDirty(state)) return;
+    pushTimingHistory(state, [...state.durations]);
+    state.durations = [...originalDurationsFor(state)];
+    setTimingStatus("ui.timingReset");
+    refreshTimingDependentViews({ reschedule: shouldScheduleFrames() });
+  }
+
+  async function copyTimingOverrides() {
+    const payload = timingOverridesPayload();
+    if (!payload.states.length) return;
+    try {
+      await window.navigator.clipboard.writeText(
+        JSON.stringify(payload, null, 2),
+      );
+      setTimingStatus("ui.timingCopied");
+    } catch {
+      setTimingStatus("ui.timingCopyFailed");
+    }
+  }
+
+  function exportTimingOverrides() {
+    const payload = timingOverridesPayload();
+    if (!payload.states.length) return;
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+      type: "application/json",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "timing-overrides.json";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+    setTimingStatus("ui.timingExported");
+  }
+
+  function toggleTimingPanel() {
+    timingPanelOpen = !timingPanelOpen;
+    timingSelectedFrameIndex = Math.min(
+      timingSelectedFrameIndex,
+      currentState().durations.length - 1,
+    );
+    setTimingStatus("");
+    if (timingPanelOpen && tourState.active) stopTour();
+    if (timingPanelOpen && playbackMode !== "runtime") {
+      setPlaybackMode("runtime");
+    }
+    renderTimingEditor();
+  }
+
   function gridPosition(column, row) {
     const x =
       config.sprite.columns > 1
@@ -675,9 +951,20 @@
         const copy = stateCopy(state);
         return `
           <button
-            class="state-button ${index === activeStateIndex ? "is-active" : ""}"
+            class="state-button ${
+              index === activeStateIndex ? "is-active" : ""
+            } ${timingStateIsDirty(state) ? "has-timing-draft" : ""}"
             data-state-index="${index}"
             type="button"
+            aria-label="${escapeHtml(
+              [copy.title, copy.label]
+                .concat(
+                  timingStateIsDirty(state)
+                    ? [t("ui.timingDraftIndicator")]
+                    : [],
+                )
+                .join(" · "),
+            )}"
           >
             <span class="state-index">${String(index + 1).padStart(2, "0")}</span>
             <span class="state-name">
@@ -826,7 +1113,7 @@
                 ></span>
                 <span class="mechanics-copy">
                   <span class="mechanics-frame-meta">
-                    <span>F${index}</span>
+                    <span>F${index + 1}</span>
                     <span>${Number(duration)} ms</span>
                   </span>
                   <strong>${escapeHtml(
@@ -949,7 +1236,7 @@
       "aria-pressed",
       String(playbackMode === "runtime"),
     );
-    elements.previewModeHelp.textContent = t(
+    const modeHelp = t(
       isInspectingFrame
         ? playbackMode === "gif"
           ? "ui.frameInspectionGifHelp"
@@ -961,6 +1248,14 @@
         loops: config.runtime.actionLoops,
         slowdown: config.runtime.idleSlowdown,
       },
+    );
+    elements.previewModeHelp.textContent =
+      playbackMode === "gif" && dirtyTimingStates().length
+        ? `${modeHelp} ${t("ui.gifTimingDraftNote")}`
+        : modeHelp;
+    elements.timingToggleButton.setAttribute(
+      "aria-expanded",
+      String(timingPanelOpen),
     );
     const orbitActive = lookControlMode === "orbit";
     const pointerFollowActive = lookControlMode === "pointer";
@@ -1310,6 +1605,8 @@
       ((index % config.states.length) + config.states.length) %
       config.states.length;
     activeFrameIndex = 0;
+    timingSelectedFrameIndex = 0;
+    setTimingStatus("");
     resetRuntimePlayback();
     isInspectingFrame = false;
     isPlaying = true;
@@ -1318,6 +1615,7 @@
     renderDetails();
     renderControlLabels();
     renderFrameStrip();
+    renderTimingEditor();
     renderPlayer({ restartGif: playbackMode === "gif" });
     renderFrameReadout();
     scheduleNextFrame();
@@ -1343,6 +1641,7 @@
     isPlaying = true;
     renderControlLabels();
     renderDetails();
+    renderTimingEditor();
     renderPlayer({ restartGif: mode === "gif" });
     renderFrameReadout();
     refreshActiveClasses();
@@ -1375,6 +1674,7 @@
     if (isAnimation) {
       renderDetails();
       renderFrameStrip();
+      renderTimingEditor();
       renderPlayer();
       scheduleNextFrame();
     } else {
@@ -1486,7 +1786,14 @@
     setState(tourState.index, { fromTour: true });
     restartPlayback();
     const state = config.states[tourState.index];
-    tourState.holdMs = Math.max(3600, totalDuration(state) * 3);
+    const runtimeMultiplier =
+      state.id === idleState().id
+        ? config.runtime.idleSlowdown
+        : config.runtime.actionLoops;
+    tourState.holdMs = Math.max(
+      3600,
+      totalDuration(state) * runtimeMultiplier,
+    );
     tourState.startedAt = performance.now();
     renderTourStatus();
 
@@ -1509,6 +1816,8 @@
 
   function startTour() {
     stopTour();
+    timingPanelOpen = false;
+    renderTimingEditor();
     setSection("animation");
     setPlaybackMode("runtime");
     tourState.active = true;
@@ -1551,6 +1860,7 @@
     renderFrameStrip();
     renderMechanicsBoard();
     renderDetails();
+    renderTimingEditor();
     renderPlayer({
       restartGif: playbackMode === "gif" && !isInspectingFrame,
     });
@@ -1566,6 +1876,7 @@
     locale = supported;
     storeLocale(locale);
     applyStaticTranslations();
+    setTimingStatus(timingStatusKey);
     populateLanguageSelect();
     populateVersionSelect();
     renderStateList();
@@ -1573,6 +1884,7 @@
     else renderDetails();
     renderFrameStrip();
     renderMechanicsBoard();
+    renderTimingEditor();
     renderDirectionList();
     renderControlLabels();
     renderTourStatus();
@@ -1590,6 +1902,38 @@
     );
     elements.runtimeModeButton.addEventListener("click", () =>
       setPlaybackMode("runtime"),
+    );
+    elements.timingToggleButton.addEventListener(
+      "click",
+      toggleTimingPanel,
+    );
+    elements.timingDecreaseButton.addEventListener("click", () =>
+      stepSelectedTiming(-TIMING_STEP_MS),
+    );
+    elements.timingIncreaseButton.addEventListener("click", () =>
+      stepSelectedTiming(TIMING_STEP_MS),
+    );
+    elements.timingDurationInput.addEventListener("change", () =>
+      updateSelectedTiming(elements.timingDurationInput.value),
+    );
+    elements.timingDurationInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      updateSelectedTiming(elements.timingDurationInput.value);
+      elements.timingDurationInput.select();
+    });
+    elements.timingUndoButton.addEventListener("click", undoTimingChange);
+    elements.timingResetStateButton.addEventListener(
+      "click",
+      resetCurrentStateTiming,
+    );
+    elements.timingCopyButton.addEventListener(
+      "click",
+      copyTimingOverrides,
+    );
+    elements.timingExportButton.addEventListener(
+      "click",
+      exportTimingOverrides,
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
@@ -1668,6 +2012,10 @@
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
+    originalDurations = new Map(
+      config.states.map((state) => [state.id, [...state.durations]]),
+    );
+    timingHistory = [];
     activeVersionId = initialVersionId();
     playbackMode =
       activeGifAvailability() === "available" ? "gif" : "runtime";

@@ -283,6 +283,74 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("transform: scale(var(--preview-scale));", self.css)
         self.assertIn('elements.stage.style.setProperty(', self.app)
         self.assertIn('event.target.closest(".preview-size-control")', self.app)
+
+    def test_preview_timing_editor_is_live_bounded_and_export_safe(self) -> None:
+        for element_id in (
+            "timingToggleButton",
+            "timingEditor",
+            "timingFrameList",
+            "timingDurationInput",
+            "timingDecreaseButton",
+            "timingIncreaseButton",
+            "timingUndoButton",
+            "timingResetStateButton",
+            "timingCopyButton",
+            "timingExportButton",
+        ):
+            self.assertIn(f'id="{element_id}"', self.html)
+
+        self.assertIn('step="5"', self.html)
+        self.assertIn('min="20"', self.html)
+        self.assertIn('max="5000"', self.html)
+        self.assertIn("const TIMING_STEP_MS = 5;", self.app)
+        self.assertIn("const TIMING_MIN_MS = 20;", self.app)
+        self.assertIn("const TIMING_MAX_MS = 5000;", self.app)
+        self.assertIn(
+            'if (String(value).trim() === "") return null;',
+            self.app,
+        )
+        self.assertIn(
+            "if (numeric < TIMING_MIN_MS || numeric > TIMING_MAX_MS) "
+            "return null;",
+            self.app,
+        )
+        self.assertIn(
+            "state.durations[timingSelectedFrameIndex] = normalized;",
+            self.app,
+        )
+        self.assertIn(
+            "const delay = state.durations[activeFrameIndex] * slowdown;",
+            self.app,
+        )
+        self.assertIn("<strong>F${index + 1}</strong>", self.app)
+        self.assertIn('role="group"', self.html)
+        self.assertNotIn('role="listbox"', self.html)
+        self.assertIn('aria-pressed="${index === timingSelectedFrameIndex}"', self.app)
+        self.assertIn("let timingStatusKey = \"\";", self.app)
+        self.assertIn("setTimingStatus(timingStatusKey);", self.app)
+        self.assertIn(
+            "if (timingPanelOpen && tourState.active) stopTour();",
+            self.app,
+        )
+        self.assertIn("timingPanelOpen = false;", self.app)
+        self.assertIn("renderMechanicsBoard();", self.app)
+        self.assertIn("renderDetails();", self.app)
+        self.assertIn('type: "pet-studio-timing-overrides"', self.app)
+        self.assertIn('anchor.download = "timing-overrides.json";', self.app)
+        self.assertIn("window.navigator.clipboard.writeText(", self.app)
+        self.assertIn("timingSelectedFrameIndex", self.app)
+        self.assertIn("GIF export uses 10 ms steps", self.i18n)
+        self.assertIn("GIF 只支持 10 ms", self.i18n)
+        self.assertIn("timingDraftIndicator", self.i18n)
+
+        payload_function = self.app.split(
+            "function timingOverridesPayload()",
+            1,
+        )[1].split("\n  function ", 1)[0]
+        self.assertIn("id: state.id", payload_function)
+        self.assertIn("durations: [...state.durations]", payload_function)
+        for private_field in ("pet:", "atlasUrl", "gifRoot", "configBaseUrl"):
+            self.assertNotIn(private_field, payload_function)
         self.assertNotIn("previewSizePercent", self.data)
 
     def test_look_controls_are_mutually_exclusive_toggles(self) -> None:

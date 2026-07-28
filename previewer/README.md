@@ -103,6 +103,12 @@ The language and version selectors preserve the current state, frame, selected p
 - **Runtime Simulation** uses Previewer metadata for frame durations, action-loop count, and slowed Idle behavior. It is a production approximation, not an exact trace of the Codex client.
 - **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected GIF Loop or Runtime Simulation. A browser cannot freeze a native GIF at its exact internal frame, so GIF inspection opens the corresponding atlas sequence instead.
 
+**Adjust timing** opens a project-wide Preview timing draft for the current state. Each frame can be tuned in 5 ms target steps from 20 to 5000 ms, and Runtime Simulation, loop totals, and the Production Timing Board update immediately. The selected timing frame stays pinned while playback continues. Draft timings are used the next time the all-state tour runs; opening the editor stops an active tour.
+
+The editor deliberately does not write the fetched config, retain changes in local storage, mutate a private `build/` file, regenerate a GIF, or alter the installed Codex pet package. **Copy for Codex** and **Export timing JSON** produce a minimal `timing-overrides.json` containing only changed state IDs and duration arrays. These timings are shared across every visual version because `states[].durations` is project-level metadata.
+
+The 5 ms value is a target parameter for Preview review, not a promise that browser rendering or the Codex client can deliver every transition at that exact instant. GIF frame delay uses 10 ms units, so values between those units require rounding and a fresh GIF export.
+
 The **Size** slider in the upper-right corner of the grid stage changes only the displayed preview scale. It never resizes, rewrites, or re-exports the spritesheet or GIF.
 
 The bundled geometric Example includes native GIFs for all nine standard states,
