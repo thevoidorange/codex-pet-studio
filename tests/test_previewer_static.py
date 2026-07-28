@@ -73,6 +73,47 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_pet_content_preserves_source_color(self) -> None:
         self.assertNotIn("grayscale(", self.css)
 
+    def test_frame_step_preserves_position_and_moves_exactly_once(self) -> None:
+        self.assertIn("function stepFrame(delta)", self.app)
+        self.assertIn("const nextFrameIndex = activeFrameIndex + delta;", self.app)
+        self.assertIn('setPreviewMode("frames", {', self.app)
+        self.assertIn("preserveFrame: true", self.app)
+        self.assertIn("autoplay: false", self.app)
+        self.assertIn("setFrame(nextFrameIndex);", self.app)
+        self.assertNotIn(
+            'setPreviewMode("frames");\n      pausePlayback();\n      setFrame(activeFrameIndex',
+            self.app,
+        )
+
+    def test_preview_size_is_display_only(self) -> None:
+        self.assertIn('id="previewSizeInput"', self.html)
+        self.assertIn('id="previewSizeValue"', self.html)
+        self.assertIn("--preview-scale", self.css)
+        self.assertIn("transform: scale(var(--preview-scale));", self.css)
+        self.assertIn('elements.stage.style.setProperty(', self.app)
+        self.assertIn('event.target.closest(".preview-size-control")', self.app)
+        self.assertNotIn("previewSizePercent", self.data)
+
+    def test_playback_modes_have_explanatory_copy(self) -> None:
+        for key in (
+            "gifPlaybackTitle",
+            "runtimeTimingTitle",
+            "frameInspectionTitle",
+            "gifModeHelp",
+            "gifFallbackModeHelp",
+            "runtimeModeHelp",
+            "frameModeHelp",
+            "previewSizeTitle",
+        ):
+            self.assertIn(key, self.i18n)
+        self.assertIn('id="previewModeHelp"', self.html)
+        self.assertIn(
+            'failedGifs.add(`${currentVersion().id}:${state.id}`);\n'
+            "      elements.stageModeLabel.textContent = t(\"ui.gifError\");\n"
+            "      renderControlLabels();",
+            self.app,
+        )
+
     def test_chinese_ui_copy_is_isolated_to_i18n(self) -> None:
         chinese = re.compile(r"[\u3400-\u9fff]")
         self.assertRegex(self.i18n, chinese)

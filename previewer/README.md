@@ -94,3 +94,11 @@ Keep reusable identifiers in English. Add pet-specific user-facing copy without 
 ```
 
 The language and version selectors preserve the current state, frame, mode, speed, and playback state when the selected version supports them.
+
+## Playback modes and display size
+
+- **Exported GIF** plays the rendered QA GIF. Browsers do not expose its exact internal frame for pausing or stepping.
+- **Codex runtime** simulates desktop behavior from source frame durations: action loops repeat according to the runtime configuration, then return to slowed Idle.
+- **Inspect frames** opens the atlas sequence paused. Previous and Next always move exactly one source frame; Play may be used to loop the atlas sequence.
+
+The **Size** slider in the upper-right corner of the grid stage changes only the displayed preview scale. It never resizes, rewrites, or re-exports the spritesheet or GIF.

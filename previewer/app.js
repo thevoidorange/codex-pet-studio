@@ -26,6 +26,9 @@
     nextFrameButton: document.querySelector("#nextFrameButton"),
     orbitButton: document.querySelector("#orbitButton"),
     playPauseButton: document.querySelector("#playPauseButton"),
+    previewModeHelp: document.querySelector("#previewModeHelp"),
+    previewSizeInput: document.querySelector("#previewSizeInput"),
+    previewSizeValue: document.querySelector("#previewSizeValue"),
     previousFrameButton: document.querySelector("#previousFrameButton"),
     restartButton: document.querySelector("#restartButton"),
     runtimeModeButton: document.querySelector("#runtimeModeButton"),
@@ -61,6 +64,7 @@
   let sectionMode = "animation";
   let isPlaying = true;
   let speed = 1;
+  let previewSizePercent = 100;
   let activeBackground = "paper";
   let frameTimer = null;
   let orbitTimer = null;
@@ -828,6 +832,19 @@
     elements.playPauseButton.textContent = isPlaying
       ? t("ui.pause")
       : t("ui.play");
+    elements.previewModeHelp.textContent = t(
+      previewMode === "gif"
+        ? activeGifUrl()
+          ? "ui.gifModeHelp"
+          : "ui.gifFallbackModeHelp"
+        : previewMode === "runtime"
+          ? "ui.runtimeModeHelp"
+          : "ui.frameModeHelp",
+      {
+        loops: config.runtime.actionLoops,
+        slowdown: config.runtime.idleSlowdown,
+      },
+    );
     elements.orbitButton.textContent = orbitTimer
       ? t("ui.stopOrbit")
       : t("ui.autoOrbit");
@@ -1058,10 +1075,26 @@
     renderControlLabels();
   }
 
+  function setPreviewSize(value) {
+    const numericValue = Number(value);
+    const boundedValue = Number.isFinite(numericValue)
+      ? Math.min(150, Math.max(60, numericValue))
+      : 100;
+    previewSizePercent = Math.round(boundedValue / 5) * 5;
+    elements.previewSizeInput.value = String(previewSizePercent);
+    elements.previewSizeValue.textContent = `${previewSizePercent}%`;
+    elements.stage.style.setProperty(
+      "--preview-scale",
+      String(previewSizePercent / 100),
+    );
+  }
+
   function togglePlayback() {
     if (usesNativeGif()) {
-      setPreviewMode("frames");
-      pausePlayback();
+      setPreviewMode("frames", {
+        preserveFrame: true,
+        autoplay: false,
+      });
       return;
     }
     isPlaying = !isPlaying;
@@ -1077,6 +1110,7 @@
     resetRuntimePlayback();
     renderStateList();
     renderDetails();
+    renderControlLabels();
     renderFrameStrip();
     renderPlayer({ restartGif: previewMode === "gif" });
     renderFrameReadout();
@@ -1089,15 +1123,22 @@
     }
   }
 
-  function setPreviewMode(mode) {
+  function setPreviewMode(mode, options = {}) {
+    const preserveFrame =
+      options.preserveFrame === undefined
+        ? mode === "frames"
+        : options.preserveFrame;
+    const autoplay =
+      options.autoplay === undefined ? mode !== "frames" : options.autoplay;
+    clearFrameTimer();
     previewMode = mode;
     if (mode === "gif") {
       speed = 1;
       elements.speedSelect.value = "1";
     }
     resetRuntimePlayback();
-    activeFrameIndex = 0;
-    isPlaying = true;
+    if (!preserveFrame) activeFrameIndex = 0;
+    isPlaying = autoplay;
     elements.gifModeButton.classList.toggle("is-active", mode === "gif");
     elements.runtimeModeButton.classList.toggle(
       "is-active",
@@ -1113,6 +1154,15 @@
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
+  }
+
+  function stepFrame(delta) {
+    const nextFrameIndex = activeFrameIndex + delta;
+    setPreviewMode("frames", {
+      preserveFrame: true,
+      autoplay: false,
+    });
+    setFrame(nextFrameIndex);
   }
 
   function setSection(mode) {
@@ -1197,6 +1247,12 @@
 
   function handlePointerMove(event) {
     if (!pointerFollow || sectionMode !== "look") return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest(".preview-size-control")
+    ) {
+      return;
+    }
     const rect = elements.stage.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
@@ -1345,17 +1401,14 @@
       setPreviewMode("frames"),
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
-    elements.previousFrameButton.addEventListener("click", () => {
-      setPreviewMode("frames");
-      pausePlayback();
-      setFrame(activeFrameIndex - 1);
-    });
-    elements.nextFrameButton.addEventListener("click", () => {
-      setPreviewMode("frames");
-      pausePlayback();
-      setFrame(activeFrameIndex + 1);
-    });
+    elements.previousFrameButton.addEventListener("click", () =>
+      stepFrame(-1),
+    );
+    elements.nextFrameButton.addEventListener("click", () => stepFrame(1));
     elements.restartButton.addEventListener("click", restartPlayback);
+    elements.previewSizeInput.addEventListener("input", () =>
+      setPreviewSize(elements.previewSizeInput.value),
+    );
     elements.speedSelect.addEventListener("change", () => {
       speed = Number(elements.speedSelect.value);
       if (usesNativeGif() && speed !== 1) setPreviewMode("frames");
@@ -1402,13 +1455,9 @@
         event.preventDefault();
         togglePlayback();
       } else if (event.key === "ArrowLeft") {
-        setPreviewMode("frames");
-        pausePlayback();
-        setFrame(activeFrameIndex - 1);
+        stepFrame(-1);
       } else if (event.key === "ArrowRight") {
-        setPreviewMode("frames");
-        pausePlayback();
-        setFrame(activeFrameIndex + 1);
+        stepFrame(1);
       } else if (/^[1-9]$/.test(event.key)) {
         const stateIndex = Number(event.key) - 1;
         if (stateIndex < config.states.length) {
@@ -1422,6 +1471,7 @@
       const state = currentState();
       failedGifs.add(`${currentVersion().id}:${state.id}`);
       elements.stageModeLabel.textContent = t("ui.gifError");
+      renderControlLabels();
       renderPlayer();
       scheduleNextFrame();
     });
@@ -1451,6 +1501,7 @@
     renderTourStatus();
     attachEvents();
     setBackground(activeBackground);
+    setPreviewSize(previewSizePercent);
     setState(0);
     setSection("animation");
   }

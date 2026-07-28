@@ -80,6 +80,22 @@
 
           <div id="stage" class="stage stage-paper">
             <div class="stage-grid" aria-hidden="true"></div>
+            <label
+              class="preview-size-control"
+              data-i18n-title="ui.previewSizeTitle"
+            >
+              <span data-i18n="ui.previewSize"></span>
+              <input
+                id="previewSizeInput"
+                type="range"
+                min="60"
+                max="150"
+                step="5"
+                value="100"
+                data-i18n-aria-label="ui.previewSizeAria"
+              />
+              <output id="previewSizeValue" for="previewSizeInput">100%</output>
+            </label>
             <img id="gifPlayer" class="gif-player" alt="" />
             <div
               id="spritePlayer"
@@ -106,6 +122,7 @@
                 class="segment is-active"
                 type="button"
                 data-i18n="ui.gifPlayback"
+                data-i18n-title="ui.gifPlaybackTitle"
               ></button>
               <button
                 id="runtimeModeButton"
@@ -119,8 +136,10 @@
                 class="segment"
                 type="button"
                 data-i18n="ui.frameInspection"
+                data-i18n-title="ui.frameInspectionTitle"
               ></button>
             </div>
+            <p id="previewModeHelp" class="mode-help" aria-live="polite"></p>
 
             <div
               class="transport"

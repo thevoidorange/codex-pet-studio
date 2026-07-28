@@ -22,11 +22,27 @@ window.PET_PREVIEW_I18N = {
         gifLoop: "GIF loop",
         simulatedLoop: "Simulated loop",
         playbackAria: "Playback mode",
-        gifPlayback: "GIF playback",
-        runtimeTiming: "Runtime timing",
+        gifPlayback: "Exported GIF",
+        gifPlaybackTitle:
+          "Play the exported QA GIF exactly as rendered",
+        runtimeTiming: "Codex runtime",
         runtimeTimingTitle:
-          "Use desktop-pet timing: repeat the action three times, then return to slow idle",
-        frameInspection: "Frame inspection",
+          "Simulate the desktop pet: use source frame timing, repeat the action, then return to slow Idle",
+        frameInspection: "Inspect frames",
+        frameInspectionTitle:
+          "Pause on an atlas cell and move exactly one frame at a time",
+        gifModeHelp:
+          "The exported QA GIF. It shows the rendered loop, but the browser cannot pause its exact internal frame.",
+        gifFallbackModeHelp:
+          "No exported GIF is available for this state, so the viewer simulates its loop from the atlas.",
+        runtimeModeHelp:
+          "Codex desktop behavior: source timings, {loops} action loops, then Idle at {slowdown}× slower timing.",
+        frameModeHelp:
+          "Direct atlas view. Previous and Next pause and move exactly one frame; Play loops with source timing.",
+        previewSize: "Size",
+        previewSizeAria: "Preview display size",
+        previewSizeTitle:
+          "Changes only the size shown in this stage. Source assets and export dimensions stay unchanged.",
         transportAria: "Frame playback controls",
         previousFrame: "Previous frame",
         pause: "Pause",
@@ -285,11 +301,24 @@ window.PET_PREVIEW_I18N = {
         gifLoop: "GIF 循环",
         simulatedLoop: "模拟循环",
         playbackAria: "播放方式",
-        gifPlayback: "GIF 播放",
-        runtimeTiming: "桌面节奏",
+        gifPlayback: "导出 GIF",
+        gifPlaybackTitle: "按导出结果播放 QA GIF",
+        runtimeTiming: "Codex 桌面节奏",
         runtimeTimingTitle:
-          "按桌面宠物的真实节奏：动作播放三轮，再回到慢速待机",
+          "模拟桌面宠物：采用原始帧时长，动作循环后回到慢速 Idle",
         frameInspection: "逐帧检查",
+        frameInspectionTitle: "停在图集的一格，左右每次只移动一帧",
+        gifModeHelp:
+          "查看导出的 QA GIF 循环；浏览器无法精确暂停在 GIF 内部的某一帧。",
+        gifFallbackModeHelp:
+          "当前状态没有导出的 GIF，因此预览器正在用图集帧模拟同一段循环。",
+        runtimeModeHelp:
+          "模拟 Codex 桌面行为：按原始帧时长播放动作 {loops} 圈，再以 {slowdown}× 慢速回到 Idle。",
+        frameModeHelp:
+          "直接查看当前状态的图集；左右键会暂停并严格移动一帧，播放则按原始帧时长循环。",
+        previewSize: "大小",
+        previewSizeAria: "预览显示大小",
+        previewSizeTitle: "只改变网格区里的显示大小，不修改原素材或导出尺寸。",
         transportAria: "逐帧播放控制",
         previousFrame: "上一帧",
         pause: "暂停",
