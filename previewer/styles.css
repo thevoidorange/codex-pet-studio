@@ -483,19 +483,6 @@ select:focus-visible {
   height: 38px;
 }
 
-.speed-control {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.speed-control:has(select:disabled) {
-  opacity: 0.52;
-}
-
 select {
   min-height: 36px;
   padding: 0 28px 0 10px;

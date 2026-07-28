@@ -123,7 +123,7 @@ The Previewer includes:
 - grayscale preview backgrounds;
 - external JSON loading through `?config=<relative-or-absolute-url>`.
 
-Changing language or version preserves the current state, frame, selected playback mode, speed, and temporary inspection state when the selected version supports them. Runtime Simulation uses Previewer metadata and is not an exact trace of the Codex client.
+Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata and is not an exact trace of the Codex client.
 
 The built-in geometric figure is a non-production fixture for testing the UI. Replace `previewer/preview-data.js`, or supply an external JSON config, when a real version is ready.
 It includes native GIF loops for all nine states so the GIF Loop mode can be tested without substituting spritesheet playback.

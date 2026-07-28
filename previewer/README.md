@@ -95,7 +95,7 @@ Keep reusable identifiers in English. Add pet-specific user-facing copy without 
 }
 ```
 
-The language and version selectors preserve the current state, frame, selected playback mode, speed, and temporary inspection state when the selected version supports them.
+The language and version selectors preserve the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata.
 
 ## Playback modes and display size
 

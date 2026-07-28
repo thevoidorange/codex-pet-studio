@@ -31,7 +31,6 @@
     previousFrameButton: document.querySelector("#previousFrameButton"),
     restartButton: document.querySelector("#restartButton"),
     runtimeModeButton: document.querySelector("#runtimeModeButton"),
-    speedSelect: document.querySelector("#speedSelect"),
     spritePlayer: document.querySelector("#spritePlayer"),
     stage: document.querySelector("#stage"),
     stageModeLabel: document.querySelector("#stageModeLabel"),
@@ -63,7 +62,6 @@
   let isInspectingFrame = false;
   let sectionMode = "animation";
   let isPlaying = true;
-  let speed = 1;
   let previewSizePercent = 100;
   let activeBackground = "paper";
   let frameTimer = null;
@@ -951,9 +949,6 @@
       "aria-pressed",
       String(playbackMode === "runtime"),
     );
-    elements.speedSelect.disabled = playbackMode === "gif";
-    elements.speedSelect.value =
-      playbackMode === "gif" ? "1" : String(speed);
     elements.previewModeHelp.textContent = t(
       isInspectingFrame
         ? playbackMode === "gif"
@@ -1219,7 +1214,7 @@
       (runtimeFellBack || currentState().id === idleState().id)
         ? config.runtime.idleSlowdown
         : 1;
-    const delay = (state.durations[activeFrameIndex] * slowdown) / speed;
+    const delay = state.durations[activeFrameIndex] * slowdown;
 
     frameTimer = window.setTimeout(() => {
       const wrapped = activeFrameIndex + 1 >= state.durations.length;
@@ -1605,10 +1600,6 @@
     elements.previewSizeInput.addEventListener("input", () =>
       setPreviewSize(elements.previewSizeInput.value),
     );
-    elements.speedSelect.addEventListener("change", () => {
-      speed = Number(elements.speedSelect.value);
-      scheduleNextFrame();
-    });
     elements.orbitButton.addEventListener("click", () => {
       toggleLookControlMode("orbit");
     });

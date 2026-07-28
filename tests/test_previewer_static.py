@@ -345,8 +345,11 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('playbackMode === "runtime"', self.app)
         self.assertIn("!isInspectingFrame", self.app)
         self.assertNotIn('(playbackMode === "gif" && !usesNativeGif())', self.app)
+        self.assertNotIn('id="speedSelect"', self.html)
+        self.assertNotIn("speedSelect", self.app)
+        self.assertNotIn("let speed =", self.app)
         self.assertIn(
-            "elements.speedSelect.disabled = playbackMode === \"gif\";",
+            "const delay = state.durations[activeFrameIndex] * slowdown;",
             self.app,
         )
         self.assertIn("let gifRequestSerial = 0;", self.app)
