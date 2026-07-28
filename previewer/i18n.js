@@ -20,26 +20,19 @@ window.PET_PREVIEW_I18N = {
         previewModeAria: "Preview section",
         animationStates: "Animation States",
         lookDirections: "16 Look Directions",
-        gifLoop: "GIF Loop",
         playbackAria: "Playback mode",
-        gifPlayback: "GIF Loop",
-        gifPlaybackMissing: "GIF Loop · Not Generated",
-        gifPlaybackFailed: "GIF Loop · Unavailable",
-        gifPlaybackTitle:
-          "Play the exported QA GIF at its encoded timing",
-        gifPlaybackMissingTitle:
-          "No exported GIF is configured for this state",
-        gifPlaybackFailedTitle:
-          "The configured GIF could not be loaded",
         runtimeTiming: "Runtime Simulation",
         runtimeTimingTitle:
           "Reproduce the current Codex desktop cadence: fixed frame durations, three action loops, then 6× Idle",
-        gifModeHelp:
-          "Plays the exported QA GIF at its encoded speed. The browser cannot expose or pause its exact internal frame.",
+        endlessLoop: "Endless Loop",
+        endlessLoopTitle:
+          "Repeat the current state indefinitely using the same fixed desktop frame durations",
+        endlessModeHelp:
+          "Repeats the current state indefinitely with the same fixed frame durations as Runtime Simulation.",
         runtimeModeHelp:
           "Matches the current Codex desktop runtime: fixed frame durations, {loops} action loops, then 6× Idle.",
-        frameInspectionGifHelp:
-          "Frame inspection uses the atlas and cannot freeze the GIF's exact internal frame. Previous and Next move one frame; Play restarts GIF loop.",
+        frameInspectionEndlessHelp:
+          "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Endless Loop from this frame.",
         frameInspectionRuntimeHelp:
           "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Runtime simulation from this frame.",
         previewSize: "Size",
@@ -77,8 +70,8 @@ window.PET_PREVIEW_I18N = {
         frameAria: "View Frame {frame} · {duration}",
         frameDurationFixed: "{duration} ms",
         idleFrameDuration: "{duration} ms × {multiplier}",
-        frameLoop: "{count}-frame loop",
         frameReadout: "Frame {frame} / {count}",
+        endlessLoopReadout: "Endless Loop · Frame {frame} / {count}",
         runtimeReturnedIdle: "Returned to Idle · Frame {frame} / {count}",
         runtimeSlowIdle: "Slow Idle · Frame {frame} / {count}",
         runtimeLoopReadout: "Loop {loop} / {loops} · Frame {frame} / {count}",
@@ -90,6 +83,7 @@ window.PET_PREVIEW_I18N = {
         runtimeIdleNote: " · fixed Idle cadence × 6",
         runtimeActionNote:
           " · plays {loops} loops, then returns to Idle × 6",
+        endlessLoopNote: " · repeats indefinitely at the fixed cadence",
         duration: "{frames} frames · {seconds}s / loop{runtimeNote}",
         lookTag: "LOOK MECHANICS",
         lookTitle: "{degree}° · Looking {direction}",
@@ -101,8 +95,6 @@ window.PET_PREVIEW_I18N = {
           "The pointer is outside the center dead zone around the desktop pet.",
         lookDuration: "16 directions · one frame every 22.5°",
         finalLookFrame: "Final look-direction frame",
-        gifLoadFailedHelp:
-          "The configured GIF could not be loaded. GIF loop is unavailable, so the viewer switched to Runtime simulation.",
         assetAlt: "{pet}: {state}",
         sourceFooter: "Generic sample data · replace through preview-data.js",
         shortcutFooter:
@@ -406,23 +398,19 @@ window.PET_PREVIEW_I18N = {
         previewModeAria: "预览分区",
         animationStates: "动作状态",
         lookDirections: "16 个视线方向",
-        gifLoop: "GIF 循环",
         playbackAria: "播放方式",
-        gifPlayback: "GIF 循环",
-        gifPlaybackMissing: "GIF 循环 · 未生成",
-        gifPlaybackFailed: "GIF 循环 · 不可用",
-        gifPlaybackTitle: "按 GIF 编码后的节奏播放导出结果",
-        gifPlaybackMissingTitle: "当前状态没有配置导出的 GIF",
-        gifPlaybackFailedTitle: "已配置的 GIF 无法载入",
         runtimeTiming: "运行模拟",
         runtimeTimingTitle:
           "一比一复现当前 Codex 桌面端节奏：固定逐帧时长、动作播放三圈，再进入 6 倍 Idle",
-        gifModeHelp:
-          "按导出 GIF 自带的速度循环播放；浏览器无法读取或精确暂停在 GIF 内部的某一帧。",
+        endlessLoop: "无限循环",
+        endlessLoopTitle:
+          "使用与桌面端相同的固定逐帧时长，无限重复当前状态",
+        endlessModeHelp:
+          "使用与运行模拟完全相同的固定逐帧时长，无限重复当前状态。",
         runtimeModeHelp:
           "与当前 Codex 桌面端一致：固定逐帧时长，动作播放 {loops} 圈，再进入 6 倍 Idle。",
-        frameInspectionGifHelp:
-          "逐帧检查使用图集，无法冻结 GIF 正在播放的精确内部帧。左右键每次移动一帧；点击播放会重新开始 GIF 循环。",
+        frameInspectionEndlessHelp:
+          "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到无限循环。",
         frameInspectionRuntimeHelp:
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到运行模拟。",
         previewSize: "大小",
@@ -460,8 +448,8 @@ window.PET_PREVIEW_I18N = {
         frameAria: "查看第 {frame} 帧 · {duration}",
         frameDurationFixed: "{duration} 毫秒",
         idleFrameDuration: "{duration} 毫秒 × {multiplier}",
-        frameLoop: "{count} 帧循环",
         frameReadout: "第 {frame} / {count} 帧",
+        endlessLoopReadout: "无限循环 · 第 {frame} / {count} 帧",
         runtimeReturnedIdle: "已回到 Idle · 第 {frame} / {count} 帧",
         runtimeSlowIdle: "慢速 Idle · 第 {frame} / {count} 帧",
         runtimeLoopReadout:
@@ -473,6 +461,7 @@ window.PET_PREVIEW_I18N = {
         lookFrame: "视线帧",
         runtimeIdleNote: " · 固定 Idle 节奏 × 6",
         runtimeActionNote: " · 播放 {loops} 圈后进入 Idle × 6",
+        endlessLoopNote: " · 按固定节奏无限重复",
         duration: "{frames} 帧 · {seconds} 秒 / 圈{runtimeNote}",
         lookTag: "LOOK MECHANICS",
         lookTitle: "{degree}° · 看向{direction}",
@@ -482,8 +471,6 @@ window.PET_PREVIEW_I18N = {
         lookTrigger: "鼠标位于桌面宠物周围，并离开中心死区时。",
         lookDuration: "16 个方向 · 每 22.5° 一帧",
         finalLookFrame: "最终视线方向帧",
-        gifLoadFailedHelp:
-          "已配置的 GIF 无法载入，因此 GIF 循环不可用，预览器已切换到运行模拟。",
         assetAlt: "{pet}：{state}",
         sourceFooter: "通用示例数据 · 可通过 preview-data.js 替换",
         shortcutFooter:

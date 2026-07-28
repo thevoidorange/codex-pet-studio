@@ -117,7 +117,7 @@ The Previewer includes:
 
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
-- native GIF Loop and current-client Runtime Simulation modes, plus temporary frame inspection and automatic all-state playback;
+- current-client Runtime Simulation and same-cadence Endless Loop modes, plus temporary frame inspection and automatic all-state playback;
 - read-only keyframe inspection for reviewing pose spacing and state contrast;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
@@ -134,8 +134,7 @@ These are observed current-client facts, not a stable forever API. Re-read the i
 
 Because the time slots are immutable, motion design happens inside the drawings: use pose spacing and material deformation as easing, keep important poses visually close across long holds, make transition slots do concise work, and let the final slot settle cleanly. Runtime Simulation exists to review that fixed cadence; it is not a timing editor.
 
-The built-in geometric figure is a non-production fixture for testing the UI. Supply an external JSON config for real version assets and localized project copy; do not redefine the fixed runtime state schedule.
-It includes native GIF loops for all nine states so the GIF Loop mode can be tested without substituting spritesheet playback.
+The built-in geometric figure is a non-production fixture for testing the UI. Supply an external JSON config for real version assets and localized project copy; do not redefine the fixed runtime state schedule. Both playback modes read the same atlas: Runtime Simulation returns actions to slow Idle after three loops, while Endless Loop repeats the selected state indefinitely.
 
 ## Deterministic tools
 

@@ -35,14 +35,12 @@ Asset paths are resolved relative to the external JSON file.
       "id": "v001",
       "displayName": "v001",
       "atlasUrl": "./v001/spritesheet.webp",
-      "gifRoot": "./v001/previews",
       "isDefault": true
     },
     {
       "id": "v002",
       "displayName": "v002",
-      "atlasUrl": "./v002/spritesheet.webp",
-      "gifRoot": "./v002/previews"
+      "atlasUrl": "./v002/spritesheet.webp"
     }
   ]
 }
@@ -115,18 +113,18 @@ Keep reusable identifiers in English. Add pet-specific user-facing copy without 
 }
 ```
 
-The language and version selectors preserve the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the fixed contract above.
+The language and version selectors preserve the current state, frame, selected playback mode, and temporary inspection state. Both playback modes use the fixed contract above.
 
 ## Playback modes and display size
 
-- **GIF Loop** plays the native exported QA GIF at its encoded timing. When a state has no exported GIF, the mode is disabled and visibly marked as not generated; the Previewer never silently substitutes atlas playback.
 - **Runtime Simulation** reproduces the pinned current Codex desktop cadence: fixed per-frame durations, three action loops, then 6× Idle.
-- **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected GIF Loop or Runtime Simulation. A browser cannot freeze a native GIF at its exact internal frame, so GIF inspection opens the corresponding atlas sequence instead.
+- **Endless Loop** uses the same spritesheet and fixed per-frame durations, but repeats the selected state indefinitely instead of returning to Idle.
+- **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected Runtime Simulation or Endless Loop.
 
 **Keyframes** is read-only. Each thumbnail shows its fixed runtime duration; Idle shows the base duration together with its `× 6` runtime multiplier. Selecting a thumbnail opens frame inspection without changing the source JSON.
 
-The **Size** slider in the upper-right corner of the grid stage mirrors the desktop setting range of `80–224 px`. It changes only the displayed preview size and never resizes, rewrites, or re-exports the spritesheet or GIF.
+The **Size** slider in the upper-right corner of the grid stage mirrors the desktop setting range of `80–224 px`. It changes only the displayed preview size and never resizes, rewrites, or re-exports the spritesheet.
 
-The bundled geometric Example includes native GIFs for all nine standard states,
-so both playback modes remain testable even before a user project has exported
-its own GIFs.
+The bundled geometric Example uses the same atlas for both playback modes, so
+their only behavioral difference is the client-style return to Idle versus an
+endless repeat of the selected row.

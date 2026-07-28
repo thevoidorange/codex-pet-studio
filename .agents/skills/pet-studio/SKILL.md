@@ -101,6 +101,13 @@ Do not invent a timing editor or promise that Previewer JSON changes runtime cad
 
 Review at 80, 144, and 224 px so the same fixed sequence works across the client size range.
 
+Use both Previewer playback views for different questions:
+
+- **Runtime Simulation** verifies the real state lifecycle: three action loops, then the slowed Idle row.
+- **Endless Loop** uses the exact same fixed per-frame durations but repeats the selected row indefinitely, making loop seams, pose spacing, weight transfer, and material follow-through easier to inspect.
+
+Neither mode plays an exported GIF. Both render the source atlas directly so GIF palette and edge artifacts cannot be mistaken for sprite defects.
+
 ## Preserve personality through behavior
 
 Translate personality evidence into observable behavior, not decorative symbols. A state must communicate:

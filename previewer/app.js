@@ -5,7 +5,6 @@
   const i18nBundle = window.PET_PREVIEW_I18N;
   const bundledConfig = window.PET_PREVIEW_CONFIG;
   const generatedAtlases = new Map();
-  const failedGifs = new Set();
   const FIXED_ACTION_LOOPS = 3;
   const FIXED_IDLE_SLOWDOWN = 6;
   const PREVIEW_SIZE_MIN_PX = 80;
@@ -20,11 +19,10 @@
     autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
+    endlessModeButton: document.querySelector("#endlessModeButton"),
     followPointerButton: document.querySelector("#followPointerButton"),
     frameReadout: document.querySelector("#frameReadout"),
     frameStrip: document.querySelector("#frameStrip"),
-    gifModeButton: document.querySelector("#gifModeButton"),
-    gifPlayer: document.querySelector("#gifPlayer"),
     languageSelect: document.querySelector("#languageSelect"),
     lookControls: document.querySelector("#lookControls"),
     lookTab: document.querySelector("#lookTab"),
@@ -77,9 +75,9 @@
   let pendingPointerSample = null;
   let lookControlMode = "manual";
   let pageVisible = document.visibilityState !== "hidden";
+  let runtimeFramesCompleted = 0;
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
-  let gifRequestSerial = 0;
   let tourTimer = null;
   let tourProgressTimer = null;
   let tourState = {
@@ -594,34 +592,6 @@
       : createFixtureAtlas(version);
   }
 
-  function declaredGifUrlFor(version, state) {
-    if (version.gifByState && version.gifByState[state.id]) {
-      return resolveAssetUrl(version.gifByState[state.id], version);
-    }
-    if (version.gifRoot) {
-      const root = resolveAssetUrl(version.gifRoot, version).replace(
-        /\/$/,
-        "",
-      );
-      return `${root}/${state.id}.gif`;
-    }
-    return null;
-  }
-
-  function gifAvailabilityFor(version, state) {
-    const declaredUrl = declaredGifUrlFor(version, state);
-    if (!declaredUrl) return "missing";
-    return failedGifs.has(`${version.id}:${state.id}`)
-      ? "failed"
-      : "available";
-  }
-
-  function gifUrlFor(version, state) {
-    return gifAvailabilityFor(version, state) === "available"
-      ? declaredGifUrlFor(version, state)
-      : null;
-  }
-
   function setSpriteFrame(row, column, target = elements.spritePlayer) {
     const image = `url("${atlasUrlFor(currentVersion())}")`;
     const size = atlasBackgroundSize();
@@ -705,7 +675,9 @@
   }
 
   function runtimeNoteFor(state) {
-    if (playbackMode !== "runtime") return "";
+    if (playbackMode === "loop") {
+      return t("ui.endlessLoopNote");
+    }
     if (state.id === idleState().id) {
       return t("ui.runtimeIdleNote");
     }
@@ -731,7 +703,6 @@
       pet: config.pet.name,
       state: copy.title,
     });
-    elements.gifPlayer.alt = alt;
     elements.spritePlayer.setAttribute("aria-label", alt);
   }
 
@@ -752,7 +723,9 @@
             class="frame-button ${
               index === activeFrameIndex &&
               !runtimeFellBack &&
-              (isInspectingFrame || playbackMode === "runtime")
+              (isInspectingFrame ||
+                playbackMode === "runtime" ||
+                playbackMode === "loop")
                 ? "is-active"
                 : ""
             }"
@@ -925,34 +898,21 @@
   }
 
   function renderControlLabels() {
-    const gifAvailability = activeGifAvailability();
-    const gifAvailable = gifAvailability === "available";
     elements.playPauseButton.textContent = isInspectingFrame
       ? t("ui.play")
       : t("ui.pause");
-    elements.gifModeButton.textContent = t(
-      gifAvailability === "missing"
-        ? "ui.gifPlaybackMissing"
-        : gifAvailability === "failed"
-          ? "ui.gifPlaybackFailed"
-          : "ui.gifPlayback",
-    );
-    elements.gifModeButton.title = t(
-      gifAvailable
-        ? "ui.gifPlaybackTitle"
-        : gifAvailability === "failed"
-          ? "ui.gifPlaybackFailedTitle"
-          : "ui.gifPlaybackMissingTitle",
-    );
-    elements.gifModeButton.disabled = !gifAvailable;
-    elements.gifModeButton.classList.toggle(
+    elements.endlessModeButton.textContent = t("ui.endlessLoop");
+    elements.endlessModeButton.title = t("ui.endlessLoopTitle");
+    elements.endlessModeButton.classList.toggle(
       "is-active",
-      playbackMode === "gif",
+      playbackMode === "loop",
     );
-    elements.gifModeButton.setAttribute(
+    elements.endlessModeButton.setAttribute(
       "aria-pressed",
-      String(playbackMode === "gif"),
+      String(playbackMode === "loop"),
     );
+    elements.runtimeModeButton.textContent = t("ui.runtimeTiming");
+    elements.runtimeModeButton.title = t("ui.runtimeTimingTitle");
     elements.runtimeModeButton.classList.toggle(
       "is-active",
       playbackMode === "runtime",
@@ -963,11 +923,11 @@
     );
     const modeHelp = t(
       isInspectingFrame
-        ? playbackMode === "gif"
-          ? "ui.frameInspectionGifHelp"
+        ? playbackMode === "loop"
+          ? "ui.frameInspectionEndlessHelp"
           : "ui.frameInspectionRuntimeHelp"
-        : playbackMode === "gif"
-          ? "ui.gifModeHelp"
+        : playbackMode === "loop"
+          ? "ui.endlessModeHelp"
           : "ui.runtimeModeHelp",
       {
         loops: FIXED_ACTION_LOOPS,
@@ -1038,8 +998,9 @@
       return;
     }
 
-    if (playbackMode === "gif") {
-      elements.frameReadout.textContent = t("ui.frameLoop", {
+    if (playbackMode === "loop") {
+      elements.frameReadout.textContent = t("ui.endlessLoopReadout", {
+        frame: activeFrameIndex + 1,
         count: state.durations.length,
       });
       return;
@@ -1070,62 +1031,8 @@
 
   }
 
-  function activeGifUrl() {
-    return gifUrlFor(currentVersion(), currentState());
-  }
-
-  function activeGifAvailability() {
-    return gifAvailabilityFor(currentVersion(), currentState());
-  }
-
-  function hideGifPlayer() {
-    gifRequestSerial += 1;
-    elements.gifPlayer.style.display = "none";
-    elements.gifPlayer.removeAttribute("src");
-    delete elements.gifPlayer.dataset.source;
-  }
-
-  function showGifPlayer(gifUrl, { restartGif = false } = {}) {
-    if (
-      !restartGif &&
-      elements.gifPlayer.dataset.source === gifUrl
-    ) {
-      elements.gifPlayer.style.display = "block";
-      return;
-    }
-
-    const requestSerial = ++gifRequestSerial;
-    const failureKey = `${currentVersion().id}:${currentState().id}`;
-    const nextPlayer = document.createElement("img");
-    nextPlayer.id = "gifPlayer";
-    nextPlayer.className = "gif-player";
-    nextPlayer.alt = elements.gifPlayer.alt;
-    nextPlayer.style.display = "block";
-    nextPlayer.dataset.source = gifUrl;
-    nextPlayer.addEventListener(
-      "error",
-      () => {
-        if (requestSerial !== gifRequestSerial) return;
-        failedGifs.add(failureKey);
-        const activeKey = `${currentVersion().id}:${currentState().id}`;
-        if (failureKey !== activeKey) return;
-        setPlaybackMode("runtime");
-        renderControlLabels();
-        elements.previewModeHelp.textContent = t("ui.gifLoadFailedHelp");
-      },
-      { once: true },
-    );
-
-    elements.gifPlayer.replaceWith(nextPlayer);
-    elements.gifPlayer = nextPlayer;
-    nextPlayer.src = restartGif
-      ? `${gifUrl}${gifUrl.includes("?") ? "&" : "?"}restart=${Date.now()}`
-      : gifUrl;
-  }
-
-  function renderPlayer({ restartGif = false } = {}) {
+  function renderPlayer() {
     if (sectionMode === "look") {
-      hideGifPlayer();
       elements.spritePlayer.style.display = "block";
       const direction = config.directions[activeDirectionIndex];
       setSpriteFrame(direction.row, direction.column);
@@ -1134,7 +1041,6 @@
     }
 
     if (isInspectingFrame) {
-      hideGifPlayer();
       elements.spritePlayer.style.display = "block";
       const state = currentState();
       setSpriteFrame(state.row, activeFrameIndex);
@@ -1143,27 +1049,19 @@
       return;
     }
 
-    const gifUrl = activeGifUrl();
-    if (playbackMode === "gif" && gifUrl) {
-      elements.spritePlayer.style.display = "none";
-      showGifPlayer(gifUrl, { restartGif });
-      elements.stageModeLabel.textContent = t("ui.gifLoop");
-      clearFrameTimer();
-      return;
-    }
-
-    hideGifPlayer();
     elements.spritePlayer.style.display = "block";
     const playbackState = displayedState();
     setSpriteFrame(playbackState.row, activeFrameIndex);
     elements.stageModeLabel.textContent =
-      runtimeFellBack
-        ? t("ui.runtimeBackToIdle")
-        : currentState().id === idleState().id
-          ? t("ui.runtimeIdle")
-          : t("ui.runtimeAction", {
-              loops: FIXED_ACTION_LOOPS,
-            });
+      playbackMode === "loop"
+        ? t("ui.endlessLoop")
+        : runtimeFellBack
+          ? t("ui.runtimeBackToIdle")
+          : currentState().id === idleState().id
+            ? t("ui.runtimeIdle")
+            : t("ui.runtimeAction", {
+                loops: FIXED_ACTION_LOOPS,
+              });
   }
 
   function refreshActiveClasses() {
@@ -1175,7 +1073,9 @@
         "is-active",
         index === activeFrameIndex &&
           !runtimeFellBack &&
-          (isInspectingFrame || playbackMode === "runtime"),
+          (isInspectingFrame ||
+            playbackMode === "runtime" ||
+            playbackMode === "loop"),
       );
     });
   }
@@ -1188,19 +1088,9 @@
   }
 
   function resetRuntimePlayback() {
+    runtimeFramesCompleted = 0;
     runtimeLoopsCompleted = 0;
     runtimeFellBack = false;
-  }
-
-  function ensurePlaybackModeAvailable() {
-    if (
-      playbackMode === "gif" &&
-      activeGifAvailability() !== "available"
-    ) {
-      playbackMode = "runtime";
-      return false;
-    }
-    return true;
   }
 
   function setFrame(index) {
@@ -1218,8 +1108,7 @@
       isPlaying &&
       pageVisible &&
       !isInspectingFrame &&
-      sectionMode === "animation" &&
-      playbackMode === "runtime"
+      sectionMode === "animation"
     );
   }
 
@@ -1235,12 +1124,17 @@
 
       if (
         playbackMode === "runtime" &&
-        wrapped &&
         !runtimeFellBack &&
         currentState().id !== idleState().id
       ) {
-        runtimeLoopsCompleted += 1;
-        if (runtimeLoopsCompleted >= FIXED_ACTION_LOOPS) {
+        runtimeFramesCompleted += 1;
+        runtimeLoopsCompleted = Math.floor(
+          runtimeFramesCompleted / state.durations.length,
+        );
+        if (
+          runtimeFramesCompleted >=
+          state.durations.length * FIXED_ACTION_LOOPS
+        ) {
           runtimeFellBack = true;
           activeFrameIndex = 0;
           renderPlayer();
@@ -1257,14 +1151,13 @@
   }
 
   function restartPlayback() {
-    ensurePlaybackModeAvailable();
     resetRuntimePlayback();
     activeFrameIndex = 0;
     isInspectingFrame = false;
     isPlaying = true;
     renderControlLabels();
     renderDetails();
-    renderPlayer({ restartGif: playbackMode === "gif" });
+    renderPlayer();
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
@@ -1288,13 +1181,12 @@
   }
 
   function resumeSelectedPlayback() {
-    ensurePlaybackModeAvailable();
     resetRuntimePlayback();
     isInspectingFrame = false;
     isPlaying = true;
     renderControlLabels();
     renderDetails();
-    renderPlayer({ restartGif: playbackMode === "gif" });
+    renderPlayer();
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
@@ -1334,12 +1226,11 @@
     resetRuntimePlayback();
     isInspectingFrame = false;
     isPlaying = true;
-    ensurePlaybackModeAvailable();
     renderStateList();
     renderDetails();
     renderControlLabels();
     renderFrameStrip();
-    renderPlayer({ restartGif: playbackMode === "gif" });
+    renderPlayer();
     renderFrameReadout();
     scheduleNextFrame();
 
@@ -1351,11 +1242,7 @@
   }
 
   function setPlaybackMode(mode) {
-    if (!["gif", "runtime"].includes(mode)) return;
-    if (mode === "gif" && activeGifAvailability() !== "available") {
-      renderControlLabels();
-      return;
-    }
+    if (!["loop", "runtime"].includes(mode)) return;
     clearFrameTimer();
     playbackMode = mode;
     resetRuntimePlayback();
@@ -1364,7 +1251,7 @@
     isPlaying = true;
     renderControlLabels();
     renderDetails();
-    renderPlayer({ restartGif: mode === "gif" });
+    renderPlayer();
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
@@ -1391,7 +1278,7 @@
     elements.animationControls.hidden = !isAnimation;
     elements.lookControls.hidden = isAnimation;
     elements.frameStrip.parentElement.hidden = !isAnimation;
-    setLookControlMode("manual");
+    setLookControlMode(isAnimation ? "manual" : "pointer");
 
     if (isAnimation) {
       renderDetails();
@@ -1460,11 +1347,6 @@
 
     if (lookControlMode === "orbit") {
       startOrbitTimer();
-    } else if (
-      lookControlMode === "pointer" &&
-      sectionMode === "look"
-    ) {
-      elements.directionTarget.style.display = "block";
     }
     renderControlLabels();
   }
@@ -1517,6 +1399,7 @@
     if (directionIndex !== activeDirectionIndex) {
       setDirection(directionIndex);
     }
+    elements.directionTarget.style.display = "block";
     elements.directionTarget.style.transform =
       `translate3d(${sample.clientX - rect.left}px, ${sample.clientY - rect.top}px, 0) ` +
       "translate(-50%, -50%)";
@@ -1555,7 +1438,6 @@
       clearOrbitTimer();
       cancelPointerUpdate();
       clearTourTimers();
-      if (playbackMode === "gif") hideGifPlayer();
       return;
     }
 
@@ -1565,7 +1447,7 @@
     }
 
     if (lookControlMode === "orbit") startOrbitTimer();
-    renderPlayer({ restartGif: playbackMode === "gif" });
+    renderPlayer();
     scheduleNextFrame();
   }
 
@@ -1647,7 +1529,6 @@
     clearFrameTimer();
     activeVersionId = nextVersion.id;
     elements.versionSelect.value = activeVersionId;
-    ensurePlaybackModeAvailable();
     isInspectingFrame = wasInspectingFrame;
     isPlaying = wasInspectingFrame ? false : wasPlaying;
     const frameCount = currentState().durations.length;
@@ -1655,9 +1536,7 @@
     renderFrameStrip();
     renderMechanicsBoard();
     renderDetails();
-    renderPlayer({
-      restartGif: playbackMode === "gif" && !isInspectingFrame,
-    });
+    renderPlayer();
     renderFrameReadout();
     renderControlLabels();
     refreshActiveClasses();
@@ -1689,11 +1568,11 @@
       setSection("animation"),
     );
     elements.lookTab.addEventListener("click", () => setSection("look"));
-    elements.gifModeButton.addEventListener("click", () =>
-      setPlaybackMode("gif"),
-    );
     elements.runtimeModeButton.addEventListener("click", () =>
       setPlaybackMode("runtime"),
+    );
+    elements.endlessModeButton.addEventListener("click", () =>
+      setPlaybackMode("loop"),
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
@@ -1715,11 +1594,6 @@
       cancelPointerUpdate();
       if (lookControlMode === "pointer") {
         elements.directionTarget.style.display = "none";
-      }
-    });
-    elements.stage.addEventListener("pointerenter", () => {
-      if (lookControlMode === "pointer") {
-        elements.directionTarget.style.display = "block";
       }
     });
     elements.autoPlayStatesToggle.addEventListener(
@@ -1777,8 +1651,6 @@
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
     activeVersionId = initialVersionId();
-    playbackMode =
-      activeGifAvailability() === "available" ? "gif" : "runtime";
 
     applyStaticTranslations();
     populateLanguageSelect();

@@ -8,7 +8,11 @@ script without a generative model or third-party artwork.
 The bundled `v002` sample uses the approved smooth silhouette and includes:
 
 - one static v2 spritesheet used by Runtime Simulation and frame inspection;
-- one native exported GIF for every standard state used by GIF Loop.
+- optional exported GIFs retained only as deterministic QA artifacts.
+
+The public Previewer does not play these GIFs. Runtime Simulation and Endless
+Loop both render the source spritesheet at the fixed current-client cadence, so
+palette quantization or GIF edge artifacts cannot distort visual review.
 
 Regenerate the assets with the bundled Pillow-capable Python runtime:
 

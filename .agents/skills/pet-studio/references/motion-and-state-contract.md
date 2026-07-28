@@ -57,6 +57,16 @@ For the current client:
 
 These are verified current-client facts, not a permanent public API. Re-read the installed `$hatch-pet` skill before production and prefer newer authoritative instructions when they differ.
 
+The Previewer exposes two atlas-based readings of these same immutable slots:
+
+- **Runtime Simulation** plays three action loops and then returns to slowed Idle.
+- **Endless Loop** keeps the selected row repeating with the identical per-frame durations.
+
+Use Runtime Simulation to validate the state lifecycle. Use Endless Loop to
+inspect the loop seam and physical continuity. Do not substitute an exported
+GIF for either view; GIF palette quantization and alpha thresholds are not part
+of the Codex pet runtime.
+
 ## Designing motion without editable timing
 
 The duration schedule is immutable from the pet package. Do not add timing controls to project JSON or imply that a Previewer can change the installed runtime. The animation's easing comes from what changes between the fixed slots.
