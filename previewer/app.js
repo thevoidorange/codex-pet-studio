@@ -50,19 +50,18 @@
     stateTrigger: document.querySelector("#stateTrigger"),
     timingCopyButton: document.querySelector("#timingCopyButton"),
     timingDecreaseButton: document.querySelector("#timingDecreaseButton"),
+    timingDurationLabel: document.querySelector("#timingDurationLabel"),
     timingDurationInput: document.querySelector("#timingDurationInput"),
     timingEditor: document.querySelector("#timingEditor"),
     timingExportButton: document.querySelector("#timingExportButton"),
-    timingFrameList: document.querySelector("#timingFrameList"),
     timingIncreaseButton: document.querySelector("#timingIncreaseButton"),
     timingLoopSummary: document.querySelector("#timingLoopSummary"),
     timingPrecisionNote: document.querySelector("#timingPrecisionNote"),
     timingResetStateButton: document.querySelector("#timingResetStateButton"),
-    timingStateTitle: document.querySelector("#timingStateTitle"),
     timingStatus: document.querySelector("#timingStatus"),
-    timingToggleButton: document.querySelector("#timingToggleButton"),
     timingUndoButton: document.querySelector("#timingUndoButton"),
     tourLabel: document.querySelector("#tourLabel"),
+    tourProgress: document.querySelector("#tourProgress"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
     tourProgressText: document.querySelector("#tourProgressText"),
     versionSelect: document.querySelector("#versionSelect"),
@@ -92,7 +91,6 @@
   let runtimeFellBack = false;
   let originalDurations = new Map();
   let timingHistory = [];
-  let timingPanelOpen = false;
   let timingSelectedFrameIndex = 0;
   let timingStatusKey = "";
   let gifRequestSerial = 0;
@@ -511,17 +509,8 @@
       : "";
   }
 
-  function renderTimingEditor({ focusSelected = false } = {}) {
-    elements.timingEditor.hidden = !timingPanelOpen;
-    elements.timingToggleButton.setAttribute(
-      "aria-expanded",
-      String(timingPanelOpen),
-    );
-    if (!timingPanelOpen) return;
-
+  function renderTimingEditor() {
     const state = currentState();
-    const copy = stateCopy(state);
-    const original = originalDurationsFor(state);
     timingSelectedFrameIndex = Math.min(
       timingSelectedFrameIndex,
       state.durations.length - 1,
@@ -530,50 +519,22 @@
     const dirtyStates = dirtyTimingStates();
     const isIdle = state.id === idleState().id;
 
-    elements.timingStateTitle.textContent = copy.title;
     elements.timingLoopSummary.textContent = t(
       isIdle ? "ui.timingIdleSummary" : "ui.timingActionSummary",
       {
         seconds: (totalDuration(state) / 1000).toFixed(3),
+        quietSeconds: (
+          (totalDuration(state) * config.runtime.idleSlowdown) /
+          1000
+        ).toFixed(2),
         loops: config.runtime.actionLoops,
-        slowdown: config.runtime.idleSlowdown,
       },
     );
-    elements.timingFrameList.innerHTML = state.durations
-      .map(
-        (duration, index) => `
-          <button
-            class="timing-frame-chip ${
-              index === timingSelectedFrameIndex ? "is-selected" : ""
-            } ${duration !== original[index] ? "is-dirty" : ""}"
-            type="button"
-            aria-pressed="${index === timingSelectedFrameIndex}"
-            data-timing-frame-index="${index}"
-          >
-            <strong>F${index + 1}</strong>
-            <span>${Number(duration)} ms</span>
-          </button>
-        `,
-      )
-      .join("");
-    elements.timingFrameList
-      .querySelectorAll(".timing-frame-chip")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          timingSelectedFrameIndex = Number(
-            button.dataset.timingFrameIndex,
-          );
-          setTimingStatus("");
-          renderTimingEditor({ focusSelected: true });
-        });
-      });
-    if (focusSelected) {
-      elements.timingFrameList
-        .querySelector(".timing-frame-chip.is-selected")
-        ?.focus();
-    }
-
+    elements.timingDurationLabel.textContent = t("ui.frameDuration", {
+      frame: timingSelectedFrameIndex + 1,
+    });
     elements.timingDurationInput.value = String(selectedDuration);
+    elements.timingDurationInput.removeAttribute("aria-invalid");
     elements.timingDecreaseButton.disabled =
       selectedDuration <= TIMING_MIN_MS;
     elements.timingIncreaseButton.disabled =
@@ -593,6 +554,7 @@
   function refreshTimingDependentViews({ reschedule = false } = {}) {
     renderStateList();
     renderDetails();
+    renderFrameStrip();
     refreshMechanicsDurations(currentState());
     renderControlLabels();
     renderTimingEditor();
@@ -604,12 +566,11 @@
     const state = currentState();
     const normalized = normalizeTimingDuration(value);
     if (normalized === null) {
-      elements.timingDurationInput.value = String(
-        state.durations[timingSelectedFrameIndex],
-      );
+      elements.timingDurationInput.setAttribute("aria-invalid", "true");
       setTimingStatus("ui.timingInvalid");
       return;
     }
+    elements.timingDurationInput.removeAttribute("aria-invalid");
 
     const currentDuration = state.durations[timingSelectedFrameIndex];
     if (currentDuration === normalized) {
@@ -688,20 +649,6 @@
     anchor.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
     setTimingStatus("ui.timingExported");
-  }
-
-  function toggleTimingPanel() {
-    timingPanelOpen = !timingPanelOpen;
-    timingSelectedFrameIndex = Math.min(
-      timingSelectedFrameIndex,
-      currentState().durations.length - 1,
-    );
-    setTimingStatus("");
-    if (timingPanelOpen && tourState.active) stopTour();
-    if (timingPanelOpen && playbackMode !== "runtime") {
-      setPlaybackMode("runtime");
-    }
-    renderTimingEditor();
   }
 
   function gridPosition(column, row) {
@@ -993,9 +940,7 @@
   function runtimeNoteFor(state) {
     if (playbackMode !== "runtime") return "";
     if (state.id === idleState().id) {
-      return t("ui.runtimeIdleNote", {
-        slowdown: config.runtime.idleSlowdown,
-      });
+      return t("ui.runtimeIdleNote");
     }
     return t("ui.runtimeActionNote", {
       loops: config.runtime.actionLoops,
@@ -1033,9 +978,10 @@
 
   function renderFrameStrip() {
     const state = currentState();
+    const original = originalDurationsFor(state);
     elements.frameStrip.innerHTML = state.durations
       .map(
-        (_duration, index) => `
+        (duration, index) => `
           <button
             class="frame-button ${
               index === activeFrameIndex &&
@@ -1043,13 +989,23 @@
               (isInspectingFrame || playbackMode === "runtime")
                 ? "is-active"
                 : ""
-            }"
+            } ${
+              index === timingSelectedFrameIndex
+                ? "is-timing-selected"
+                : ""
+            } ${duration !== original[index] ? "is-dirty" : ""}"
             data-frame-index="${index}"
             type="button"
-            aria-label="${escapeHtml(t("ui.frameAria", { frame: index + 1 }))}"
+            aria-label="${escapeHtml(
+              t("ui.frameAria", {
+                frame: index + 1,
+                duration: Number(duration),
+              }),
+            )}"
           >
             <span class="frame-thumbnail" style="${frameThumbnailStyle(state, index)}"></span>
-            <span class="frame-number">${index + 1}</span>
+            <span class="frame-duration">${Number(duration)} ms</span>
+            <span class="frame-number">F${index + 1}</span>
           </button>
         `,
       )
@@ -1058,8 +1014,11 @@
     frameButtons = [...elements.frameStrip.querySelectorAll(".frame-button")];
     frameButtons.forEach((button) => {
       button.addEventListener("click", () => {
+        timingSelectedFrameIndex = Number(button.dataset.frameIndex);
+        setTimingStatus("");
         enterFrameInspection();
         setFrame(Number(button.dataset.frameIndex));
+        renderFrameStrip();
       });
     });
   }
@@ -1260,17 +1219,12 @@
           : "ui.runtimeModeHelp",
       {
         loops: config.runtime.actionLoops,
-        slowdown: config.runtime.idleSlowdown,
       },
     );
     elements.previewModeHelp.textContent =
       playbackMode === "gif" && dirtyTimingStates().length
         ? `${modeHelp} ${t("ui.gifTimingDraftNote")}`
         : modeHelp;
-    elements.timingToggleButton.setAttribute(
-      "aria-expanded",
-      String(timingPanelOpen),
-    );
     const orbitActive = lookControlMode === "orbit";
     const pointerFollowActive = lookControlMode === "pointer";
     elements.orbitButton.textContent = t("ui.autoOrbit");
@@ -1286,6 +1240,9 @@
   }
 
   function renderTourStatus() {
+    elements.tourProgress.hidden = !(
+      tourState.active || tourState.completed
+    );
     elements.autoPlayStatesToggle.setAttribute(
       "aria-pressed",
       String(tourState.active),
@@ -1312,7 +1269,7 @@
       return;
     }
 
-    elements.tourLabel.textContent = t("ui.manualBrowse");
+    elements.tourLabel.textContent = "";
     elements.tourProgressText.textContent = "";
   }
 
@@ -1471,6 +1428,10 @@
           !runtimeFellBack &&
           (isInspectingFrame || playbackMode === "runtime"),
       );
+      button.classList.toggle(
+        "is-timing-selected",
+        index === timingSelectedFrameIndex,
+      );
     });
   }
 
@@ -1502,6 +1463,11 @@
     activeFrameIndex =
       ((index % state.durations.length) + state.durations.length) %
       state.durations.length;
+    if (isInspectingFrame && state.id === currentState().id) {
+      timingSelectedFrameIndex = activeFrameIndex;
+      setTimingStatus("");
+      renderTimingEditor();
+    }
     setSpriteFrame(state.row, activeFrameIndex);
     refreshActiveClasses();
     renderFrameReadout();
@@ -1905,8 +1871,6 @@
 
   function startTour() {
     stopTour();
-    timingPanelOpen = false;
-    renderTimingEditor();
     setSection("animation");
     setPlaybackMode("runtime");
     tourState.active = true;
@@ -1996,10 +1960,6 @@
     );
     elements.runtimeModeButton.addEventListener("click", () =>
       setPlaybackMode("runtime"),
-    );
-    elements.timingToggleButton.addEventListener(
-      "click",
-      toggleTimingPanel,
     );
     elements.timingDecreaseButton.addEventListener("click", () =>
       stepSelectedTiming(-TIMING_STEP_MS),

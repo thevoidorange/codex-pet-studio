@@ -126,16 +126,6 @@
                 data-i18n-title="ui.runtimeTimingTitle"
               ></button>
             </div>
-            <button
-              id="timingToggleButton"
-              class="button timing-toggle"
-              type="button"
-              aria-expanded="false"
-              aria-controls="timingEditor"
-              data-i18n="ui.adjustTiming"
-              data-i18n-title="ui.adjustTimingTitle"
-            ></button>
-
             <div
               class="transport"
               data-i18n-aria-label="ui.transportAria"
@@ -165,94 +155,6 @@
               ></button>
             </div>
             <p id="previewModeHelp" class="mode-help" aria-live="polite"></p>
-
-            <section
-              id="timingEditor"
-              class="timing-editor"
-              data-i18n-aria-label="ui.timingEditorAria"
-              hidden
-            >
-              <div class="timing-editor-heading">
-                <div>
-                  <div class="timing-title-row">
-                    <strong id="timingStateTitle"></strong>
-                    <span class="timing-badge" data-i18n="ui.previewOnly"></span>
-                  </div>
-                  <p id="timingLoopSummary"></p>
-                </div>
-                <span class="timing-scope" data-i18n="ui.timingShared"></span>
-              </div>
-
-              <div
-                id="timingFrameList"
-                class="timing-frame-list"
-                role="group"
-                data-i18n-aria-label="ui.timingFrameListAria"
-              ></div>
-
-              <div class="timing-stepper">
-                <button
-                  id="timingDecreaseButton"
-                  class="icon-button"
-                  type="button"
-                  data-i18n-aria-label="ui.timingDecrease"
-                >
-                  −5
-                </button>
-                <label class="timing-value">
-                  <span data-i18n="ui.frameDuration"></span>
-                  <span>
-                    <input
-                      id="timingDurationInput"
-                      type="number"
-                      min="20"
-                      max="5000"
-                      step="5"
-                      inputmode="numeric"
-                    />
-                    <span aria-hidden="true">ms</span>
-                  </span>
-                </label>
-                <button
-                  id="timingIncreaseButton"
-                  class="icon-button"
-                  type="button"
-                  data-i18n-aria-label="ui.timingIncrease"
-                >
-                  +5
-                </button>
-              </div>
-
-              <p id="timingPrecisionNote" class="timing-note"></p>
-
-              <div class="timing-actions">
-                <button
-                  id="timingUndoButton"
-                  class="button"
-                  type="button"
-                  data-i18n="ui.undoTiming"
-                ></button>
-                <button
-                  id="timingResetStateButton"
-                  class="button"
-                  type="button"
-                  data-i18n="ui.resetStateTiming"
-                ></button>
-                <button
-                  id="timingCopyButton"
-                  class="button"
-                  type="button"
-                  data-i18n="ui.copyForCodex"
-                ></button>
-                <button
-                  id="timingExportButton"
-                  class="button button-primary"
-                  type="button"
-                  data-i18n="ui.exportTiming"
-                ></button>
-              </div>
-              <p id="timingStatus" class="timing-status" aria-live="polite"></p>
-            </section>
           </div>
 
           <div id="lookControls" class="look-controls" hidden>
@@ -334,9 +236,100 @@
               <span class="muted" data-i18n="ui.keyframeHint"></span>
             </div>
             <div id="frameStrip" class="frame-strip"></div>
+
+            <section
+              id="timingEditor"
+              class="timing-editor"
+              data-i18n-aria-label="ui.timingEditorAria"
+            >
+              <div class="timing-editor-heading">
+                <div>
+                  <div class="timing-title-row">
+                    <strong data-i18n="ui.frameTiming"></strong>
+                    <span class="timing-badge" data-i18n="ui.previewOnly"></span>
+                  </div>
+                  <p id="timingLoopSummary"></p>
+                </div>
+                <span class="timing-scope" data-i18n="ui.timingShared"></span>
+              </div>
+
+              <div class="timing-stepper">
+                <button
+                  id="timingDecreaseButton"
+                  class="icon-button"
+                  type="button"
+                  data-i18n-aria-label="ui.timingDecrease"
+                >
+                  −5
+                </button>
+                <label class="timing-value">
+                  <span id="timingDurationLabel"></span>
+                  <span>
+                    <input
+                      id="timingDurationInput"
+                      type="number"
+                      min="20"
+                      max="5000"
+                      step="5"
+                      inputmode="numeric"
+                      aria-describedby="timingRangeNote timingPrecisionNote timingStatus"
+                    />
+                    <span aria-hidden="true">ms</span>
+                  </span>
+                </label>
+                <button
+                  id="timingIncreaseButton"
+                  class="icon-button"
+                  type="button"
+                  data-i18n-aria-label="ui.timingIncrease"
+                >
+                  +5
+                </button>
+              </div>
+
+              <p
+                id="timingRangeNote"
+                class="timing-note timing-range-note"
+                data-i18n="ui.timingRangeNote"
+              ></p>
+              <p id="timingPrecisionNote" class="timing-note"></p>
+              <p class="timing-handoff-note" data-i18n="ui.timingHandoffNote"></p>
+
+              <div class="timing-actions">
+                <button
+                  id="timingUndoButton"
+                  class="button"
+                  type="button"
+                  data-i18n="ui.undoTiming"
+                  data-i18n-title="ui.undoTimingTitle"
+                ></button>
+                <button
+                  id="timingResetStateButton"
+                  class="button"
+                  type="button"
+                  data-i18n="ui.resetStateTiming"
+                  data-i18n-title="ui.resetStateTimingTitle"
+                ></button>
+                <button
+                  id="timingCopyButton"
+                  class="button button-primary"
+                  type="button"
+                  data-i18n="ui.copyForCodex"
+                  data-i18n-title="ui.copyForCodexTitle"
+                ></button>
+                <button
+                  id="timingExportButton"
+                  class="button"
+                  type="button"
+                  data-i18n="ui.exportTiming"
+                  data-i18n-title="ui.exportTimingTitle"
+                ></button>
+              </div>
+              <p id="timingStatus" class="timing-status" aria-live="polite"></p>
+            </section>
           </div>
 
-          <div class="tour-progress" aria-live="polite">
+          <div id="tourProgress" class="tour-progress" aria-live="polite" hidden>
             <div class="tour-progress-row">
               <span id="tourLabel"></span>
               <span id="tourProgressText"></span>

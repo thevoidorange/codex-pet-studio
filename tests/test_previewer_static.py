@@ -304,9 +304,8 @@ class PreviewerStaticTests(unittest.TestCase):
 
     def test_preview_timing_editor_is_live_bounded_and_export_safe(self) -> None:
         for element_id in (
-            "timingToggleButton",
             "timingEditor",
-            "timingFrameList",
+            "timingDurationLabel",
             "timingDurationInput",
             "timingDecreaseButton",
             "timingIncreaseButton",
@@ -337,29 +336,60 @@ class PreviewerStaticTests(unittest.TestCase):
             self.app,
         )
         self.assertIn(
+            'elements.timingDurationInput.setAttribute("aria-invalid", "true");',
+            self.app,
+        )
+        self.assertIn(
+            'elements.timingDurationInput.removeAttribute("aria-invalid");',
+            self.app,
+        )
+        self.assertIn(
             "const delay = state.durations[activeFrameIndex] * slowdown;",
             self.app,
         )
-        self.assertIn("<strong>F${index + 1}</strong>", self.app)
-        self.assertIn('role="group"', self.html)
-        self.assertNotIn('role="listbox"', self.html)
-        self.assertIn('aria-pressed="${index === timingSelectedFrameIndex}"', self.app)
-        self.assertIn("let timingStatusKey = \"\";", self.app)
-        self.assertIn("setTimingStatus(timingStatusKey);", self.app)
         self.assertIn(
-            "if (timingPanelOpen && tourState.active) stopTour();",
+            '<span class="frame-duration">${Number(duration)} ms</span>',
             self.app,
         )
-        self.assertIn("timingPanelOpen = false;", self.app)
+        self.assertIn(
+            'index === timingSelectedFrameIndex',
+            self.app,
+        )
+        self.assertNotIn('id="timingToggleButton"', self.html)
+        self.assertNotIn('id="timingFrameList"', self.html)
+        viewer_panel = self.html.split(
+            '<section class="viewer-panel">',
+            1,
+        )[1].split('<aside class="detail-panel">', 1)[0]
+        detail_panel = self.html.split(
+            '<aside class="detail-panel">',
+            1,
+        )[1].split("</aside>", 1)[0]
+        self.assertNotIn('id="timingEditor"', viewer_panel)
+        self.assertLess(
+            detail_panel.index('id="frameStrip"'),
+            detail_panel.index('id="timingEditor"'),
+        )
+        self.assertIn("let timingStatusKey = \"\";", self.app)
+        self.assertIn("setTimingStatus(timingStatusKey);", self.app)
+        self.assertNotIn("timingPanelOpen", self.app)
+        self.assertNotIn("toggleTimingPanel", self.app)
         self.assertIn("renderMechanicsBoard();", self.app)
         self.assertIn("renderDetails();", self.app)
         self.assertIn('type: "pet-studio-timing-overrides"', self.app)
         self.assertIn('anchor.download = "timing-overrides.json";', self.app)
         self.assertIn("window.navigator.clipboard.writeText(", self.app)
         self.assertIn("timingSelectedFrameIndex", self.app)
-        self.assertIn("GIF export uses 10 ms steps", self.i18n)
-        self.assertIn("GIF 只支持 10 ms", self.i18n)
+        self.assertIn("GIFs store timing in 10 ms units", self.i18n)
+        self.assertIn("GIF 以 10 毫秒为单位记录节奏", self.i18n)
+        self.assertIn("20–5000 ms (5 seconds)", self.i18n)
+        self.assertIn("20–5000 毫秒（5 秒）", self.i18n)
         self.assertIn("timingDraftIndicator", self.i18n)
+        self.assertNotIn("manualBrowse", self.i18n)
+        self.assertIn(
+            "elements.tourProgress.hidden = !(",
+            self.app,
+        )
 
         payload_function = self.app.split(
             "function timingOverridesPayload()",
@@ -415,10 +445,11 @@ class PreviewerStaticTests(unittest.TestCase):
             'gifPlayback: "GIF Loop"',
             'gifPlaybackMissing: "GIF Loop · Not Generated"',
             'runtimeTiming: "Runtime Simulation"',
-            'adjustTiming: "Adjust Timing"',
-            'resetStateTiming: "Reset State"',
-            'copyForCodex: "Copy For Codex"',
-            'exportTiming: "Export Timing JSON"',
+            'frameTiming: "Frame Timing"',
+            'undoTiming: "Undo Last Change"',
+            'resetStateTiming: "Reset This State"',
+            'copyForCodex: "Copy Changes For Codex"',
+            'exportTiming: "Download Timing JSON"',
             'title: "Resting Nearby"',
             'label: "Move Right"',
             'title: "Moving Right"',

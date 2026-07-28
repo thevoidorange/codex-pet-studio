@@ -34,43 +34,55 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "Runtime Simulation",
         runtimeTimingTitle:
           "Simulate intended playback from Previewer timing metadata; this is not an exact trace of the Codex client",
-        adjustTiming: "Adjust Timing",
-        adjustTimingTitle:
-          "Tune the current state's Preview timing in 5 ms target steps",
-        timingEditorAria: "Preview timing editor",
-        previewOnly: "Preview only · Not saved",
-        timingShared: "Applies to every version in this preview",
-        timingFrameListAria: "Frames available for timing adjustment",
-        timingDraftIndicator: "Timing draft changed",
+        frameTiming: "Frame Timing",
+        timingEditorAria: "Frame Timing Editor",
+        previewOnly: "Preview Draft · Not Saved",
+        timingShared: "Shared Across All Visual Versions",
+        timingDraftIndicator: "Unsaved Frame Timing Changes",
         timingDecrease: "Reduce frame duration by 5 milliseconds",
         timingIncrease: "Increase frame duration by 5 milliseconds",
-        frameDuration: "Selected frame duration",
-        undoTiming: "Undo",
-        resetStateTiming: "Reset State",
-        copyForCodex: "Copy For Codex",
-        exportTiming: "Export Timing JSON",
+        frameDuration: "Frame {frame} Duration",
+        timingRangeNote:
+          "Allowed range: 20–5000 ms (5 seconds) per frame · Buttons adjust by 5 ms",
+        undoTiming: "Undo Last Change",
+        undoTimingTitle:
+          "Undo the latest timing change in this state",
+        resetStateTiming: "Reset This State",
+        resetStateTimingTitle:
+          "Restore every frame in this state to its loaded timing",
+        copyForCodex: "Copy Changes For Codex",
+        copyForCodexTitle:
+          "Copy the changed timings so you can paste them into a Codex task",
+        exportTiming: "Download Timing JSON",
+        exportTimingTitle:
+          "Download the same changed timings as timing-overrides.json",
+        timingHandoffNote:
+          "Both buttons contain the same changes. Copy is for pasting into Codex; Download saves a JSON file. Neither updates the pet automatically.",
         timingIdleSummary:
-          "{seconds}s per loop · simulated with {slowdown}× slower Idle timing",
+          "Base loop: {seconds}s · Quiet Idle: about {quietSeconds}s per loop",
         timingActionSummary:
-          "{seconds}s per loop · action repeats {loops}× in simulation",
+          "One loop: {seconds}s · Plays {loops} times, then returns to Quiet Idle",
         timingGifRoundingNote:
-          "5 ms is a Preview target step. GIF export uses 10 ms steps and must be regenerated.",
+          "Runtime Simulation uses this draft now. GIFs store timing in 10 ms units, so values ending in 5 ms are converted when Codex regenerates the GIF.",
         timingGifUnchangedNote:
-          "The Runtime draft updates live. The existing GIF stays unchanged until regenerated.",
+          "Runtime Simulation uses this draft now. GIF Loop keeps its exported timing until Codex regenerates the GIF.",
         gifTimingDraftNote:
-          "Timing drafts affect Runtime Simulation only; this GIF has not changed.",
-        timingInvalid: "Enter a duration between 20 and 5000 ms.",
+          "The Frame Timing draft affects Runtime Simulation only; this GIF has not changed.",
+        timingInvalid:
+          "Enter a number from 20 to 5000 ms. Runtime Simulation is still using the last valid value.",
         timingUpdated: "Preview timing updated.",
         timingSnapped: "Value adjusted to the nearest 5 ms step.",
         timingUndone: "Last timing change undone.",
         timingReset: "This state's timing was reset.",
-        timingCopied: "Timing overrides copied for Codex.",
+        timingCopied:
+          "Copied. Paste into a Codex task to apply these timing changes.",
         timingCopyFailed: "Could not access the clipboard.",
-        timingExported: "Downloaded timing-overrides.json.",
+        timingExported:
+          "Downloaded timing-overrides.json. The pet has not changed.",
         gifModeHelp:
           "Plays the exported QA GIF at its encoded speed. The browser cannot expose or pause its exact internal frame.",
         runtimeModeHelp:
-          "Previewer simulation using configured frame timings, {loops} action loops, then Idle at {slowdown}× slower timing. It is not an exact Codex client trace.",
+          "Uses the configured frame durations. Action states play {loops} loops, then return to a calmer Idle. This is a preview, not an exact Codex runtime trace.",
         frameInspectionGifHelp:
           "Frame inspection uses the atlas and cannot freeze the GIF's exact internal frame. Previous and Next move one frame; Play restarts GIF loop.",
         frameInspectionRuntimeHelp:
@@ -99,9 +111,8 @@ window.PET_PREVIEW_I18N = {
         expression: "Expression",
         desktopTrigger: "Desktop trigger",
         actionLength: "Action length",
-        keyframes: "Keyframes",
-        keyframeHint: "Select a frame to pause there",
-        manualBrowse: "Manual browse",
+        keyframes: "Keyframes & Timing",
+        keyframeHint: "Select a frame to inspect and edit its duration",
         allStatesPlayed: "All states played",
         autoPlayingState: "Playing · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",
@@ -109,7 +120,7 @@ window.PET_PREVIEW_I18N = {
         mechanicsSummary:
           "{states} states · {frames} frames · final cell positions and source milliseconds",
         viewingVersion: "Viewing {version}",
-        frameAria: "View frame {frame}",
+        frameAria: "View Frame {frame} · {duration} ms",
         frameLoop: "{count}-frame loop",
         frameReadout: "Frame {frame} / {count}",
         runtimeReturnedIdle: "Returned to Idle · Frame {frame} / {count}",
@@ -120,7 +131,7 @@ window.PET_PREVIEW_I18N = {
         runtimeAction: "Simulation · Action × {loops}",
         frameInspectionLabel: "Frame inspection",
         lookFrame: "Look frame",
-        runtimeIdleNote: " · simulation uses {slowdown}× slower looping",
+        runtimeIdleNote: " · Runtime Simulation uses a calmer Idle pace",
         runtimeActionNote:
           " · simulation plays {loops} loops, then returns to slow Idle",
         duration: "{frames} frames · {seconds}s / loop{runtimeNote}",
@@ -450,42 +461,49 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "运行模拟",
         runtimeTimingTitle:
           "根据 Previewer 的时间配置模拟预期播放，不等同于 Codex 客户端的精确内部实现",
-        adjustTiming: "调整节奏",
-        adjustTimingTitle: "以 5 ms 为目标步长调整当前状态的预览节奏",
-        timingEditorAria: "预览节奏编辑器",
-        previewOnly: "仅供预览 · 尚未保存",
-        timingShared: "对本预览里的所有版本共同生效",
-        timingFrameListAria: "可调整节奏的镜帧",
-        timingDraftIndicator: "Timing 草稿已修改",
+        frameTiming: "每帧时长",
+        timingEditorAria: "每帧时长编辑器",
+        previewOnly: "预览草稿 · 尚未保存",
+        timingShared: "同一份时长用于所有视觉版本",
+        timingDraftIndicator: "有尚未保存的帧时长修改",
         timingDecrease: "将当前镜帧缩短 5 毫秒",
         timingIncrease: "将当前镜帧延长 5 毫秒",
-        frameDuration: "当前镜帧时长",
-        undoTiming: "撤销",
+        frameDuration: "第 {frame} 帧时长",
+        timingRangeNote:
+          "每帧可设为 20–5000 毫秒（5 秒）· 加减按钮每次调整 5 毫秒",
+        undoTiming: "撤销上一步",
+        undoTimingTitle: "撤销当前状态里最近一次时长修改",
         resetStateTiming: "重置当前状态",
-        copyForCodex: "复制给 Codex",
-        exportTiming: "导出 Timing JSON",
+        resetStateTimingTitle: "将当前状态的所有帧恢复为载入时的时长",
+        copyForCodex: "复制修改给 Codex",
+        copyForCodexTitle: "复制有修改的时长，可直接粘贴到 Codex 任务中",
+        exportTiming: "下载时长 JSON",
+        exportTimingTitle: "把同一份修改下载为 timing-overrides.json",
+        timingHandoffNote:
+          "两个按钮包含同一份修改：复制适合直接粘贴给 Codex；下载则保存为 JSON 文件。两者都不会自动更新宠物。",
         timingIdleSummary:
-          "每圈 {seconds} 秒 · Idle 在模拟中放慢 {slowdown}×",
+          "基础循环 {seconds} 秒 · 安静待机时约 {quietSeconds} 秒一圈",
         timingActionSummary:
-          "每圈 {seconds} 秒 · 运行模拟中重复 {loops} 圈",
+          "一圈 {seconds} 秒 · 预览播放 {loops} 圈后回到安静待机",
         timingGifRoundingNote:
-          "5 ms 是预览目标步长；GIF 只支持 10 ms 步长，需重新生成后才会更新。",
+          "运行模拟会立即采用这份草稿。GIF 以 10 毫秒为单位记录节奏，因此以 5 毫秒结尾的数值会在 Codex 重新生成 GIF 时转换。",
         timingGifUnchangedNote:
-          "运行模拟会实时采用草稿；现有 GIF 在重新生成前不会改变。",
+          "运行模拟会立即采用这份草稿；Codex 重新生成 GIF 前，GIF 循环仍保持导出时的节奏。",
         gifTimingDraftNote:
-          "Timing 草稿只影响运行模拟，当前 GIF 尚未改变。",
-        timingInvalid: "请输入 20–5000 ms 之间的时长。",
+          "每帧时长草稿只影响运行模拟，当前 GIF 尚未改变。",
+        timingInvalid:
+          "请输入 20–5000 毫秒之间的数字。运行模拟仍在使用上一个有效值。",
         timingUpdated: "预览节奏已更新。",
         timingSnapped: "已自动调整到最近的 5 ms。",
         timingUndone: "已撤销上一次节奏修改。",
         timingReset: "已重置当前状态的节奏。",
-        timingCopied: "Timing overrides 已复制，可交给 Codex。",
+        timingCopied: "已复制。粘贴到 Codex 任务中即可应用这些时长修改。",
         timingCopyFailed: "无法访问剪贴板。",
-        timingExported: "已下载 timing-overrides.json。",
+        timingExported: "已下载 timing-overrides.json；当前宠物尚未改变。",
         gifModeHelp:
           "按导出 GIF 自带的速度循环播放；浏览器无法读取或精确暂停在 GIF 内部的某一帧。",
         runtimeModeHelp:
-          "根据预览配置模拟：采用逐帧时长，动作播放 {loops} 圈，再以 {slowdown}× 慢速回到 Idle；并不等同于 Codex 客户端的精确轨迹。",
+          "采用当前配置的逐帧时长。动作状态播放 {loops} 圈后回到更舒缓的 Idle；这是预览，不等同于 Codex 客户端的精确轨迹。",
         frameInspectionGifHelp:
           "逐帧检查使用图集，无法冻结 GIF 正在播放的精确内部帧。左右键每次移动一帧；点击播放会重新开始 GIF 循环。",
         frameInspectionRuntimeHelp:
@@ -513,16 +531,15 @@ window.PET_PREVIEW_I18N = {
         expression: "它在表达",
         desktopTrigger: "桌面触发",
         actionLength: "动作长度",
-        keyframes: "关键帧",
-        keyframeHint: "点击停在该帧",
-        manualBrowse: "手动浏览",
+        keyframes: "关键帧与时长",
+        keyframeHint: "选择一帧即可检查并调整时长",
         allStatesPlayed: "全部状态播放完成",
         autoPlayingState: "正在播放 · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",
         mechanicsTitle: "动作机制板",
         mechanicsSummary: "{states} 个状态 · {frames} 帧 · 最终帧位与原始毫秒",
         viewingVersion: "正在查看 {version}",
-        frameAria: "查看第 {frame} 帧",
+        frameAria: "查看第 {frame} 帧 · {duration} 毫秒",
         frameLoop: "{count} 帧循环",
         frameReadout: "第 {frame} / {count} 帧",
         runtimeReturnedIdle: "已回到 Idle · 第 {frame} / {count} 帧",
@@ -534,7 +551,7 @@ window.PET_PREVIEW_I18N = {
         runtimeAction: "运行模拟 · 动作 {loops} 圈",
         frameInspectionLabel: "逐帧检查",
         lookFrame: "视线帧",
-        runtimeIdleNote: " · 模拟为 {slowdown}× 慢速循环",
+        runtimeIdleNote: " · 运行模拟采用更舒缓的 Idle 节奏",
         runtimeActionNote: " · 模拟播 {loops} 圈后回到慢速 Idle",
         duration: "{frames} 帧 · {seconds} 秒 / 圈{runtimeNote}",
         lookTag: "LOOK MECHANICS",
