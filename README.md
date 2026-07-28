@@ -73,7 +73,7 @@ Each phase produces a reviewable artifact. Codex must receive approval before tr
 | 3. Default form | What makes the neutral character unmistakable at desktop scale? | Default form and identity lock |
 | 4. Mechanisms | Which elements may move, fold, stretch, hide, or relocate? | Mechanism board |
 | 5. States | How does each state communicate a different intention? | State choreography and key poses |
-| 6. Motion and versions | How should weight, timing, continuity, and candidate comparison feel? | Motion bible and versioned previews |
+| 6. Motion and versions | How should weight, fixed-slot pose spacing, continuity, and candidate comparison feel? | Motion bible and versioned previews |
 | 7. Production and QA | Is the selected version expressive, valid, and regression-free? | Compiled v2 pack and QA report |
 | 8. Release | Is the allowlisted result safe to export, install, or publish? | Validated release or explicit remaining block |
 
@@ -117,20 +117,24 @@ The Previewer includes:
 
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
-- native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and automatic all-state playback;
-- a right-rail Keyframes & Timing editor with 5 ms adjustments, Undo, Reset, and direct local JSON updates;
+- native GIF Loop and current-client Runtime Simulation modes, plus temporary frame inspection and automatic all-state playback;
+- read-only keyframe inspection for reviewing pose spacing and state contrast;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
 - grayscale preview backgrounds;
 - external JSON loading through `?config=<relative-or-absolute-url>`.
 
-Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata and is not an exact trace of the Codex client.
+Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. The Previewer is read-only: it does not edit project JSON, regenerate assets, or change the installed pet.
 
-Frame Timing drafts apply live to Runtime Simulation and are shared by every visual version in the current preview. When an external project config is opened through the loopback-only Studio Preview server, **Update Timing** writes the changed `states[].durations` directly back to that same JSON file. The server updates only those duration arrays, uses an atomic replacement, and refuses paths outside the project. Bundled examples, `file://` pages, remote configs, and network-exposed preview servers remain read-only.
+### Current client playback snapshot
 
-This timing metadata belongs to the Previewer workflow. A Codex Pet v2 package contains the manifest and spritesheet, not custom per-frame durations, action-loop counts, or an Idle multiplier. Updating Preview JSON therefore does not rewrite an exported GIF or alter the installed pet runtime. The bundled Runtime Simulation defaults mirror observed desktop-client behavior, but the client owns that behavior and may change independently of this repository.
+The current v2 desktop client owns playback timing. The package contains only `pet.json` and the spritesheet; it has no custom frame-duration, loop-count, Idle-multiplier, or display-size fields. Standard action rows play three loops and then return to Idle. Idle uses six times the listed base durations. Pet display size is a client setting from 80 to 224 px.
 
-The built-in geometric figure is a non-production fixture for testing the UI. Replace `previewer/preview-data.js`, or supply an external JSON config, when a real version is ready.
+These are observed current-client facts, not a stable forever API. Re-read the installed `$hatch-pet` skill before production. The exact fixed row counts and duration arrays are recorded in [the motion and state contract](.agents/skills/pet-studio/references/motion-and-state-contract.md).
+
+Because the time slots are immutable, motion design happens inside the drawings: use pose spacing and material deformation as easing, keep important poses visually close across long holds, make transition slots do concise work, and let the final slot settle cleanly. Runtime Simulation exists to review that fixed cadence; it is not a timing editor.
+
+The built-in geometric figure is a non-production fixture for testing the UI. Supply an external JSON config for real version assets and localized project copy; do not redefine the fixed runtime state schedule.
 It includes native GIF loops for all nine states so the GIF Loop mode can be tested without substituting spritesheet playback.
 
 ## Deterministic tools
@@ -164,7 +168,7 @@ A finished pet should pass three layers of QA:
 
 1. **Character QA** — the silhouette, face, proportions, and signature mechanisms still belong to the approved character.
 2. **Motion QA** — states are visibly distinct, transitions have physical continuity, and the animation feels intentional at real desktop size.
-3. **Pack QA** — dimensions, transparency, frame order, direction mapping, clipping, timing, and package metadata are valid.
+3. **Pack QA** — dimensions, transparency, fixed frame counts, frame order, direction mapping, clipping, and package metadata are valid.
 
 “The files were generated” is not the same as “the pet is finished.”
 

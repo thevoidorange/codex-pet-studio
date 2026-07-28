@@ -31,23 +31,27 @@ Example manifest:
 - used cells contain one complete readable sprite
 - unused cells are fully transparent
 
-## Rows
+## Current client row snapshot
 
-| Row | State |
-| ---: | --- |
-| 0 | idle |
-| 1 | running-right |
-| 2 | running-left |
-| 3 | waving |
-| 4 | jumping |
-| 5 | failed |
-| 6 | waiting |
-| 7 | running |
-| 8 | review |
-| 9 | look directions 000°–157.5° |
-| 10 | look directions 180°–337.5° |
+| Row | State | Used cells | Current client base durations |
+| ---: | --- | ---: | --- |
+| 0 | idle | 6 | 280, 110, 110, 140, 140, 320 ms |
+| 1 | running-right | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 2 | running-left | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 3 | waving | 4 | 140, 140, 140, 280 ms |
+| 4 | jumping | 5 | 140, 140, 140, 140, 280 ms |
+| 5 | failed | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
+| 6 | waiting | 6 | 150, 150, 150, 150, 150, 260 ms |
+| 7 | running | 6 | 120, 120, 120, 120, 120, 220 ms |
+| 8 | review | 6 | 150, 150, 150, 150, 150, 280 ms |
+| 9 | look directions 000°–157.5° | 8 | fixed 22.5° direction steps |
+| 10 | look directions 180°–337.5° | 8 | fixed 22.5° direction steps |
 
 All sixteen look cells are used in fixed 22.5-degree clockwise steps. Neutral/front gaze uses idle at runtime.
+
+The current client plays each non-Idle action for three loops and then returns to Idle. Idle uses six times the row-0 base durations. These durations and loop rules are client-owned: they are not stored in `pet.json`, cannot be customized by the package, and may change in a future client. Pet display size is likewise a client setting, currently 80–224 px, rather than package metadata.
+
+Treat this table as a verified current-client planning snapshot. Re-read the installed `$hatch-pet` skill before production.
 
 ## Responsibility boundary
 

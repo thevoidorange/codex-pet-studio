@@ -24,10 +24,12 @@ Notes:
 - [ ] Each state has a distinct behavioral intention.
 - [ ] Entry, action, settle, and loop are physically continuous.
 - [ ] Loop seams do not pop.
-- [ ] Timing matches the motion bible.
+- [ ] Pose spacing and material deformation read correctly at the current fixed client cadence.
+- [ ] Long holds, short transitions, and final settles use the required slots intentionally.
 - [ ] Secondary motion follows rather than leads accidentally.
 - [ ] Left/right movement preserves approved details.
 - [ ] Playback is not uniformly bouncy or mechanically eased.
+- [ ] Motion remains readable at 80, 144, and 224 px.
 
 Notes:
 
@@ -38,7 +40,8 @@ Notes:
 - [ ] No frame is clipped.
 - [ ] State rows are mapped correctly.
 - [ ] Direction cells are mapped correctly.
-- [ ] Timing metadata matches the reviewed preview.
+- [ ] Used-cell counts match the current client contract.
+- [ ] The package contains no unsupported custom timing fields.
 - [ ] Contact sheets and animated previews match packaged assets.
 - [ ] Installation was verified.
 

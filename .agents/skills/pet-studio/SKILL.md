@@ -34,7 +34,7 @@ Read [workflow.md](references/workflow.md) for the complete routing rules and re
 3. **Default form** — approve one neutral silhouette at normal desktop-pet size before designing states.
 4. **Variable mechanics** — define the few elements that can move, deform, appear, disappear, or change layer.
 5. **State choreography** — design each runtime state as a distinct intention, spatial composition, and motion arc.
-6. **Motion language and preview** — approve timing, easing, weight, continuity, and versioned playback in the Previewer.
+6. **Motion language and preview** — approve fixed-slot pose spacing, material easing, weight, continuity, and versioned playback in the Previewer.
 7. **Production and QA** — hand the approved design to `$hatch-pet`, then run semantic, visual, technical, privacy, and packaging gates.
 8. **Release** — export, install, or publish only the selected, allowlisted, reviewed result.
 
@@ -80,6 +80,27 @@ Then assemble states from those shared mechanisms. Do not independently redesign
 
 Read [motion-and-state-contract.md](references/motion-and-state-contract.md) before building state keyframes or production rows.
 
+## Design for immutable client time slots
+
+The current v2 client, not the pet package, owns playback timing. `pet.json` has no fields for frame duration, action-loop count, Idle slowdown, or display size. Under the current client snapshot:
+
+- standard rows use fixed frame counts and fixed duration arrays;
+- every non-Idle action plays three loops, then returns to Idle;
+- Idle uses six times its listed base durations;
+- display size is a client setting from 80 to 224 px.
+
+Treat this as a current-client snapshot that can change. Re-read the installed `$hatch-pet` skill before production and prefer its newer contract if it differs.
+
+Do not invent a timing editor or promise that Previewer JSON changes runtime cadence. Control perceived easing through pose spacing and material deformation:
+
+- keep neighboring poses close during a visual hold;
+- spend short transition slots on clear directional change;
+- place the strongest deformation at the accent;
+- use the final long slot for a clean settle or loop seam;
+- let secondary material lag by one slot only when that lag remains readable.
+
+Review at 80, 144, and 224 px so the same fixed sequence works across the client size range.
+
 ## Preserve personality through behavior
 
 Translate personality evidence into observable behavior, not decorative symbols. A state must communicate:
@@ -103,7 +124,7 @@ Before a material revision:
 - keep stable state and element IDs
 - compare the new version in the Previewer
 
-The Previewer language and version selectors must not reset the current state, frame, mode, speed, or playback when the selected version supports them.
+The Previewer language and version selectors must not reset the current state, frame, mode, or playback when the selected version supports them.
 
 ## Use deterministic project tools
 
@@ -128,7 +149,7 @@ Invoke `$hatch-pet` only when all of these are true:
 - the default form is explicitly approved
 - variable mechanics and their limits are recorded
 - all nine standard state intentions are defined
-- representative keyframes and motion language are approved
+- representative keyframes and their mapping to the fixed row slots are approved
 - the user has selected the version to produce
 - reference privacy and publication scope are clear
 

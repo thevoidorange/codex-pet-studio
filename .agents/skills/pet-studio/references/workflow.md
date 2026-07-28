@@ -115,8 +115,8 @@ Gate: the state set has enough semantic and spatial contrast without breaking th
 
 Define global motion rules:
 
-- tempo range
-- easing character
+- fixed-slot pose-spacing character
+- material deformation and perceived easing
 - squash/stretch limits
 - overshoot and damping
 - lead and follow hierarchy
@@ -124,7 +124,7 @@ Define global motion rules:
 - loop philosophy
 - reduced-motion first-frame behavior
 
-Then define state-specific timing. Preview at normal size and at intended playback speed.
+Then map each state-specific beat onto the current client's fixed frame count and duration schedule. Do not create custom timing fields: the package cannot carry them. Use near-repeated poses for holds, concise spacing changes for transitions, and the longer final slot for settling. Preview at 80, 144, and 224 px at the current client cadence.
 
 Gate: the user approves the feel, not just isolated frames.
 

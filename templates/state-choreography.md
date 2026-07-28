@@ -10,7 +10,7 @@ Use stable English IDs. Add localized Previewer labels separately.
 
 ## Differentiation matrix
 
-| State ID | Character position | Face position | Active mechanisms | Silhouette change | Timing signature |
+| State ID | Character position | Face position | Active mechanisms | Silhouette change | Fixed-slot rhythm strategy |
 | --- | --- | --- | --- | --- | --- |
 | `idle` |  |  |  |  |  |
 
@@ -36,8 +36,10 @@ If two rows are nearly identical, explain why the distinction will still read at
 - Mechanisms used:
 - What makes this state unique:
 - What must remain quiet:
-- Estimated frame need:
-- Timing notes:
+- Required fixed frame count:
+- Slot-by-slot beat map:
+- Visual hold / near-repeat plan:
+- Final-slot settle:
 
 Duplicate the card for each state under review.
 

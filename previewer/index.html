@@ -82,13 +82,13 @@
               <input
                 id="previewSizeInput"
                 type="range"
-                min="60"
-                max="150"
-                step="5"
-                value="100"
+                min="80"
+                max="224"
+                step="1"
+                value="160"
                 data-i18n-aria-label="ui.previewSizeAria"
               />
-              <output id="previewSizeValue" for="previewSizeInput">100%</output>
+              <output id="previewSizeValue" for="previewSizeInput">160 px</output>
             </label>
             <img id="gifPlayer" class="gif-player" alt="" />
             <div
@@ -235,68 +235,6 @@
               <span data-i18n="ui.keyframes"></span>
             </div>
             <div id="frameStrip" class="frame-strip"></div>
-
-            <section
-              id="timingEditor"
-              class="timing-editor"
-              data-i18n-aria-label="ui.timingEditorAria"
-            >
-              <div class="timing-stepper">
-                <button
-                  id="timingDecreaseButton"
-                  class="icon-button"
-                  type="button"
-                  data-i18n-aria-label="ui.timingDecrease"
-                >
-                  −5
-                </button>
-                <div class="timing-value">
-                  <input
-                    id="timingDurationInput"
-                    type="number"
-                    min="20"
-                    max="5000"
-                    step="5"
-                    inputmode="numeric"
-                    aria-describedby="timingStatus"
-                  />
-                  <span aria-hidden="true">ms</span>
-                </div>
-                <button
-                  id="timingIncreaseButton"
-                  class="icon-button"
-                  type="button"
-                  data-i18n-aria-label="ui.timingIncrease"
-                >
-                  +5
-                </button>
-              </div>
-
-              <div class="timing-actions">
-                <button
-                  id="timingUndoButton"
-                  class="button"
-                  type="button"
-                  data-i18n="ui.undoTiming"
-                  data-i18n-title="ui.undoTimingTitle"
-                ></button>
-                <button
-                  id="timingResetStateButton"
-                  class="button"
-                  type="button"
-                  data-i18n="ui.resetStateTiming"
-                  data-i18n-title="ui.resetStateTimingTitle"
-                ></button>
-                <button
-                  id="timingUpdateButton"
-                  class="button button-primary"
-                  type="button"
-                  data-i18n="ui.updateTiming"
-                  data-i18n-title="ui.updateTimingTitle"
-                ></button>
-              </div>
-              <p id="timingStatus" class="timing-status" aria-live="polite"></p>
-            </section>
           </div>
 
           <div id="tourProgress" class="tour-progress" aria-live="polite" hidden>

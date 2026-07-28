@@ -21,68 +21,88 @@ Define these once:
 - **lead element** — initiates motion
 - **follow elements** — respond with delay
 - **settle order** — returns from large mass to small detail, or the reverse
-- **easing** — sharp, elastic, viscous, cloth-like, mechanical, or restrained
+- **material easing** — how pose spacing and deformation make the fixed slots feel sharp, elastic, viscous, cloth-like, mechanical, or restrained
 - **overshoot limit** — maximum readable excess before identity deforms
 - **stillness budget** — deliberate quiet time within a loop
 - **loop seam** — where motion can repeat without a visible reset
 
 Secondary motion should have a cause. If every element oscillates independently, the pet reads as noise.
 
-## V2 standard states
+## Current v2 client playback snapshot
 
 The current Codex v2 pack uses 192×208 cells in an 8-column × 11-row atlas. The final atlas is 1536×2288.
 
-| Row | Stable state ID | Used cells | Default timing |
+This snapshot was verified against Codex Desktop `26.721.41059` (build `5848`) on 2026-07-28. Treat the version and date as provenance, not as a promise that future clients remain identical.
+
+| Row | Stable state ID | Used cells | Current client base durations |
 | ---: | --- | ---: | --- |
 | 0 | `idle` | 6 | 280, 110, 110, 140, 140, 320 ms |
-| 1 | `running-right` | 8 | 120 ms each, final 220 ms |
-| 2 | `running-left` | 8 | 120 ms each, final 220 ms |
-| 3 | `waving` | 4 | 140 ms each, final 280 ms |
-| 4 | `jumping` | 5 | 140 ms each, final 280 ms |
-| 5 | `failed` | 8 | 140 ms each, final 240 ms |
-| 6 | `waiting` | 6 | 150 ms each, final 260 ms |
-| 7 | `running` | 6 | 120 ms each, final 220 ms |
-| 8 | `review` | 6 | 150 ms each, final 280 ms |
+| 1 | `running-right` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 2 | `running-left` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 3 | `waving` | 4 | 140, 140, 140, 280 ms |
+| 4 | `jumping` | 5 | 140, 140, 140, 140, 280 ms |
+| 5 | `failed` | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
+| 6 | `waiting` | 6 | 150, 150, 150, 150, 150, 260 ms |
+| 7 | `running` | 6 | 120, 120, 120, 120, 120, 220 ms |
+| 8 | `review` | 6 | 150, 150, 150, 150, 150, 280 ms |
 | 9 | `look-directions-a` | 8 | 000° through 157.5° clockwise |
 | 10 | `look-directions-b` | 8 | 180° through 337.5° clockwise |
 
-Treat these as the installed `$hatch-pet` contract. Re-read that skill before production because the upstream contract can change.
+For the current client:
 
-The atlas dimensions, row order, and used-cell counts belong to the v2 package contract. The timing values above are the current `$hatch-pet` and desktop-runtime defaults, not custom fields in `pet.json`. The package has no per-frame duration setting and no documented 5000 ms state or frame ceiling. Previewer timing edits are design and QA metadata; they help evaluate rhythm but do not change the installed client runtime.
+- each non-Idle action row plays three complete loops, then returns to Idle;
+- Idle plays with each row-0 base duration multiplied by six;
+- the package carries no per-frame duration, action-loop, Idle-multiplier, or display-size field;
+- display size is a client setting from 80 to 224 px.
+
+These are verified current-client facts, not a permanent public API. Re-read the installed `$hatch-pet` skill before production and prefer newer authoritative instructions when they differ.
+
+## Designing motion without editable timing
+
+The duration schedule is immutable from the pet package. Do not add timing controls to project JSON or imply that a Previewer can change the installed runtime. The animation's easing comes from what changes between the fixed slots.
+
+- **Long visual hold:** keep the main mass and focal feature nearly unchanged across adjacent slots; let only a blink, edge settle, or material micro-shift move.
+- **Short transition:** make one clear directional change between neighboring slots instead of distributing weak movement everywhere.
+- **Anticipation:** compress or counter-move before the accent, while keeping the attachment and center of mass legible.
+- **Accent:** reserve the largest silhouette or deformation difference for the state-defining pose.
+- **Follow-through:** let cloth, appendages, or props lag one slot behind the lead mass.
+- **Final settle:** use the longer final slot for a stable landing, acknowledgment, or seam that can return cleanly to frame 1.
+
+Repeated or near-repeated drawings are valid and often necessary. They create a hold under fixed time without inventing extra motion. Judge the result at 80, 144, and 224 px.
 
 ## State intentions
 
 ### `idle`
 
-Quiet presence with the lowest visual noise. It should preserve attention for the user's work. Use subtle breathing, blink, fold settling, or a restrained emergence. The first frame must also work as a reduced-motion still.
+Quiet presence with the lowest visual noise. Because the client multiplies the six base durations by six, avoid distributing large changes across the row. Keep most pose spacing tight, place one restrained breath/blink/fold change in the short middle slots, and use the 320 ms base final slot as the cleanest rest/seam. The first frame must also work as a reduced-motion still.
 
 ### `running-right` and `running-left`
 
-Screen-directional locomotion. Preserve the character's face and identity while letting body mass, fabric, appendages, or props show physical lag. Mirror only when handedness and asymmetric identity remain correct.
+Screen-directional locomotion. Use the seven 120 ms transition slots for a clear alternating gait or traveling mass cycle, then let the 220 ms final slot plant the weight. Preserve the character's face and identity while letting body mass, fabric, appendages, or props lag by a slot. Mirror only when handedness and asymmetric identity remain correct.
 
 ### `waving`
 
-A readable greeting or request for attention: notice, extend, acknowledge, and return. The gesture need not be a literal hand wave when another approved mechanism is more characteristic.
+A readable greeting or request for attention: notice, extend, acknowledge, and return. With only four slots, do not spend one on filler: use a neutral/notice pose, a clear extension, an acknowledgment/accent, and a 280 ms returned settle. The gesture need not be a literal hand wave when another approved mechanism is more characteristic.
 
 ### `jumping`
 
-Anticipation, launch, peak, descent, and settle. The silhouette must leave or clearly unload its baseline. Avoid universal springiness when the character's material suggests another motion.
+Map the five slots directly to anticipation, launch, peak, descent, and the 280 ms settle. The silhouette must leave or clearly unload its baseline. Use pose spacing to accelerate into lift and decelerate into landing; avoid universal springiness when the character's material suggests another motion.
 
 ### `failed`
 
-A concise deflation, error, or disappointment. Preserve dignity and identity. Avoid detached decorative effects as a substitute for acting.
+Use the eight slots for a readable recognition-to-deflation arc rather than eight equal shakes: hold the initial read briefly through close poses, concentrate collapse or recoil in a few middle transitions, then make the 240 ms final pose a dignified settled disappointment. Avoid detached decorative effects as a substitute for acting.
 
 ### `waiting`
 
-Expectant attention directed toward the user. It should feel different from idle through intention, placement, or repeated checking—not merely faster breathing.
+Expectant attention directed toward the user. Use the five 150 ms slots for a restrained ask/check/hesitate pattern and the 260 ms final slot for waiting without agitation. It should differ from Idle through intention, placement, or repeated checking—not merely larger breathing.
 
 ### `running`
 
-Active processing or task work, not literal left/right locomotion. Use curiosity, inspection, manipulation, pacing, or internal mechanism activity.
+Active processing or task work, not literal left/right locomotion. Use the five 120 ms slots for a compact purposeful cycle—curiosity, inspection, manipulation, pacing, or internal mechanism activity—and let the 220 ms final slot confirm or reset the task beat.
 
 ### `review`
 
-Focused inspection of completed output. Show attention moving through something, a measured check, and a conclusion or settle.
+Focused inspection of completed output. Use the five 150 ms slots to move attention through distinct checkpoints, not a generic oscillation, and use the 280 ms final slot for the conclusion or measured settle.
 
 ### look directions
 
@@ -102,11 +122,12 @@ Not every state needs all five visible frames. Map the semantic beats onto the a
 
 ## High-precision animation
 
-"Maximum precision" means using the available cells to describe physically meaningful transitions, not maximizing motion per frame.
+"Maximum precision" means using the fixed cells to describe physically meaningful transitions, not maximizing motion per frame or inventing editable milliseconds.
 
 - Keep anchors stable unless their movement communicates intention.
 - Use small non-linear differences between adjacent frames.
 - Let secondary elements lag by one logical beat.
 - Reserve the strongest shape change for the accent frame.
-- Spend enough time in rest and settle frames to avoid constant agitation.
-- Review at normal size and actual timing.
+- Use near-repeated poses to create visual holds where the fixed schedule needs stillness.
+- Put a stable pose in the longer final slot so the loop can settle.
+- Review at 80, 144, and 224 px at the current client cadence.

@@ -40,7 +40,8 @@ These must survive every state and regeneration.
 
 ## Desktop-scale test
 
-- Smallest intended display size:
+- Client display range: 80–224 px
+- Smallest intended display size within that range:
 - What must remain readable:
 - What may disappear:
 

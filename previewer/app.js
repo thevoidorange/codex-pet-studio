@@ -6,9 +6,11 @@
   const bundledConfig = window.PET_PREVIEW_CONFIG;
   const generatedAtlases = new Map();
   const failedGifs = new Set();
-  const TIMING_STEP_MS = 5;
-  const TIMING_MIN_MS = 20;
-  const TIMING_MAX_MS = 5000;
+  const FIXED_ACTION_LOOPS = 3;
+  const FIXED_IDLE_SLOWDOWN = 6;
+  const PREVIEW_SIZE_MIN_PX = 80;
+  const PREVIEW_SIZE_MAX_PX = 224;
+  const PREVIEW_SIZE_INITIAL_PX = 160;
   const LOOK_ORBIT_STEP_MS = 120;
   const TOUR_PROGRESS_STEP_MS = 160;
 
@@ -48,14 +50,6 @@
     stateTag: document.querySelector("#stateTag"),
     stateTitle: document.querySelector("#stateTitle"),
     stateTrigger: document.querySelector("#stateTrigger"),
-    timingDecreaseButton: document.querySelector("#timingDecreaseButton"),
-    timingDurationInput: document.querySelector("#timingDurationInput"),
-    timingEditor: document.querySelector("#timingEditor"),
-    timingIncreaseButton: document.querySelector("#timingIncreaseButton"),
-    timingResetStateButton: document.querySelector("#timingResetStateButton"),
-    timingStatus: document.querySelector("#timingStatus"),
-    timingUndoButton: document.querySelector("#timingUndoButton"),
-    timingUpdateButton: document.querySelector("#timingUpdateButton"),
     tourLabel: document.querySelector("#tourLabel"),
     tourProgress: document.querySelector("#tourProgress"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
@@ -66,7 +60,6 @@
 
   let config = null;
   let configBaseUrl = window.location.href;
-  let configIsWritableExternal = false;
   let locale = resolveInitialLocale();
   let activeVersionId = "";
   let activeStateIndex = 0;
@@ -76,7 +69,7 @@
   let isInspectingFrame = false;
   let sectionMode = "animation";
   let isPlaying = true;
-  let previewSizePercent = 100;
+  let previewSizePx = PREVIEW_SIZE_INITIAL_PX;
   let activeBackground = "paper";
   let frameTimer = null;
   let orbitTimer = null;
@@ -86,12 +79,6 @@
   let pageVisible = document.visibilityState !== "hidden";
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
-  let originalDurations = new Map();
-  let timingHistory = [];
-  let timingSelectedFrameIndex = 0;
-  let timingStatusKey = "";
-  let timingUpdatePending = false;
-  let timingWriteSession = { writable: false, token: "" };
   let gifRequestSerial = 0;
   let tourTimer = null;
   let tourProgressTimer = null;
@@ -216,32 +203,6 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  function withStateOverrides(baseStates, projectStates) {
-    if (!Array.isArray(projectStates)) {
-      return baseStates;
-    }
-
-    const overrides = new Map(
-      projectStates
-        .filter((item) => item && item.id)
-        .map((item) => [item.id, item]),
-    );
-    return baseStates.map((state) => {
-      const override = overrides.get(state.id);
-      if (!override) return state;
-      return {
-        ...state,
-        ...override,
-        id: state.id,
-        row: Number.isInteger(override.row) ? override.row : state.row,
-        durations:
-          Array.isArray(override.durations) && override.durations.length
-            ? override.durations
-            : state.durations,
-      };
-    });
-  }
-
   function withMechanicsOverrides(baseMechanics, projectMechanics) {
     if (!Array.isArray(projectMechanics)) {
       return baseMechanics;
@@ -332,28 +293,6 @@
     }
   }
 
-  async function loadTimingWriteSession() {
-    timingWriteSession = { writable: false, token: "" };
-    if (!configIsWritableExternal) return;
-
-    try {
-      const response = await window.fetch("/__pet-studio__/session", {
-        credentials: "same-origin",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) return;
-      const session = await response.json();
-      if (session?.writable === true && typeof session.token === "string") {
-        timingWriteSession = {
-          writable: true,
-          token: session.token,
-        };
-      }
-    } catch {
-      timingWriteSession = { writable: false, token: "" };
-    }
-  }
-
   function normalizeConfig(input, includeBundledExample = false) {
     const base = cloneValue(bundledConfig);
     const next = input && typeof input === "object" ? input : {};
@@ -363,20 +302,15 @@
         : null;
     const normalized = {
       ...base,
-      ...next,
       pet: { ...base.pet, ...(next.pet || {}) },
-      sprite: { ...base.sprite, ...(next.sprite || {}) },
-      runtime: { ...base.runtime, ...(next.runtime || {}) },
+      sprite: cloneValue(base.sprite),
       versions: projectVersions
         ? includeBundledExample
           ? withBundledExample(projectVersions, base.versions)
           : projectVersions
         : base.versions,
-      states: withStateOverrides(base.states, next.states),
-      directions:
-        Array.isArray(next.directions) && next.directions.length
-          ? next.directions
-          : base.directions,
+      states: cloneValue(base.states),
+      directions: cloneValue(base.directions),
       mechanics: withMechanicsOverrides(base.mechanics, next.mechanics),
       backgrounds:
         Array.isArray(next.backgrounds) && next.backgrounds.length
@@ -465,217 +399,33 @@
     return t(`directions.${direction.key}`);
   }
 
-  function totalDuration(state) {
-    return state.durations.reduce((sum, duration) => sum + duration, 0);
+  function runtimeFrameDuration(state, frameIndex) {
+    const baseDuration = state.durations[frameIndex];
+    return state.id === idleState().id
+      ? baseDuration * FIXED_IDLE_SLOWDOWN
+      : baseDuration;
   }
 
-  function originalDurationsFor(state) {
-    return originalDurations.get(state.id) || state.durations;
-  }
-
-  function durationsMatch(left, right) {
-    return (
-      left.length === right.length &&
-      left.every((duration, index) => duration === right[index])
-    );
-  }
-
-  function timingStateIsDirty(state) {
-    return !durationsMatch(state.durations, originalDurationsFor(state));
-  }
-
-  function dirtyTimingStates() {
-    return config.states.filter(timingStateIsDirty);
-  }
-
-  function normalizeTimingDuration(value) {
-    if (String(value).trim() === "") return null;
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return null;
-    if (numeric < TIMING_MIN_MS || numeric > TIMING_MAX_MS) return null;
-    const stepped = Math.round(numeric / TIMING_STEP_MS) * TIMING_STEP_MS;
-    return stepped;
-  }
-
-  function pushTimingHistory(state, before) {
-    timingHistory.push({
-      stateId: state.id,
-      before,
-    });
-    if (timingHistory.length > 100) timingHistory.shift();
-  }
-
-  function latestTimingHistoryIndex(stateId) {
-    for (let index = timingHistory.length - 1; index >= 0; index -= 1) {
-      if (timingHistory[index].stateId === stateId) return index;
-    }
-    return -1;
-  }
-
-  function timingUpdatePayload() {
-    if (!configIsWritableExternal) return null;
-    return {
-      configPath: new URL(configBaseUrl).pathname,
-      states: dirtyTimingStates().map((state) => ({
-        id: state.id,
-        durations: [...state.durations],
-      })),
-    };
-  }
-
-  function setTimingStatus(messageKey) {
-    timingStatusKey = messageKey || "";
-    elements.timingStatus.textContent = timingStatusKey
-      ? t(timingStatusKey)
-      : "";
-  }
-
-  function renderTimingEditor() {
-    const state = currentState();
-    timingSelectedFrameIndex = Math.min(
-      timingSelectedFrameIndex,
-      state.durations.length - 1,
-    );
-    const selectedDuration = state.durations[timingSelectedFrameIndex];
-    const dirtyStates = dirtyTimingStates();
-
-    elements.timingDurationInput.setAttribute(
-      "aria-label",
-      t("ui.frameDuration", {
-        frame: timingSelectedFrameIndex + 1,
-      }),
-    );
-    elements.timingDurationInput.value = String(selectedDuration);
-    elements.timingDurationInput.removeAttribute("aria-invalid");
-    elements.timingDurationInput.disabled = timingUpdatePending;
-    elements.timingDecreaseButton.disabled =
-      timingUpdatePending || selectedDuration <= TIMING_MIN_MS;
-    elements.timingIncreaseButton.disabled =
-      timingUpdatePending || selectedDuration >= TIMING_MAX_MS;
-    elements.timingUndoButton.disabled =
-      timingUpdatePending || latestTimingHistoryIndex(state.id) < 0;
-    elements.timingResetStateButton.disabled =
-      timingUpdatePending || !timingStateIsDirty(state);
-    elements.timingUpdateButton.disabled =
-      timingUpdatePending ||
-      !configIsWritableExternal ||
-      !timingWriteSession.writable ||
-      dirtyStates.length === 0;
-    elements.timingUpdateButton.setAttribute(
-      "title",
-      t(
-        configIsWritableExternal && timingWriteSession.writable
-          ? "ui.updateTimingTitle"
-          : "ui.updateTimingUnavailableTitle",
-      ),
-    );
-  }
-
-  function refreshTimingDependentViews({ reschedule = false } = {}) {
-    renderStateList();
-    renderDetails();
-    renderFrameStrip();
-    refreshMechanicsDurations(currentState());
-    renderControlLabels();
-    renderTimingEditor();
-    renderTourStatus();
-    if (reschedule) scheduleNextFrame();
-  }
-
-  function updateSelectedTiming(value) {
-    const state = currentState();
-    const normalized = normalizeTimingDuration(value);
-    if (normalized === null) {
-      elements.timingDurationInput.setAttribute("aria-invalid", "true");
-      setTimingStatus("ui.timingInvalid");
-      return;
-    }
-    elements.timingDurationInput.removeAttribute("aria-invalid");
-
-    const currentDuration = state.durations[timingSelectedFrameIndex];
-    if (currentDuration === normalized) {
-      elements.timingDurationInput.value = String(normalized);
-      return;
-    }
-
-    pushTimingHistory(state, [...state.durations]);
-    state.durations[timingSelectedFrameIndex] = normalized;
-    setTimingStatus("");
-    refreshTimingDependentViews({
-      reschedule:
-        shouldScheduleFrames() &&
-        displayedState().id === state.id &&
-        activeFrameIndex === timingSelectedFrameIndex,
-    });
-  }
-
-  function stepSelectedTiming(delta) {
-    const state = currentState();
-    const nextDuration = Math.min(
-      TIMING_MAX_MS,
-      Math.max(
-        TIMING_MIN_MS,
-        state.durations[timingSelectedFrameIndex] + delta,
-      ),
-    );
-    updateSelectedTiming(nextDuration);
-  }
-
-  function undoTimingChange() {
-    const state = currentState();
-    const historyIndex = latestTimingHistoryIndex(state.id);
-    if (historyIndex < 0) return;
-    const [entry] = timingHistory.splice(historyIndex, 1);
-    state.durations = [...entry.before];
-    timingSelectedFrameIndex = Math.min(
-      timingSelectedFrameIndex,
-      state.durations.length - 1,
-    );
-    setTimingStatus("ui.timingUndone");
-    refreshTimingDependentViews({ reschedule: shouldScheduleFrames() });
-  }
-
-  function resetCurrentStateTiming() {
-    const state = currentState();
-    if (!timingStateIsDirty(state)) return;
-    pushTimingHistory(state, [...state.durations]);
-    state.durations = [...originalDurationsFor(state)];
-    setTimingStatus("ui.timingReset");
-    refreshTimingDependentViews({ reschedule: shouldScheduleFrames() });
-  }
-
-  async function updateTimingConfig() {
-    const payload = timingUpdatePayload();
-    if (!payload || !payload.states.length) return;
-
-    timingUpdatePending = true;
-    setTimingStatus("ui.timingUpdating");
-    renderTimingEditor();
-
-    try {
-      const response = await window.fetch("/__pet-studio__/timing", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Pet-Studio-Token": timingWriteSession.token,
-        },
-        body: JSON.stringify(payload),
+  function runtimeDurationLabel(state, frameIndex) {
+    const baseDuration = state.durations[frameIndex];
+    if (state.id === idleState().id) {
+      return t("ui.idleFrameDuration", {
+        duration: baseDuration,
+        multiplier: FIXED_IDLE_SLOWDOWN,
       });
-      if (!response.ok) throw new Error(`Timing update failed: ${response.status}`);
-
-      payload.states.forEach((state) => {
-        originalDurations.set(state.id, [...state.durations]);
-      });
-      timingHistory = [];
-      timingUpdatePending = false;
-      setTimingStatus("ui.timingUpdateSuccess");
-      refreshTimingDependentViews();
-    } catch {
-      timingUpdatePending = false;
-      setTimingStatus("ui.timingUpdateFailed");
-      renderTimingEditor();
     }
+    return t("ui.frameDurationFixed", { duration: baseDuration });
+  }
+
+  function totalDuration(state, runtimeEffective = false) {
+    return state.durations.reduce(
+      (sum, _duration, index) =>
+        sum +
+        (runtimeEffective
+          ? runtimeFrameDuration(state, index)
+          : state.durations[index]),
+      0,
+    );
   }
 
   function gridPosition(column, row) {
@@ -930,20 +680,10 @@
         const copy = stateCopy(state);
         return `
           <button
-            class="state-button ${
-              index === activeStateIndex ? "is-active" : ""
-            } ${timingStateIsDirty(state) ? "has-timing-draft" : ""}"
+            class="state-button ${index === activeStateIndex ? "is-active" : ""}"
             data-state-index="${index}"
             type="button"
-            aria-label="${escapeHtml(
-              [copy.title, copy.label]
-                .concat(
-                  timingStateIsDirty(state)
-                    ? [t("ui.timingDraftIndicator")]
-                    : [],
-                )
-                .join(" · "),
-            )}"
+            aria-label="${escapeHtml([copy.title, copy.label].join(" · "))}"
           >
             <span class="state-index">${String(index + 1).padStart(2, "0")}</span>
             <span class="state-name">
@@ -970,7 +710,7 @@
       return t("ui.runtimeIdleNote");
     }
     return t("ui.runtimeActionNote", {
-      loops: config.runtime.actionLoops,
+      loops: FIXED_ACTION_LOOPS,
     });
   }
 
@@ -984,7 +724,7 @@
     elements.stateTrigger.textContent = copy.trigger;
     elements.stateDuration.textContent = t("ui.duration", {
       frames: state.durations.length,
-      seconds: (totalDuration(state) / 1000).toFixed(2),
+      seconds: (totalDuration(state, true) / 1000).toFixed(2),
       runtimeNote: runtimeNoteFor(state),
     });
     const alt = t("ui.assetAlt", {
@@ -1005,7 +745,6 @@
 
   function renderFrameStrip() {
     const state = currentState();
-    const original = originalDurationsFor(state);
     elements.frameStrip.innerHTML = state.durations
       .map(
         (duration, index) => `
@@ -1016,21 +755,20 @@
               (isInspectingFrame || playbackMode === "runtime")
                 ? "is-active"
                 : ""
-            } ${
-              index === timingSelectedFrameIndex
-                ? "is-timing-selected"
-                : ""
-            } ${duration !== original[index] ? "is-dirty" : ""}"
+            }"
             data-frame-index="${index}"
             type="button"
             aria-label="${escapeHtml(
               t("ui.frameAria", {
                 frame: index + 1,
-                duration: Number(duration),
+                duration: runtimeDurationLabel(state, index),
               }),
             )}"
           >
             <span class="frame-thumbnail" style="${frameThumbnailStyle(state, index)}"></span>
+            <small class="frame-duration">${escapeHtml(
+              runtimeDurationLabel(state, index),
+            )}</small>
           </button>
         `,
       )
@@ -1039,11 +777,8 @@
     frameButtons = [...elements.frameStrip.querySelectorAll(".frame-button")];
     frameButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        timingSelectedFrameIndex = Number(button.dataset.frameIndex);
-        setTimingStatus("");
         enterFrameInspection();
         setFrame(Number(button.dataset.frameIndex));
-        renderFrameStrip();
       });
     });
   }
@@ -1101,7 +836,9 @@
                 <span class="mechanics-copy">
                   <span class="mechanics-frame-meta">
                     <span>F${index + 1}</span>
-                    <span class="mechanics-duration">${Number(duration)} ms</span>
+                    <span class="mechanics-duration">${escapeHtml(
+                      runtimeDurationLabel(state, index),
+                    )}</span>
                   </span>
                   <strong>${escapeHtml(
                     (Array.isArray(board.anchors) && board.anchors[index]) ||
@@ -1146,16 +883,6 @@
           });
         });
       });
-  }
-
-  function refreshMechanicsDurations(state) {
-    state.durations.forEach((duration, index) => {
-      const card = elements.mechanicsRows.querySelector(
-        `.mechanics-card[data-state-id="${state.id}"][data-frame-index="${index}"]`,
-      );
-      const durationNode = card?.querySelector(".mechanics-duration");
-      if (durationNode) durationNode.textContent = `${Number(duration)} ms`;
-    });
   }
 
   function renderDirectionList() {
@@ -1243,7 +970,7 @@
           ? "ui.gifModeHelp"
           : "ui.runtimeModeHelp",
       {
-        loops: config.runtime.actionLoops,
+        loops: FIXED_ACTION_LOOPS,
       },
     );
     elements.previewModeHelp.textContent = modeHelp;
@@ -1333,7 +1060,7 @@
       } else {
         elements.frameReadout.textContent = t("ui.runtimeLoopReadout", {
           loop: runtimeLoopsCompleted + 1,
-          loops: config.runtime.actionLoops,
+          loops: FIXED_ACTION_LOOPS,
           frame: activeFrameIndex + 1,
           count: state.durations.length,
         });
@@ -1435,7 +1162,7 @@
         : currentState().id === idleState().id
           ? t("ui.runtimeIdle")
           : t("ui.runtimeAction", {
-              loops: config.runtime.actionLoops,
+              loops: FIXED_ACTION_LOOPS,
             });
   }
 
@@ -1449,10 +1176,6 @@
         index === activeFrameIndex &&
           !runtimeFellBack &&
           (isInspectingFrame || playbackMode === "runtime"),
-      );
-      button.classList.toggle(
-        "is-timing-selected",
-        index === timingSelectedFrameIndex,
       );
     });
   }
@@ -1485,11 +1208,6 @@
     activeFrameIndex =
       ((index % state.durations.length) + state.durations.length) %
       state.durations.length;
-    if (isInspectingFrame && state.id === currentState().id) {
-      timingSelectedFrameIndex = activeFrameIndex;
-      setTimingStatus("");
-      renderTimingEditor();
-    }
     setSpriteFrame(state.row, activeFrameIndex);
     refreshActiveClasses();
     renderFrameReadout();
@@ -1510,12 +1228,7 @@
     if (!shouldScheduleFrames()) return;
 
     const state = displayedState();
-    const slowdown =
-      playbackMode === "runtime" &&
-      (runtimeFellBack || currentState().id === idleState().id)
-        ? config.runtime.idleSlowdown
-        : 1;
-    const delay = state.durations[activeFrameIndex] * slowdown;
+    const delay = runtimeFrameDuration(state, activeFrameIndex);
 
     frameTimer = window.setTimeout(() => {
       const wrapped = activeFrameIndex + 1 >= state.durations.length;
@@ -1527,7 +1240,7 @@
         currentState().id !== idleState().id
       ) {
         runtimeLoopsCompleted += 1;
-        if (runtimeLoopsCompleted >= config.runtime.actionLoops) {
+        if (runtimeLoopsCompleted >= FIXED_ACTION_LOOPS) {
           runtimeFellBack = true;
           activeFrameIndex = 0;
           renderPlayer();
@@ -1590,14 +1303,21 @@
   function setPreviewSize(value) {
     const numericValue = Number(value);
     const boundedValue = Number.isFinite(numericValue)
-      ? Math.min(150, Math.max(60, numericValue))
-      : 100;
-    previewSizePercent = Math.round(boundedValue / 5) * 5;
-    elements.previewSizeInput.value = String(previewSizePercent);
-    elements.previewSizeValue.textContent = `${previewSizePercent}%`;
+      ? Math.min(
+          PREVIEW_SIZE_MAX_PX,
+          Math.max(PREVIEW_SIZE_MIN_PX, numericValue),
+        )
+      : PREVIEW_SIZE_INITIAL_PX;
+    previewSizePx = Math.round(boundedValue);
+    elements.previewSizeInput.value = String(previewSizePx);
+    elements.previewSizeValue.textContent = `${previewSizePx} px`;
     elements.stage.style.setProperty(
-      "--preview-scale",
-      String(previewSizePercent / 100),
+      "--preview-width",
+      `${previewSizePx}px`,
+    );
+    elements.stage.style.setProperty(
+      "--preview-height",
+      `${Math.round((previewSizePx * 208) / 192)}px`,
     );
   }
 
@@ -1611,8 +1331,6 @@
       ((index % config.states.length) + config.states.length) %
       config.states.length;
     activeFrameIndex = 0;
-    timingSelectedFrameIndex = 0;
-    setTimingStatus("");
     resetRuntimePlayback();
     isInspectingFrame = false;
     isPlaying = true;
@@ -1621,7 +1339,6 @@
     renderDetails();
     renderControlLabels();
     renderFrameStrip();
-    renderTimingEditor();
     renderPlayer({ restartGif: playbackMode === "gif" });
     renderFrameReadout();
     scheduleNextFrame();
@@ -1647,7 +1364,6 @@
     isPlaying = true;
     renderControlLabels();
     renderDetails();
-    renderTimingEditor();
     renderPlayer({ restartGif: mode === "gif" });
     renderFrameReadout();
     refreshActiveClasses();
@@ -1680,7 +1396,6 @@
     if (isAnimation) {
       renderDetails();
       renderFrameStrip();
-      renderTimingEditor();
       renderPlayer();
       renderFrameReadout();
       scheduleNextFrame();
@@ -1865,8 +1580,8 @@
     const state = config.states[tourState.index];
     const runtimeMultiplier =
       state.id === idleState().id
-        ? config.runtime.idleSlowdown
-        : config.runtime.actionLoops;
+        ? FIXED_IDLE_SLOWDOWN
+        : FIXED_ACTION_LOOPS;
     tourState.holdMs = Math.max(
       3600,
       totalDuration(state) * runtimeMultiplier,
@@ -1940,7 +1655,6 @@
     renderFrameStrip();
     renderMechanicsBoard();
     renderDetails();
-    renderTimingEditor();
     renderPlayer({
       restartGif: playbackMode === "gif" && !isInspectingFrame,
     });
@@ -1956,7 +1670,6 @@
     locale = supported;
     storeLocale(locale);
     applyStaticTranslations();
-    setTimingStatus(timingStatusKey);
     populateLanguageSelect();
     populateVersionSelect();
     renderStateList();
@@ -1964,7 +1677,6 @@
     else renderDetails();
     renderFrameStrip();
     renderMechanicsBoard();
-    renderTimingEditor();
     renderDirectionList();
     renderControlLabels();
     renderTourStatus();
@@ -1982,30 +1694,6 @@
     );
     elements.runtimeModeButton.addEventListener("click", () =>
       setPlaybackMode("runtime"),
-    );
-    elements.timingDecreaseButton.addEventListener("click", () =>
-      stepSelectedTiming(-TIMING_STEP_MS),
-    );
-    elements.timingIncreaseButton.addEventListener("click", () =>
-      stepSelectedTiming(TIMING_STEP_MS),
-    );
-    elements.timingDurationInput.addEventListener("change", () =>
-      updateSelectedTiming(elements.timingDurationInput.value),
-    );
-    elements.timingDurationInput.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      updateSelectedTiming(elements.timingDurationInput.value);
-      elements.timingDurationInput.select();
-    });
-    elements.timingUndoButton.addEventListener("click", undoTimingChange);
-    elements.timingResetStateButton.addEventListener(
-      "click",
-      resetCurrentStateTiming,
-    );
-    elements.timingUpdateButton.addEventListener(
-      "click",
-      updateTimingConfig,
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
@@ -2087,17 +1775,7 @@
   async function boot() {
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
-    const loadedUrl = new URL(loaded.baseUrl);
-    configIsWritableExternal =
-      loaded.isExternal &&
-      ["http:", "https:"].includes(loadedUrl.protocol) &&
-      loadedUrl.origin === window.location.origin;
     config = normalizeConfig(loaded.data, loaded.isExternal);
-    await loadTimingWriteSession();
-    originalDurations = new Map(
-      config.states.map((state) => [state.id, [...state.durations]]),
-    );
-    timingHistory = [];
     activeVersionId = initialVersionId();
     playbackMode =
       activeGifAvailability() === "available" ? "gif" : "runtime";
@@ -2113,7 +1791,7 @@
     renderTourStatus();
     attachEvents();
     setBackground(activeBackground);
-    setPreviewSize(previewSizePercent);
+    setPreviewSize(previewSizePx);
     setState(0);
     setSection("animation");
   }

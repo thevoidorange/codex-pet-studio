@@ -1,3 +1,5 @@
+// Project-facing preview data. The state rows and durations below mirror the
+// pinned client contract and are intentionally read-only in the Previewer.
 window.PET_PREVIEW_CONFIG = {
   schemaVersion: 1,
   pet: {
@@ -8,10 +10,6 @@ window.PET_PREVIEW_CONFIG = {
     rows: 11,
     frameWidth: 192,
     frameHeight: 208,
-  },
-  runtime: {
-    actionLoops: 3,
-    idleSlowdown: 6,
   },
   versions: [
     {

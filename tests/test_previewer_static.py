@@ -137,11 +137,8 @@ class PreviewerStaticTests(unittest.TestCase):
         )[0]
         observed = re.findall(r'stateId:\s*"([^"]+)"', mechanics_block)
         self.assertEqual(expected, observed)
-        self.assertIn("function withStateOverrides(", self.app)
-        self.assertIn(
-            "states: withStateOverrides(base.states, next.states)",
-            self.app,
-        )
+        self.assertNotIn("function withStateOverrides(", self.app)
+        self.assertIn("states: cloneValue(base.states)", self.app)
         self.assertIn("function withMechanicsOverrides(", self.app)
         self.assertIn(
             "mechanics: withMechanicsOverrides(base.mechanics, next.mechanics)",
@@ -283,10 +280,17 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)
         self.assertIn('id="previewSizeValue"', self.html)
-        self.assertIn("--preview-scale", self.css)
-        self.assertIn("transform: scale(var(--preview-scale));", self.css)
+        self.assertIn('min="80"', self.html)
+        self.assertIn('max="224"', self.html)
+        self.assertIn('value="160"', self.html)
+        self.assertIn("const PREVIEW_SIZE_MIN_PX = 80;", self.app)
+        self.assertIn("const PREVIEW_SIZE_MAX_PX = 224;", self.app)
+        self.assertIn("--preview-width", self.css)
+        self.assertIn("width: var(--preview-width);", self.css)
+        self.assertNotIn("--preview-scale", self.css)
         self.assertIn('elements.stage.style.setProperty(', self.app)
         self.assertIn('event.target.closest(".preview-size-control")', self.app)
+        self.assertNotIn("previewSizePercent", self.data)
 
     def test_all_state_autoplay_is_one_clear_toggle(self) -> None:
         self.assertIn('id="autoPlayStatesToggle"', self.html)
@@ -302,7 +306,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("Tour all states", self.i18n)
         self.assertNotIn("巡演全部状态", self.i18n)
 
-    def test_preview_timing_editor_is_live_bounded_and_updates_source(self) -> None:
+    def test_runtime_contract_is_fixed_read_only_and_visible(self) -> None:
         for element_id in (
             "timingEditor",
             "timingDurationInput",
@@ -312,128 +316,85 @@ class PreviewerStaticTests(unittest.TestCase):
             "timingResetStateButton",
             "timingUpdateButton",
         ):
-            self.assertIn(f'id="{element_id}"', self.html)
+            self.assertNotIn(f'id="{element_id}"', self.html)
 
-        for removed_id in (
-            "timingDurationLabel",
-            "timingLoopSummary",
-            "timingRangeNote",
-            "timingPrecisionNote",
-            "timingCopyButton",
-            "timingExportButton",
+        for removed in (
+            "TIMING_STEP_MS",
+            "TIMING_MIN_MS",
+            "TIMING_MAX_MS",
+            "timingSelectedFrameIndex",
+            "timingHistory",
+            "timingWriteSession",
+            "/__pet-studio__/session",
+            "/__pet-studio__/timing",
+            "withStateOverrides",
+            "config.runtime",
         ):
-            self.assertNotIn(f'id="{removed_id}"', self.html)
+            self.assertNotIn(removed, self.app)
+        self.assertNotIn("5000", self.html + self.app + self.i18n)
 
-        self.assertIn('step="5"', self.html)
-        self.assertIn('min="20"', self.html)
-        self.assertIn('max="5000"', self.html)
-        self.assertIn("const TIMING_STEP_MS = 5;", self.app)
-        self.assertIn("const TIMING_MIN_MS = 20;", self.app)
-        self.assertIn("const TIMING_MAX_MS = 5000;", self.app)
+        self.assertIn("const FIXED_ACTION_LOOPS = 3;", self.app)
+        self.assertIn("const FIXED_IDLE_SLOWDOWN = 6;", self.app)
+        self.assertIn("sprite: cloneValue(base.sprite)", self.app)
+        self.assertIn("states: cloneValue(base.states)", self.app)
+        self.assertIn("directions: cloneValue(base.directions)", self.app)
+        self.assertNotIn("...(next.sprite || {})", self.app)
+        self.assertNotIn("next.directions", self.app)
+        expected_contract = {
+            "idle": (0, [280, 110, 110, 140, 140, 320]),
+            "running-right": (1, [120, 120, 120, 120, 120, 120, 120, 220]),
+            "running-left": (2, [120, 120, 120, 120, 120, 120, 120, 220]),
+            "waving": (3, [140, 140, 140, 280]),
+            "jumping": (4, [140, 140, 140, 140, 280]),
+            "failed": (5, [140, 140, 140, 140, 140, 140, 140, 240]),
+            "waiting": (6, [150, 150, 150, 150, 150, 260]),
+            "running": (7, [120, 120, 120, 120, 120, 220]),
+            "review": (8, [150, 150, 150, 150, 150, 280]),
+        }
+        for state_id, (row, durations) in expected_contract.items():
+            match = re.search(
+                rf'id:\s*"{re.escape(state_id)}",\s*'
+                rf"row:\s*(\d+),\s*durations:\s*\[([^\]]+)\]",
+                self.data,
+            )
+            self.assertIsNotNone(match, state_id)
+            self.assertEqual(row, int(match.group(1)), state_id)
+            self.assertEqual(
+                durations,
+                [int(value.strip()) for value in match.group(2).split(",")],
+                state_id,
+            )
+        self.assertIn("function runtimeFrameDuration(state, frameIndex)", self.app)
         self.assertIn(
-            'if (String(value).trim() === "") return null;',
+            "? baseDuration * FIXED_IDLE_SLOWDOWN",
             self.app,
         )
         self.assertIn(
-            "if (numeric < TIMING_MIN_MS || numeric > TIMING_MAX_MS) "
-            "return null;",
+            "const delay = runtimeFrameDuration(state, activeFrameIndex);",
             self.app,
         )
         self.assertIn(
-            "state.durations[timingSelectedFrameIndex] = normalized;",
+            "if (runtimeLoopsCompleted >= FIXED_ACTION_LOOPS)",
             self.app,
         )
+        self.assertIn('class="frame-duration"', self.app)
+        self.assertIn("runtimeDurationLabel(state, index)", self.app)
         self.assertIn(
-            "const nextDuration = Math.min(",
+            'idleFrameDuration: "{duration} ms × {multiplier}"',
+            self.i18n,
+        )
+        self.assertIn(
+            'idleFrameDuration: "{duration} 毫秒 × {multiplier}"',
+            self.i18n,
+        )
+        self.assertIn('keyframes: "Keyframes"', self.i18n)
+        self.assertIn('keyframes: "关键帧"', self.i18n)
+        self.assertIn('class="mechanics-duration"', self.app)
+        self.assertIn(
+            "runtimeDurationLabel(state, index)",
             self.app,
         )
-        self.assertIn(
-            'elements.timingDurationInput.setAttribute("aria-invalid", "true");',
-            self.app,
-        )
-        self.assertIn(
-            'elements.timingDurationInput.removeAttribute("aria-invalid");',
-            self.app,
-        )
-        self.assertIn(
-            "const delay = state.durations[activeFrameIndex] * slowdown;",
-            self.app,
-        )
-        self.assertNotIn('class="frame-duration"', self.app)
-        self.assertNotIn('class="frame-number"', self.app)
-        self.assertIn('t("ui.frameAria"', self.app)
-        self.assertIn(
-            'index === timingSelectedFrameIndex',
-            self.app,
-        )
-        self.assertNotIn('id="timingToggleButton"', self.html)
-        self.assertNotIn('id="timingFrameList"', self.html)
-        viewer_panel = self.html.split(
-            '<section class="viewer-panel">',
-            1,
-        )[1].split('<aside class="detail-panel">', 1)[0]
-        detail_panel = self.html.split(
-            '<aside class="detail-panel">',
-            1,
-        )[1].split("</aside>", 1)[0]
-        self.assertNotIn('id="timingEditor"', viewer_panel)
-        self.assertLess(
-            detail_panel.index('id="frameStrip"'),
-            detail_panel.index('id="timingEditor"'),
-        )
-        self.assertIn("let timingStatusKey = \"\";", self.app)
-        self.assertIn("setTimingStatus(timingStatusKey);", self.app)
-        self.assertNotIn("timingPanelOpen", self.app)
-        self.assertNotIn("toggleTimingPanel", self.app)
-        self.assertIn("renderMechanicsBoard();", self.app)
-        self.assertIn("renderDetails();", self.app)
-        self.assertNotIn("window.navigator.clipboard.writeText(", self.app)
-        self.assertNotIn('anchor.download = "timing-overrides.json";', self.app)
-        self.assertIn("timingSelectedFrameIndex", self.app)
-        self.assertNotIn("GIFs store timing in 10 ms units", self.i18n)
-        self.assertNotIn("GIF 以 10 毫秒为单位记录节奏", self.i18n)
-        self.assertNotIn("Quiet Idle", self.i18n)
-        self.assertNotIn("安静待机时", self.i18n)
-        self.assertIn("timingDraftIndicator", self.i18n)
-        self.assertNotIn("manualBrowse", self.i18n)
-        self.assertIn(
-            "elements.tourProgress.hidden = !(",
-            self.app,
-        )
-
-        payload_function = self.app.split(
-            "function timingUpdatePayload()",
-            1,
-        )[1].split("\n  function ", 1)[0]
-        self.assertIn("configPath: new URL(configBaseUrl).pathname", payload_function)
-        self.assertIn("id: state.id", payload_function)
-        self.assertIn("durations: [...state.durations]", payload_function)
-        for private_field in ("pet:", "atlasUrl", "gifRoot"):
-            self.assertNotIn(private_field, payload_function)
-        self.assertIn('window.fetch("/__pet-studio__/session"', self.app)
-        self.assertIn('window.fetch("/__pet-studio__/timing"', self.app)
-        self.assertIn('"X-Pet-Studio-Token": timingWriteSession.token', self.app)
-        self.assertIn(
-            '["http:", "https:"].includes(loadedUrl.protocol)',
-            self.app,
-        )
-        self.assertIn(
-            "loadedUrl.origin === window.location.origin",
-            self.app,
-        )
-        self.assertIn(
-            "if (!configIsWritableExternal) return null;",
-            payload_function,
-        )
-        self.assertIn(
-            "if (!configIsWritableExternal) return;",
-            self.app,
-        )
-        self.assertIn("originalDurations.set(state.id", self.app)
-        self.assertIn("timingHistory = [];", self.app)
-        self.assertIn("timingUpdateSuccess", self.i18n)
-        self.assertIn("timingUpdateFailed", self.i18n)
-        self.assertNotIn("previewSizePercent", self.data)
+        self.assertIn("elements.tourProgress.hidden = !(", self.app)
 
     def test_look_controls_are_mutually_exclusive_toggles(self) -> None:
         self.assertRegex(
@@ -479,9 +440,8 @@ class PreviewerStaticTests(unittest.TestCase):
             'gifPlayback: "GIF Loop"',
             'gifPlaybackMissing: "GIF Loop · Not Generated"',
             'runtimeTiming: "Runtime Simulation"',
-            'undoTiming: "Undo"',
-            'resetStateTiming: "Reset"',
-            'updateTiming: "Update"',
+            'keyframes: "Keyframes"',
+            'mechanicsTitle: "Motion Timing Board"',
             'title: "Resting Nearby"',
             'label: "Move Right"',
             'title: "Moving Right"',
@@ -532,7 +492,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("speedSelect", self.app)
         self.assertNotIn("let speed =", self.app)
         self.assertIn(
-            "const delay = state.durations[activeFrameIndex] * slowdown;",
+            "const delay = runtimeFrameDuration(state, activeFrameIndex);",
             self.app,
         )
         self.assertIn("let gifRequestSerial = 0;", self.app)
@@ -605,14 +565,15 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("transform: scaleX(0);", self.css)
         self.assertIn("const TOUR_PROGRESS_STEP_MS = 160;", self.app)
 
-    def test_timing_edits_update_existing_mechanics_cards(self) -> None:
+    def test_fixed_timing_labels_cover_keyframes_and_mechanics_cards(self) -> None:
         self.assertIn('class="mechanics-duration"', self.app)
-        self.assertIn("function refreshMechanicsDurations(state)", self.app)
-        refresh_block = self.app.split(
-            "function refreshTimingDependentViews(", 1
-        )[1].split("function updateSelectedTiming(", 1)[0]
-        self.assertIn("refreshMechanicsDurations(currentState());", refresh_block)
-        self.assertNotIn("renderMechanicsBoard();", refresh_block)
+        self.assertIn('class="frame-duration"', self.app)
+        self.assertGreaterEqual(
+            self.app.count("runtimeDurationLabel(state, index)"),
+            3,
+        )
+        self.assertNotIn("refreshMechanicsDurations", self.app)
+        self.assertNotIn("updateSelectedTiming", self.app)
 
     def test_chinese_ui_copy_is_isolated_to_i18n(self) -> None:
         chinese = re.compile(r"[\u3400-\u9fff]")

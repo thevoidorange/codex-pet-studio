@@ -1,92 +1,18 @@
 from __future__ import annotations
 
-import http.client
-import http.server
-import importlib.util
 import json
 import struct
 import subprocess
 import sys
 import tempfile
-import threading
 import unittest
 import zipfile
 import zlib
-from contextlib import contextmanager
 from pathlib import Path
-from types import ModuleType
-from typing import Iterator
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".agents" / "skills" / "pet-studio" / "scripts" / "studio.py"
-
-
-def load_studio_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("pet_studio_cli_tests", SCRIPT)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot import {SCRIPT}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-STUDIO = load_studio_module()
-
-
-@contextmanager
-def preview_server(root: Path, *, writable: bool = True) -> Iterator[int]:
-    token = "unit-test-token" if writable else None
-    STUDIO.NoCacheHandler.project_root = root
-    STUDIO.NoCacheHandler.project_preview_dir = root / "previewer"
-    STUDIO.NoCacheHandler.timing_write_enabled = writable
-    STUDIO.NoCacheHandler.timing_write_token = token
-
-    def handler(*args: object, **kwargs: object) -> STUDIO.NoCacheHandler:
-        return STUDIO.NoCacheHandler(*args, directory=str(root), **kwargs)
-
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield int(server.server_address[1])
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=2)
-
-
-def request_json(
-    port: int,
-    method: str,
-    path: str,
-    payload: object | bytes | None = None,
-    *,
-    token: str | None = None,
-    host_header: str | None = None,
-) -> tuple[int, dict[str, object]]:
-    if isinstance(payload, bytes):
-        body = payload
-    elif payload is None:
-        body = None
-    else:
-        body = json.dumps(payload).encode("utf-8")
-    headers: dict[str, str] = {}
-    if body is not None:
-        headers["Content-Type"] = "application/json"
-    if token is not None:
-        headers["X-Pet-Studio-Token"] = token
-    if host_header is not None:
-        headers["Host"] = host_header
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-    try:
-        connection.request(method, path, body=body, headers=headers)
-        response = connection.getresponse()
-        result = json.loads(response.read().decode("utf-8"))
-        return response.status, result
-    finally:
-        connection.close()
 
 
 def png_chunk(kind: bytes, payload: bytes) -> bytes:
@@ -165,248 +91,17 @@ class StudioCliTests(unittest.TestCase):
             preview = self.run_cli("preview", "--root", str(root), "--check")
             self.assertIn("/previewer/", preview.stdout)
 
-    def test_preview_timing_endpoint_updates_only_durations_atomically(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.initialize(root)
-            (root / "previewer").mkdir()
-            (root / "previewer" / "index.html").write_text(
-                "<!doctype html>",
-                encoding="utf-8",
-            )
-            config_dir = root / "build" / "session with space"
-            config_dir.mkdir(parents=True)
-            preview_config = config_dir / "preview.json"
-            preview_config.write_text(
-                json.dumps(
-                    {
-                        "schemaVersion": 1,
-                        "pet": {"name": "Private Test Pet"},
-                        "versions": [{"id": "v001", "atlasUrl": "./sheet.webp"}],
-                        "states": [
-                            {
-                                "id": "waving",
-                                "label": "preserve-me",
-                                "durations": [140, 140, 140, 280],
-                            }
-                        ],
-                        "custom": {"preserve": True},
-                    },
-                    indent=2,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            previous_inode = preview_config.stat().st_ino
-
-            with preview_server(root) as port:
-                status, invalid_host = request_json(
-                    port,
-                    "GET",
-                    "/__pet-studio__/session",
-                    host_header="previewer.attacker.example",
-                )
-                self.assertEqual(421, status)
-                self.assertEqual("invalid_host", invalid_host["error"])
-                self.assertNotIn("token", invalid_host)
-
-                status, session = request_json(
-                    port,
-                    "GET",
-                    "/__pet-studio__/session",
-                )
-                self.assertEqual(200, status)
-                self.assertEqual(
-                    {"writable": True, "token": "unit-test-token"},
-                    session,
-                )
-
-                status, denied = request_json(
-                    port,
-                    "POST",
-                    "/__pet-studio__/timing",
-                    {
-                        "configPath": "/build/session%20with%20space/preview.json",
-                        "states": [
-                            {
-                                "id": "idle",
-                                "durations": [280, 110, 115, 140, 140, 320],
-                            }
-                        ],
-                    },
-                )
-                self.assertEqual(403, status)
-                self.assertEqual("invalid_token", denied["error"])
-
-                status, result = request_json(
-                    port,
-                    "POST",
-                    "/__pet-studio__/timing",
-                    {
-                        "configPath": "/build/session%20with%20space/preview.json",
-                        "states": [
-                            {
-                                "id": "idle",
-                                "durations": [280, 110, 115, 140, 140, 320],
-                            },
-                            {
-                                "id": "waving",
-                                "durations": [140, 150, 140, 280],
-                            },
-                        ],
-                    },
-                    token="unit-test-token",
-                )
-                self.assertEqual(200, status)
-                self.assertEqual(
-                    {
-                        "ok": True,
-                        "configPath": "build/session with space/preview.json",
-                        "updatedStates": ["idle", "waving"],
-                    },
-                    result,
-                )
-
-            updated = json.loads(preview_config.read_text(encoding="utf-8"))
-            self.assertEqual({"preserve": True}, updated["custom"])
-            self.assertEqual("Private Test Pet", updated["pet"]["name"])
-            states = {item["id"]: item for item in updated["states"]}
-            self.assertEqual(
-                [280, 110, 115, 140, 140, 320],
-                states["idle"]["durations"],
-            )
-            self.assertEqual(
-                [140, 150, 140, 280],
-                states["waving"]["durations"],
-            )
-            self.assertEqual("preserve-me", states["waving"]["label"])
-            self.assertNotEqual(previous_inode, preview_config.stat().st_ino)
-            self.assertEqual([], list(config_dir.glob(".preview.json.*.tmp")))
-
-    def test_preview_timing_endpoint_rejects_unsafe_targets_and_payloads(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.initialize(root)
-            (root / "previewer").mkdir()
-            (root / "previewer" / "index.html").write_text(
-                "<!doctype html>",
-                encoding="utf-8",
-            )
-            (root / "previewer" / "fixture.json").write_text(
-                '{"schemaVersion": 1}',
-                encoding="utf-8",
-            )
-            build_dir = root / "build"
-            build_dir.mkdir(exist_ok=True)
-            valid_config = build_dir / "preview.json"
-            valid_config.write_text(
-                '{"schemaVersion": 1, "versions": []}\n',
-                encoding="utf-8",
-            )
-            symlink_config = build_dir / "linked.json"
-            symlink_config.symlink_to(valid_config)
-            idle_update = {
-                "id": "idle",
-                "durations": [280, 110, 110, 140, 140, 320],
-            }
-
-            with preview_server(root) as port:
-                invalid_cases = (
-                    {
-                        "configPath": "/pet-studio.json",
-                        "states": [idle_update],
-                    },
-                    {
-                        "configPath": "/previewer/fixture.json",
-                        "states": [idle_update],
-                    },
-                    {
-                        "configPath": "/build/linked.json",
-                        "states": [idle_update],
-                    },
-                    {
-                        "configPath": "/build/%2e%2e/pet-studio.json",
-                        "states": [idle_update],
-                    },
-                    {
-                        "configPath": "/build/preview.json",
-                        "states": [
-                            {
-                                "id": "idle",
-                                "durations": [280, 110],
-                            }
-                        ],
-                    },
-                    {
-                        "configPath": "/build/preview.json",
-                        "states": [
-                            {
-                                "id": "unknown-state",
-                                "durations": [100],
-                            }
-                        ],
-                    },
-                    {
-                        "configPath": "/build/preview.json",
-                        "states": [
-                            {
-                                "id": "idle",
-                                "durations": [19, 110, 110, 140, 140, 320],
-                            }
-                        ],
-                    },
-                    {
-                        "configPath": "/build/preview.json",
-                        "states": [
-                            {
-                                "id": "idle",
-                                "durations": [280, 110, 110, 140, 140, 5001],
-                            }
-                        ],
-                    },
-                )
-                for payload in invalid_cases:
-                    with self.subTest(payload=payload):
-                        status, response = request_json(
-                            port,
-                            "POST",
-                            "/__pet-studio__/timing",
-                            payload,
-                            token="unit-test-token",
-                        )
-                        self.assertEqual(400, status)
-                        self.assertEqual("invalid_timing_update", response["error"])
-
-                status, response = request_json(
-                    port,
-                    "POST",
-                    "/__pet-studio__/timing",
-                    b"x" * (STUDIO.MAX_TIMING_REQUEST_BYTES + 1),
-                    token="unit-test-token",
-                )
-                self.assertEqual(413, status)
-                self.assertEqual("request_too_large", response["error"])
-
-            with preview_server(root, writable=False) as port:
-                status, session = request_json(
-                    port,
-                    "GET",
-                    "/__pet-studio__/session",
-                )
-                self.assertEqual(200, status)
-                self.assertEqual({"writable": False, "token": None}, session)
-                status, response = request_json(
-                    port,
-                    "POST",
-                    "/__pet-studio__/timing",
-                    {
-                        "configPath": "/build/preview.json",
-                        "states": [idle_update],
-                    },
-                    token="unit-test-token",
-                )
-                self.assertEqual(403, status)
-                self.assertEqual("read_only", response["error"])
+    def test_preview_server_has_no_timing_write_api(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in (
+            "/__pet-studio__/session",
+            "/__pet-studio__/timing",
+            "timing_write_token",
+            "timing_write_enabled",
+            "def do_POST",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, source)
 
     def test_validate_png_and_webp_v2(self) -> None:
         for suffix, image in (

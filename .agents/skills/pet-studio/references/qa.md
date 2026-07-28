@@ -39,7 +39,7 @@ Symptoms:
 
 Prevention:
 
-- define intention, location, silhouette, and rhythm before drawing
+- define intention, location, silhouette, and fixed-slot rhythm before drawing
 - use different approved ranges of the same mechanisms
 - compare state stills without labels
 
@@ -56,7 +56,7 @@ Prevention:
 
 - define the lead element
 - allocate a stillness budget
-- use restrained easing and damping
+- create restrained easing through pose spacing and material deformation
 
 ### Human-like anatomy
 
@@ -104,11 +104,11 @@ Use `$hatch-pet` for the authoritative production checks. Use `studio.py validat
 ## Review protocol
 
 1. Inspect the contact sheet.
-2. Inspect each state as an actual-speed loop.
+2. Inspect each state at the current fixed client cadence.
 3. Inspect first frame, accent frame, and loop seam.
 4. Compare unlabeled state stills for semantic distinction.
 5. Inspect the 16 direction cells as one ordered loop.
-6. Review at normal desktop-pet size.
+6. Review at 80, 144, and 224 px.
 7. Record `pass`, `warning`, or `fail`.
 
 Warnings remain visible in the release summary. A repaired visual row requires independent review or explicit user inspection before packaging.

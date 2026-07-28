@@ -56,7 +56,7 @@ Keep private project artifacts under `design/`, using the matching English templ
 - Preserve asymmetry, restraint, oddness, or subtlety when those are deliberate.
 - Avoid generic “cute pet” defaults unless the user asks for them.
 - Judge states at real desktop scale, not only on large artboards.
-- Distinguish states through intention, spatial composition, timing, and physical response—not only eye direction or small limb changes.
+- Distinguish states through intention, spatial composition, pose spacing, and physical response—not only eye direction or small limb changes.
 - Use motion to express personality.
 - Prefer a few strong, reviewable variations over a large undirected batch.
 
@@ -93,9 +93,23 @@ For each state, define:
 - anticipation, action, settle, and loop behavior;
 - differences from neighboring states;
 - transitions into and out of the state;
-- frame and timing needs.
+- how the required poses map onto the fixed frame slots and client durations.
 
 Do not use maximal movement everywhere. Quiet states may be subtle, but they must still be legible and intentional.
+
+## Current client playback snapshot
+
+Treat runtime behavior as a current-client snapshot, not a permanent public API. Before production, re-read the installed `$hatch-pet` skill and update the project only when newer authoritative instructions disagree.
+
+In the current v2 client:
+
+- the nine standard animation rows have fixed used-cell counts and fixed per-cell durations;
+- each non-Idle action plays three loops, then returns to Idle;
+- Idle plays at six times the listed base durations;
+- `pet.json` carries no frame-duration, loop-count, Idle-multiplier, or display-size fields;
+- pet display size is a client setting from 80 to 224 px.
+
+Do not promise that a Previewer value changes runtime timing. The creative control surface is the drawing inside the immutable slots: pose spacing, silhouette change, deformation, anticipation, follow-through, and which slot receives the visual hold. Prefer long visual holds, short readable transitions, and a settled final frame.
 
 ## Version rules
 
@@ -123,7 +137,7 @@ Preview work before claiming completion.
 - motion has continuity, weight, anticipation, and settling;
 - loops do not pop at their seam;
 - moving left and right preserve approved physical details;
-- frame cadence is appropriate rather than uniformly bouncy;
+- fixed-slot pose spacing feels intentional rather than uniformly bouncy;
 - expressive elements do not drift away from their intended attachment points.
 
 ### Pack QA
@@ -132,7 +146,8 @@ Preview work before claiming completion.
 - transparency is clean;
 - no frame is clipped;
 - state rows and direction cells map correctly;
-- timing metadata matches the approved motion;
+- used-cell counts match the current client contract;
+- motion was reviewed at the current fixed client cadence;
 - previews match the packaged assets;
 - installation is verified before reporting success.
 

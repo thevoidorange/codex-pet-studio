@@ -102,7 +102,7 @@ Evaluate contrast on four axes:
 | Intention | Does the state want something different? |
 | Location | Does the focal feature occupy a meaningfully different area? |
 | Silhouette | Is the pose recognizable without interior detail? |
-| Rhythm | Does its timing differ for a reason? |
+| Rhythm | Does its pose spacing create a distinct rhythm inside the fixed client schedule? |
 
 Subtle motion is acceptable. Identical composition across most states is not.
 

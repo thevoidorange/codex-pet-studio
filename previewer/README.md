@@ -64,9 +64,29 @@ The bundled defaults use the Codex v2 identifiers:
 - `running`
 - `review`
 
-An external config may override state timing, labels, descriptions, mechanics boards, backgrounds, and runtime behavior. Missing values fall back to `preview-data.js`.
+State rows, frame counts, per-frame durations, action-loop count, and Idle slowdown are fixed by the current Codex desktop runtime. External Previewer JSON cannot override them. A project may still provide localized labels and descriptions, mechanics-board copy, backgrounds, versions, and asset paths.
 
-The Production Timing Board always covers all nine standard states in atlas-row order. Partial `states` and `mechanics` overrides are merged by `id` and `stateId`, so a project can replace one state's durations or anchors without making the other eight states disappear.
+The Motion Timing Board always covers all nine standard states in atlas-row order. Partial `mechanics` overrides are merged by `stateId`, so a project can replace one state's anchors without making the other eight states disappear.
+
+## Fixed desktop runtime contract
+
+The Previewer pins the current Codex v2 desktop cadence:
+
+This snapshot was verified against Codex Desktop `26.721.41059` (build `5848`) on 2026-07-28. Re-check it when the installed client or `$hatch-pet` contract changes.
+
+| State | Row | Fixed base durations |
+| --- | ---: | --- |
+| `idle` | 0 | `280, 110, 110, 140, 140, 320 ms`, each multiplied by `6` at runtime |
+| `running-right` | 1 | `120, 120, 120, 120, 120, 120, 120, 220 ms` |
+| `running-left` | 2 | `120, 120, 120, 120, 120, 120, 120, 220 ms` |
+| `waving` | 3 | `140, 140, 140, 280 ms` |
+| `jumping` | 4 | `140, 140, 140, 140, 280 ms` |
+| `failed` | 5 | `140, 140, 140, 140, 140, 140, 140, 240 ms` |
+| `waiting` | 6 | `150, 150, 150, 150, 150, 260 ms` |
+| `running` | 7 | `120, 120, 120, 120, 120, 220 ms` |
+| `review` | 8 | `150, 150, 150, 150, 150, 280 ms` |
+
+Non-Idle actions play exactly three loops, then return to the slowed Idle loop. These values are client behavior, not editable Pet Pack fields. The pack itself contains the atlas and basic manifest only.
 
 ## Localized project copy
 
@@ -95,25 +115,17 @@ Keep reusable identifiers in English. Add pet-specific user-facing copy without 
 }
 ```
 
-The language and version selectors preserve the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata.
+The language and version selectors preserve the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the fixed contract above.
 
 ## Playback modes and display size
 
 - **GIF Loop** plays the native exported QA GIF at its encoded timing. When a state has no exported GIF, the mode is disabled and visibly marked as not generated; the Previewer never silently substitutes atlas playback.
-- **Runtime Simulation** uses Previewer metadata for frame durations, action-loop count, and slowed Idle behavior. It is a production approximation, not an exact trace of the Codex client.
+- **Runtime Simulation** reproduces the pinned current Codex desktop cadence: fixed per-frame durations, three action loops, then 6× Idle.
 - **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected GIF Loop or Runtime Simulation. A browser cannot freeze a native GIF at its exact internal frame, so GIF inspection opens the corresponding atlas sequence instead.
 
-**Keyframes & Timing** combines frame inspection and duration editing in the right rail. Select a keyframe to inspect it and edit its duration in 5 ms steps. Runtime Simulation and the Production Timing Board update immediately. The selected timing frame stays pinned while playback continues.
+**Keyframes** is read-only. Each thumbnail shows its fixed runtime duration; Idle shows the base duration together with its `× 6` runtime multiplier. Selecting a thumbnail opens frame inspection without changing the source JSON.
 
-When the page is opened through `studio.py preview` with an external project config, **Update Timing** writes all dirty `states[].durations` directly to that same JSON file. State timing is project-level metadata, so it is shared by every visual version in that config. **Undo** reverses the latest draft change in the current state. **Reset** restores the last loaded or successfully updated values. A successful update becomes the new baseline and clears the draft history.
-
-The write endpoint exists only on the loopback Studio Preview server. It uses a session token, accepts only same-project JSON paths, rejects symlinks and protected files, validates state IDs and frame counts, and atomically replaces the source file. The bundled example, a page opened from `file://`, a remote config, or a network-exposed preview server is read-only. Use the Studio server rather than a generic static file server when you want direct updates.
-
-The 5 ms step and the editor's input bounds are Previewer product guardrails, not Codex Pet technical limits. A v2 Pet package does not carry custom frame durations. Likewise, `actionLoops: 3` and `idleSlowdown: 6` mirror the current desktop runtime cadence for review, but they are not fields written into the installed pet package and may change with the client.
-
-Updating the Preview JSON does not regenerate GIFs or alter the installed Codex pet. GIF timing remains whatever was encoded when that GIF was exported.
-
-The **Size** slider in the upper-right corner of the grid stage changes only the displayed preview scale. It never resizes, rewrites, or re-exports the spritesheet or GIF.
+The **Size** slider in the upper-right corner of the grid stage mirrors the desktop setting range of `80–224 px`. It changes only the displayed preview size and never resizes, rewrites, or re-exports the spritesheet or GIF.
 
 The bundled geometric Example includes native GIFs for all nine standard states,
 so both playback modes remain testable even before a user project has exported
