@@ -20,16 +20,7 @@ window.PET_PREVIEW_CONFIG = {
       statusKey: "ui.currentVersion",
       atlasUrl: "./sample-assets/v002/spritesheet.png",
       gifRoot: "./sample-assets/v002/gifs",
-      sampleVariant: 2,
       isDefault: true,
-    },
-    {
-      id: "v001",
-      displayName: "v001",
-      statusKey: "ui.baselineVersion",
-      atlasUrl: "./sample-assets/v001/spritesheet.png",
-      gifRoot: "./sample-assets/v001/gifs",
-      sampleVariant: 1,
     },
   ],
   states: [

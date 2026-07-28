@@ -768,7 +768,6 @@
     const durationCount = Math.max(2, state.durations.length);
     const phase = Math.min(column, durationCount - 1) / (durationCount - 1);
     const wave = Math.sin(phase * Math.PI * 2);
-    const variant = version.sampleVariant || 1;
 
     let offsetX = 0;
     let offsetY = 0;
@@ -822,20 +821,11 @@
     context.scale(scaleX, scaleY);
     context.fillStyle = "#111111";
     context.beginPath();
-    if (variant >= 2) {
-      context.moveTo(-52, 42);
-      context.bezierCurveTo(-60, 17, -54, -35, -30, -53);
-      context.bezierCurveTo(-10, -68, 30, -62, 46, -38);
-      context.bezierCurveTo(62, -14, 58, 24, 50, 43);
-      context.quadraticCurveTo(0, 56, -52, 42);
-    } else {
-      context.moveTo(-52, 43);
-      context.lineTo(-47, -23);
-      context.quadraticCurveTo(-43, -55, -8, -60);
-      context.lineTo(42, -38);
-      context.lineTo(53, 42);
-      context.quadraticCurveTo(0, 53, -52, 43);
-    }
+    context.moveTo(-52, 42);
+    context.bezierCurveTo(-60, 17, -54, -35, -30, -53);
+    context.bezierCurveTo(-10, -68, 30, -62, 46, -38);
+    context.bezierCurveTo(62, -14, 58, 24, 50, 43);
+    context.quadraticCurveTo(0, 56, -52, 42);
     context.closePath();
     context.fill();
 

@@ -5,7 +5,7 @@ Previewer. They are not derived from a contributor's pet, artwork, photographs,
 or private project. They are generated deterministically by the checked-in
 script without a generative model or third-party artwork.
 
-Each sample version includes:
+The bundled `v002` sample uses the approved smooth silhouette and includes:
 
 - one static v2 spritesheet used by Runtime Simulation and frame inspection;
 - one native exported GIF for every standard state used by GIF Loop.

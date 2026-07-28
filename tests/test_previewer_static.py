@@ -209,7 +209,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("version && version.isBundledExample", self.app)
         self.assertIn("? window.location.href", self.app)
 
-    def test_bundled_example_has_native_gifs(self) -> None:
+    def test_bundled_example_uses_only_the_smooth_native_gif_set(self) -> None:
         expected_states = {
             "idle": (280, 110, 110, 140, 140, 320),
             "running-right": (120, 120, 120, 120, 120, 120, 120, 220),
@@ -221,35 +221,39 @@ class PreviewerStaticTests(unittest.TestCase):
             "running": (120, 120, 120, 120, 120, 220),
             "review": (150, 150, 150, 150, 150, 280),
         }
-        for version_id in ("v001", "v002"):
-            version_root = PREVIEWER / "sample-assets" / version_id
-            atlas = version_root / "spritesheet.png"
-            self.assertTrue(atlas.is_file(), atlas)
-            atlas_data = atlas.read_bytes()
-            self.assertEqual(b"\x89PNG\r\n\x1a\n", atlas_data[:8])
+        version_id = "v002"
+        version_root = PREVIEWER / "sample-assets" / version_id
+        atlas = version_root / "spritesheet.png"
+        self.assertTrue(atlas.is_file(), atlas)
+        self.assertFalse((PREVIEWER / "sample-assets" / "v001").exists())
+        atlas_data = atlas.read_bytes()
+        self.assertEqual(b"\x89PNG\r\n\x1a\n", atlas_data[:8])
+        self.assertEqual(
+            (1536, 2288),
+            struct.unpack(">II", atlas_data[16:24]),
+        )
+        self.assertIn(
+            f'atlasUrl: "./sample-assets/{version_id}/spritesheet.png"',
+            self.data,
+        )
+        self.assertIn(
+            f'gifRoot: "./sample-assets/{version_id}/gifs"',
+            self.data,
+        )
+        self.assertNotIn('id: "v001"', self.data)
+        self.assertNotIn("sampleVariant", self.data)
+        self.assertNotIn("variant >= 2", self.app)
+        for state_id, durations in expected_states.items():
+            gif = version_root / "gifs" / f"{state_id}.gif"
+            self.assertTrue(gif.is_file(), gif)
+            parsed = parse_gif(gif)
+            self.assertEqual((192, 208), parsed["size"])
             self.assertEqual(
-                (1536, 2288),
-                struct.unpack(">II", atlas_data[16:24]),
+                [duration // 10 for duration in durations],
+                parsed["delays"],
             )
-            self.assertIn(
-                f'atlasUrl: "./sample-assets/{version_id}/spritesheet.png"',
-                self.data,
-            )
-            self.assertIn(
-                f'gifRoot: "./sample-assets/{version_id}/gifs"',
-                self.data,
-            )
-            for state_id, durations in expected_states.items():
-                gif = version_root / "gifs" / f"{state_id}.gif"
-                self.assertTrue(gif.is_file(), gif)
-                parsed = parse_gif(gif)
-                self.assertEqual((192, 208), parsed["size"])
-                self.assertEqual(
-                    [duration // 10 for duration in durations],
-                    parsed["delays"],
-                )
-                self.assertEqual(0, parsed["loop_count"])
-                self.assertNotIn(0xFE, parsed["extension_labels"])
+            self.assertEqual(0, parsed["loop_count"])
+            self.assertNotIn(0xFE, parsed["extension_labels"])
 
     def test_css_palette_is_grayscale(self) -> None:
         colors = re.findall(r"#([0-9a-fA-F]{6})\b", self.css)

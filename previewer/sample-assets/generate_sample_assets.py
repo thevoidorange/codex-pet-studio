@@ -100,27 +100,18 @@ def quadratic(
     return points
 
 
-def body_path(variant: int) -> list[tuple[float, float]]:
-    if variant >= 2:
-        start = (-52.0, 42.0)
-        points = [start]
-        end = (-30.0, -53.0)
-        points.extend(cubic(start, (-60, 17), (-54, -35), end))
-        start = end
-        end = (46.0, -38.0)
-        points.extend(cubic(start, (-10, -68), (30, -62), end))
-        start = end
-        end = (50.0, 43.0)
-        points.extend(cubic(start, (62, -14), (58, 24), end))
-        points.extend(quadratic(end, (0, 56), (-52, 42)))
-        return points
-
-    start = (-52.0, 43.0)
-    points = [start, (-47.0, -23.0)]
-    end = (-8.0, -60.0)
-    points.extend(quadratic(points[-1], (-43, -55), end))
-    points.extend(((42.0, -38.0), (53.0, 42.0)))
-    points.extend(quadratic(points[-1], (0, 53), (-52, 43)))
+def body_path() -> list[tuple[float, float]]:
+    start = (-52.0, 42.0)
+    points = [start]
+    end = (-30.0, -53.0)
+    points.extend(cubic(start, (-60, 17), (-54, -35), end))
+    start = end
+    end = (46.0, -38.0)
+    points.extend(cubic(start, (-10, -68), (30, -62), end))
+    start = end
+    end = (50.0, 43.0)
+    points.extend(cubic(start, (62, -14), (58, 24), end))
+    points.extend(quadratic(end, (0, 56), (-52, 42)))
     return points
 
 
@@ -187,7 +178,6 @@ def render_frame(
     state_id: str,
     durations: tuple[int, ...],
     column: int,
-    variant: int,
     direction: float | None = None,
 ) -> Image.Image:
     width = FRAME_WIDTH * SUPERSAMPLE
@@ -214,7 +204,7 @@ def render_frame(
             (center_y + point[1] * scale_y) * SUPERSAMPLE,
         )
 
-    draw.polygon([transform(point) for point in body_path(variant)], fill="#111111")
+    draw.polygon([transform(point) for point in body_path()], fill="#111111")
 
     blink = state_id == "idle" and column == min(3, len(durations) - 1)
     if blink:
@@ -345,7 +335,7 @@ def save_gif(
     path.write_bytes(output)
 
 
-def generate_version(output_root: Path, version_id: str, variant: int) -> None:
+def generate_version(output_root: Path, version_id: str) -> None:
     version_root = output_root / version_id
     gif_root = version_root / "gifs"
     gif_root.mkdir(parents=True, exist_ok=True)
@@ -363,7 +353,6 @@ def generate_version(output_root: Path, version_id: str, variant: int) -> None:
                 state_id=state_id,
                 durations=durations,
                 column=column,
-                variant=variant,
             )
             atlas.alpha_composite(
                 frame,
@@ -384,7 +373,6 @@ def generate_version(output_root: Path, version_id: str, variant: int) -> None:
             state_id="idle",
             durations=idle_durations,
             column=column,
-            variant=variant,
             direction=degree,
         )
         atlas.alpha_composite(
@@ -408,8 +396,7 @@ def main() -> int:
         default=Path(__file__).resolve().parent,
     )
     args = parser.parse_args()
-    generate_version(args.output_root, "v001", 1)
-    generate_version(args.output_root, "v002", 2)
+    generate_version(args.output_root, "v002")
     return 0
 
 
