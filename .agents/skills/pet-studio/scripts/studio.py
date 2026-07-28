@@ -7,13 +7,17 @@ import argparse
 import fnmatch
 import hashlib
 import http.server
+import ipaddress
 import json
 import os
 import re
+import secrets
 import shutil
+import stat
 import struct
 import sys
 import tempfile
+import threading
 import urllib.parse
 import zipfile
 from dataclasses import dataclass
@@ -31,7 +35,22 @@ CELL_HEIGHT = 208
 EXPECTED_COLUMNS = 8
 EXPECTED_ROWS = 11
 MAX_SCAN_BYTES = 50 * 1024 * 1024
+MAX_TIMING_REQUEST_BYTES = 64 * 1024
+TIMING_MIN_MS = 20
+TIMING_MAX_MS = 5000
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+
+STANDARD_STATE_FRAME_COUNTS = {
+    "idle": 6,
+    "running-right": 8,
+    "running-left": 8,
+    "waving": 4,
+    "jumping": 5,
+    "failed": 8,
+    "waiting": 6,
+    "running": 6,
+    "review": 6,
+}
 
 DEFAULT_EXPORT_INCLUDE = [
     CONFIG_NAME,
@@ -832,13 +851,347 @@ def command_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def resolve_timing_config_path(root: Path, preview_dir: Path, raw_path: Any) -> Path:
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        raise StudioError("configPath must be a non-empty project URL path.")
+
+    parsed = urllib.parse.urlsplit(raw_path)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        raise StudioError("configPath must be a same-project URL path without a query.")
+    decoded = urllib.parse.unquote(parsed.path)
+    if "\x00" in decoded:
+        raise StudioError("configPath contains an invalid character.")
+
+    relative_text = decoded.replace("\\", "/").lstrip("/")
+    relative = safe_relative_path(relative_text, "configPath")
+    relative_parts = tuple(part.casefold() for part in relative.parts)
+    protected_names = {
+        CONFIG_NAME.casefold(),
+        PRIVATE_CONFIG_NAME.casefold(),
+        "pet.json",
+    }
+    if ".git" in relative_parts or relative.name.casefold() in protected_names:
+        raise StudioError("configPath points to a protected project file.")
+
+    unresolved = root.joinpath(*relative.parts)
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise StudioError("configPath may not contain symbolic links.")
+
+    target = project_path(root, relative.as_posix(), "configPath")
+    if target.suffix.casefold() != ".json" or not target.is_file():
+        raise StudioError("configPath must point to an existing JSON file.")
+
+    try:
+        target.relative_to(preview_dir.resolve())
+    except ValueError:
+        pass
+    else:
+        raise StudioError("The bundled Previewer configuration is read-only.")
+
+    if unresolved.resolve() != target:
+        raise StudioError("configPath did not resolve to one stable project file.")
+    return target
+
+
+def validate_timing_updates(payload: Any) -> tuple[str, list[dict[str, Any]]]:
+    if not isinstance(payload, dict):
+        raise StudioError("Timing update body must be one JSON object.")
+    config_path = payload.get("configPath")
+    if not isinstance(config_path, str) or not config_path.strip():
+        raise StudioError("Timing update body requires configPath.")
+
+    states = payload.get("states")
+    if not isinstance(states, list) or not states:
+        raise StudioError("Timing update body requires at least one state.")
+    if len(states) > len(STANDARD_STATE_FRAME_COUNTS):
+        raise StudioError("Timing update contains too many states.")
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in states:
+        if not isinstance(item, dict):
+            raise StudioError("Every timing state must be an object.")
+        state_id = item.get("id")
+        if state_id not in STANDARD_STATE_FRAME_COUNTS:
+            raise StudioError(f"Unsupported timing state id {state_id!r}.")
+        if state_id in seen:
+            raise StudioError(f"Timing state {state_id!r} appears more than once.")
+        seen.add(state_id)
+
+        durations = item.get("durations")
+        expected_count = STANDARD_STATE_FRAME_COUNTS[state_id]
+        if not isinstance(durations, list) or len(durations) != expected_count:
+            raise StudioError(
+                f"Timing state {state_id!r} requires exactly {expected_count} frame durations."
+            )
+        if not all(
+            isinstance(duration, int)
+            and not isinstance(duration, bool)
+            and TIMING_MIN_MS <= duration <= TIMING_MAX_MS
+            for duration in durations
+        ):
+            raise StudioError(
+                f"Timing state {state_id!r} durations must be whole milliseconds "
+                f"from {TIMING_MIN_MS} through {TIMING_MAX_MS}."
+            )
+        normalized.append({"id": state_id, "durations": list(durations)})
+    return config_path, normalized
+
+
+def merge_timing_updates(document: Any, updates: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(document, dict):
+        raise StudioError("Preview configuration must contain one JSON object.")
+    if document.get("schemaVersion") != 1:
+        raise StudioError("Preview configuration must use schemaVersion 1.")
+
+    existing_states = document.get("states")
+    if existing_states is None:
+        existing_states = []
+        document["states"] = existing_states
+    if not isinstance(existing_states, list):
+        raise StudioError("Preview configuration states must be an array.")
+
+    state_entries: dict[str, dict[str, Any]] = {}
+    for item in existing_states:
+        if not isinstance(item, dict):
+            raise StudioError("Preview configuration states must contain objects.")
+        state_id = item.get("id")
+        if not isinstance(state_id, str):
+            continue
+        if state_id in state_entries:
+            raise StudioError(f"Preview configuration has duplicate state id {state_id!r}.")
+        state_entries[state_id] = item
+
+    for update in updates:
+        state_id = update["id"]
+        entry = state_entries.get(state_id)
+        if entry is None:
+            entry = {"id": state_id}
+            existing_states.append(entry)
+            state_entries[state_id] = entry
+        entry["durations"] = list(update["durations"])
+    return document
+
+
+def atomic_replace_json(path: Path, value: Any) -> None:
+    original_mode = stat.S_IMODE(path.stat().st_mode)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(value, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, original_mode)
+        os.replace(temporary, path)
+        try:
+            directory_descriptor = os.open(path.parent, os.O_RDONLY)
+        except OSError:
+            directory_descriptor = None
+        if directory_descriptor is not None:
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+    except Exception:
+        if temporary.exists():
+            temporary.unlink()
+        raise
+
+
+def is_loopback_host_header(value: str | None) -> bool:
+    if not value or any(character.isspace() for character in value):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(f"//{value}")
+        hostname = parsed.hostname
+        if parsed.username is not None or parsed.password is not None:
+            return False
+    except ValueError:
+        return False
+    if not hostname:
+        return False
+    if hostname.casefold() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    project_root: Path
+    project_preview_dir: Path
+    timing_write_token: str | None = None
+    timing_write_enabled = False
+    timing_write_lock = threading.Lock()
+
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
     def log_message(self, format_string: str, *args: object) -> None:
         print(f"preview: {format_string % args}")
+
+    def send_json(self, status: int, payload: dict[str, Any]) -> None:
+        data = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def reject_non_loopback_host(self) -> bool:
+        if not self.timing_write_enabled:
+            return False
+        if is_loopback_host_header(self.headers.get("Host")):
+            return False
+        self.send_json(
+            421,
+            {
+                "ok": False,
+                "error": "invalid_host",
+                "message": "Writable Previewer sessions require a loopback Host.",
+            },
+        )
+        return True
+
+    def do_GET(self) -> None:
+        if self.reject_non_loopback_host():
+            return
+        if urllib.parse.urlsplit(self.path).path == "/__pet-studio__/session":
+            self.send_json(
+                200,
+                {
+                    "writable": self.timing_write_enabled,
+                    "token": self.timing_write_token if self.timing_write_enabled else None,
+                },
+            )
+            return
+        super().do_GET()
+
+    def do_HEAD(self) -> None:
+        if self.reject_non_loopback_host():
+            return
+        super().do_HEAD()
+
+    def do_POST(self) -> None:
+        if self.reject_non_loopback_host():
+            return
+        if urllib.parse.urlsplit(self.path).path != "/__pet-studio__/timing":
+            self.send_json(
+                404,
+                {"ok": False, "error": "not_found", "message": "Unknown endpoint."},
+            )
+            return
+        if not self.timing_write_enabled or not self.timing_write_token:
+            self.send_json(
+                403,
+                {
+                    "ok": False,
+                    "error": "read_only",
+                    "message": "This Previewer session is read-only.",
+                },
+            )
+            return
+        supplied_token = self.headers.get("X-Pet-Studio-Token", "")
+        if not secrets.compare_digest(supplied_token, self.timing_write_token):
+            self.send_json(
+                403,
+                {
+                    "ok": False,
+                    "error": "invalid_token",
+                    "message": "The Previewer write token is missing or invalid.",
+                },
+            )
+            return
+        content_type = self.headers.get_content_type()
+        if content_type != "application/json":
+            self.send_json(
+                415,
+                {
+                    "ok": False,
+                    "error": "unsupported_media_type",
+                    "message": "Timing updates require application/json.",
+                },
+            )
+            return
+        try:
+            content_length = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            content_length = -1
+        if content_length < 0:
+            self.send_json(
+                411,
+                {
+                    "ok": False,
+                    "error": "length_required",
+                    "message": "Timing updates require Content-Length.",
+                },
+            )
+            return
+        if content_length > MAX_TIMING_REQUEST_BYTES:
+            self.send_json(
+                413,
+                {
+                    "ok": False,
+                    "error": "request_too_large",
+                    "message": "Timing update body is too large.",
+                },
+            )
+            return
+
+        try:
+            raw_body = self.rfile.read(content_length)
+            payload = json.loads(raw_body.decode("utf-8"))
+            raw_config_path, updates = validate_timing_updates(payload)
+            target = resolve_timing_config_path(
+                self.project_root,
+                self.project_preview_dir,
+                raw_config_path,
+            )
+            with self.timing_write_lock:
+                document = json.loads(target.read_text(encoding="utf-8"))
+                merged = merge_timing_updates(document, updates)
+                atomic_replace_json(target, merged)
+            relative = target.relative_to(self.project_root.resolve()).as_posix()
+        except (StudioError, UnicodeError, json.JSONDecodeError) as exc:
+            self.send_json(
+                400,
+                {
+                    "ok": False,
+                    "error": "invalid_timing_update",
+                    "message": str(exc),
+                },
+            )
+            return
+        except OSError:
+            self.send_json(
+                500,
+                {
+                    "ok": False,
+                    "error": "write_failed",
+                    "message": "The preview configuration could not be updated.",
+                },
+            )
+            return
+
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "configPath": relative,
+                "updatedStates": [update["id"] for update in updates],
+            },
+        )
 
 
 def command_preview(args: argparse.Namespace) -> int:
@@ -864,8 +1217,21 @@ def command_preview(args: argparse.Namespace) -> int:
         print(f"OK: previewer is ready at {planned_url}")
         return 0
 
+    write_enabled = args.host in loopback_hosts
+    write_token = secrets.token_urlsafe(32) if write_enabled else None
+
     def handler(*handler_args: Any, **handler_kwargs: Any) -> NoCacheHandler:
-        return NoCacheHandler(*handler_args, directory=str(root), **handler_kwargs)
+        request_handler = NoCacheHandler(
+            *handler_args,
+            directory=str(root),
+            **handler_kwargs,
+        )
+        return request_handler
+
+    NoCacheHandler.project_root = root
+    NoCacheHandler.project_preview_dir = preview_dir
+    NoCacheHandler.timing_write_enabled = write_enabled
+    NoCacheHandler.timing_write_token = write_token
 
     try:
         server = http.server.ThreadingHTTPServer((args.host, args.port), handler)

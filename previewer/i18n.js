@@ -34,51 +34,28 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "Runtime Simulation",
         runtimeTimingTitle:
           "Simulate intended playback from Previewer timing metadata; this is not an exact trace of the Codex client",
-        frameTiming: "Frame Timing",
         timingEditorAria: "Frame Timing Editor",
-        previewOnly: "Preview Draft · Not Saved",
-        timingShared: "Shared Across All Visual Versions",
         timingDraftIndicator: "Unsaved Frame Timing Changes",
         timingDecrease: "Reduce frame duration by 5 milliseconds",
         timingIncrease: "Increase frame duration by 5 milliseconds",
         frameDuration: "Frame {frame} Duration",
-        timingRangeNote:
-          "Allowed range: 20–5000 ms (5 seconds) per frame · Buttons adjust by 5 ms",
-        undoTiming: "Undo Last Change",
+        undoTiming: "Undo",
         undoTimingTitle:
           "Undo the latest timing change in this state",
-        resetStateTiming: "Reset This State",
+        resetStateTiming: "Reset",
         resetStateTimingTitle:
           "Restore every frame in this state to its loaded timing",
-        copyForCodex: "Copy Changes For Codex",
-        copyForCodexTitle:
-          "Copy the changed timings so you can paste them into a Codex task",
-        exportTiming: "Download Timing JSON",
-        exportTimingTitle:
-          "Download the same changed timings as timing-overrides.json",
-        timingHandoffNote:
-          "Both buttons contain the same changes. Copy is for pasting into Codex; Download saves a JSON file. Neither updates the pet automatically.",
-        timingIdleSummary:
-          "Base loop: {seconds}s · Quiet Idle: about {quietSeconds}s per loop",
-        timingActionSummary:
-          "One loop: {seconds}s · Plays {loops} times, then returns to Quiet Idle",
-        timingGifRoundingNote:
-          "Runtime Simulation uses this draft now. GIFs store timing in 10 ms units, so values ending in 5 ms are converted when Codex regenerates the GIF.",
-        timingGifUnchangedNote:
-          "Runtime Simulation uses this draft now. GIF Loop keeps its exported timing until Codex regenerates the GIF.",
-        gifTimingDraftNote:
-          "The Frame Timing draft affects Runtime Simulation only; this GIF has not changed.",
-        timingInvalid:
-          "Enter a number from 20 to 5000 ms. Runtime Simulation is still using the last valid value.",
-        timingUpdated: "Preview timing updated.",
-        timingSnapped: "Value adjusted to the nearest 5 ms step.",
+        updateTiming: "Update",
+        updateTimingTitle: "Save timing changes to the loaded preview JSON",
+        updateTimingUnavailableTitle:
+          "Open an external preview JSON through Studio Preview to update it",
+        timingInvalid: "Enter 20–5000 ms.",
         timingUndone: "Last timing change undone.",
         timingReset: "This state's timing was reset.",
-        timingCopied:
-          "Copied. Paste into a Codex task to apply these timing changes.",
-        timingCopyFailed: "Could not access the clipboard.",
-        timingExported:
-          "Downloaded timing-overrides.json. The pet has not changed.",
+        timingUpdating: "Updating…",
+        timingUpdateSuccess: "Updated.",
+        timingUpdateFailed:
+          "Update failed. Your preview changes are still here.",
         gifModeHelp:
           "Plays the exported QA GIF at its encoded speed. The browser cannot expose or pause its exact internal frame.",
         runtimeModeHelp:
@@ -112,7 +89,6 @@ window.PET_PREVIEW_I18N = {
         desktopTrigger: "Desktop trigger",
         actionLength: "Action length",
         keyframes: "Keyframes & Timing",
-        keyframeHint: "Select a frame to inspect and edit its duration",
         allStatesPlayed: "All states played",
         autoPlayingState: "Playing · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",
@@ -461,45 +437,25 @@ window.PET_PREVIEW_I18N = {
         runtimeTiming: "运行模拟",
         runtimeTimingTitle:
           "根据 Previewer 的时间配置模拟预期播放，不等同于 Codex 客户端的精确内部实现",
-        frameTiming: "每帧时长",
         timingEditorAria: "每帧时长编辑器",
-        previewOnly: "预览草稿 · 尚未保存",
-        timingShared: "同一份时长用于所有视觉版本",
         timingDraftIndicator: "有尚未保存的帧时长修改",
         timingDecrease: "将当前镜帧缩短 5 毫秒",
         timingIncrease: "将当前镜帧延长 5 毫秒",
         frameDuration: "第 {frame} 帧时长",
-        timingRangeNote:
-          "每帧可设为 20–5000 毫秒（5 秒）· 加减按钮每次调整 5 毫秒",
-        undoTiming: "撤销上一步",
+        undoTiming: "撤销",
         undoTimingTitle: "撤销当前状态里最近一次时长修改",
-        resetStateTiming: "重置当前状态",
+        resetStateTiming: "重置",
         resetStateTimingTitle: "将当前状态的所有帧恢复为载入时的时长",
-        copyForCodex: "复制修改给 Codex",
-        copyForCodexTitle: "复制有修改的时长，可直接粘贴到 Codex 任务中",
-        exportTiming: "下载时长 JSON",
-        exportTimingTitle: "把同一份修改下载为 timing-overrides.json",
-        timingHandoffNote:
-          "两个按钮包含同一份修改：复制适合直接粘贴给 Codex；下载则保存为 JSON 文件。两者都不会自动更新宠物。",
-        timingIdleSummary:
-          "基础循环 {seconds} 秒 · 安静待机时约 {quietSeconds} 秒一圈",
-        timingActionSummary:
-          "一圈 {seconds} 秒 · 预览播放 {loops} 圈后回到安静待机",
-        timingGifRoundingNote:
-          "运行模拟会立即采用这份草稿。GIF 以 10 毫秒为单位记录节奏，因此以 5 毫秒结尾的数值会在 Codex 重新生成 GIF 时转换。",
-        timingGifUnchangedNote:
-          "运行模拟会立即采用这份草稿；Codex 重新生成 GIF 前，GIF 循环仍保持导出时的节奏。",
-        gifTimingDraftNote:
-          "每帧时长草稿只影响运行模拟，当前 GIF 尚未改变。",
-        timingInvalid:
-          "请输入 20–5000 毫秒之间的数字。运行模拟仍在使用上一个有效值。",
-        timingUpdated: "预览节奏已更新。",
-        timingSnapped: "已自动调整到最近的 5 ms。",
+        updateTiming: "更新",
+        updateTimingTitle: "将时长修改保存到当前预览 JSON",
+        updateTimingUnavailableTitle:
+          "请通过 Studio Preview 打开外部预览 JSON 后再更新",
+        timingInvalid: "请输入 20–5000 毫秒。",
         timingUndone: "已撤销上一次节奏修改。",
         timingReset: "已重置当前状态的节奏。",
-        timingCopied: "已复制。粘贴到 Codex 任务中即可应用这些时长修改。",
-        timingCopyFailed: "无法访问剪贴板。",
-        timingExported: "已下载 timing-overrides.json；当前宠物尚未改变。",
+        timingUpdating: "正在更新…",
+        timingUpdateSuccess: "已更新。",
+        timingUpdateFailed: "更新失败，修改仍保留在预览中。",
         gifModeHelp:
           "按导出 GIF 自带的速度循环播放；浏览器无法读取或精确暂停在 GIF 内部的某一帧。",
         runtimeModeHelp:
@@ -532,7 +488,6 @@ window.PET_PREVIEW_I18N = {
         desktopTrigger: "桌面触发",
         actionLength: "动作长度",
         keyframes: "关键帧与时长",
-        keyframeHint: "选择一帧即可检查并调整时长",
         allStatesPlayed: "全部状态播放完成",
         autoPlayingState: "正在播放 · {state}",
         mechanicsEyebrow: "PRODUCTION TIMING BOARD",

@@ -48,6 +48,8 @@ The current Codex v2 pack uses 192×208 cells in an 8-column × 11-row atlas. Th
 
 Treat these as the installed `$hatch-pet` contract. Re-read that skill before production because the upstream contract can change.
 
+The atlas dimensions, row order, and used-cell counts belong to the v2 package contract. The timing values above are the current `$hatch-pet` and desktop-runtime defaults, not custom fields in `pet.json`. The package has no per-frame duration setting and no documented 5000 ms state or frame ceiling. Previewer timing edits are design and QA metadata; they help evaluate rhythm but do not change the installed client runtime.
+
 ## State intentions
 
 ### `idle`

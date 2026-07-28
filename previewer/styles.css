@@ -499,7 +499,7 @@ select:focus-visible {
 
 .timing-editor {
   display: grid;
-  gap: 11px;
+  gap: 10px;
   margin-top: 12px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -507,59 +507,9 @@ select:focus-visible {
   background: #f7f7f7;
 }
 
-.timing-editor[hidden] {
-  display: none;
-}
-
-.timing-editor-heading {
-  display: flex;
-  align-items: stretch;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.timing-title-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.timing-title-row strong {
-  font-size: 13px;
-}
-
-.timing-editor-heading p,
-.timing-note,
-.timing-status,
-.timing-handoff-note {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.timing-badge {
-  padding: 3px 7px;
-  border: 1px solid #c8c8c8;
-  border-radius: 999px;
-  color: #555555;
-  background: #ffffff;
-  font-size: 8px;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.timing-scope {
-  color: var(--muted);
-  font-size: 9px;
-  line-height: 1.45;
-}
-
 .timing-stepper {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   gap: 9px;
 }
@@ -571,14 +521,6 @@ select:focus-visible {
 }
 
 .timing-value {
-  display: grid;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 9px;
-  text-align: center;
-}
-
-.timing-value > span {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -605,25 +547,9 @@ select:focus-visible {
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12);
 }
 
-.timing-note {
-  min-height: 15px;
-  text-align: center;
-}
-
-.timing-range-note {
-  margin-bottom: -5px;
-  color: #555555;
-  font-weight: 650;
-}
-
-.timing-handoff-note {
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
-}
-
 .timing-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
 }
 
@@ -636,9 +562,15 @@ select:focus-visible {
 }
 
 .timing-status {
-  min-height: 15px;
-  margin-top: -5px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
   text-align: center;
+}
+
+.timing-status:empty {
+  display: none;
 }
 
 select {
@@ -874,23 +806,6 @@ select {
   width: 48px;
   height: 52px;
   background-repeat: no-repeat;
-}
-
-.frame-number {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  color: #808080;
-  font-size: 8px;
-}
-
-.frame-duration {
-  position: absolute;
-  bottom: 3px;
-  left: 4px;
-  color: #666666;
-  font-size: 7px;
-  font-variant-numeric: tabular-nums;
 }
 
 .tour-progress {
@@ -1208,16 +1123,6 @@ footer {
 
   .transport {
     flex-wrap: wrap;
-  }
-
-  .timing-editor-heading {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .timing-scope {
-    max-width: none;
-    text-align: left;
   }
 
   .preview-size-control {

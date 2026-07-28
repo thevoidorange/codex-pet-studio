@@ -118,7 +118,7 @@ The Previewer includes:
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
 - native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and automatic all-state playback;
-- a right-rail Keyframes & Timing editor with 5 ms adjustments, a clear 20–5000 ms per-frame guardrail, and privacy-safe timing handoff;
+- a right-rail Keyframes & Timing editor with 5 ms adjustments, Undo, Reset, and direct local JSON updates;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
 - grayscale preview backgrounds;
@@ -126,7 +126,9 @@ The Previewer includes:
 
 Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. Runtime Simulation always follows the configured Previewer timing metadata and is not an exact trace of the Codex client.
 
-Frame Timing drafts apply live to Runtime Simulation and are shared by every visual version in the current preview. They do not alter an existing GIF, the source config, or the installed Codex pet package. **Copy Changes For Codex** puts the changed timings on the clipboard for pasting into a Codex task; **Download Timing JSON** saves the same payload as `timing-overrides.json`. GIF files store delays in 10 ms units and must be regenerated before their timing changes.
+Frame Timing drafts apply live to Runtime Simulation and are shared by every visual version in the current preview. When an external project config is opened through the loopback-only Studio Preview server, **Update Timing** writes the changed `states[].durations` directly back to that same JSON file. The server updates only those duration arrays, uses an atomic replacement, and refuses paths outside the project. Bundled examples, `file://` pages, remote configs, and network-exposed preview servers remain read-only.
+
+This timing metadata belongs to the Previewer workflow. A Codex Pet v2 package contains the manifest and spritesheet, not custom per-frame durations, action-loop counts, or an Idle multiplier. Updating Preview JSON therefore does not rewrite an exported GIF or alter the installed pet runtime. The bundled Runtime Simulation defaults mirror observed desktop-client behavior, but the client owns that behavior and may change independently of this repository.
 
 The built-in geometric figure is a non-production fixture for testing the UI. Replace `previewer/preview-data.js`, or supply an external JSON config, when a real version is ready.
 It includes native GIF loops for all nine states so the GIF Loop mode can be tested without substituting spritesheet playback.

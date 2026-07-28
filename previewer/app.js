@@ -48,18 +48,14 @@
     stateTag: document.querySelector("#stateTag"),
     stateTitle: document.querySelector("#stateTitle"),
     stateTrigger: document.querySelector("#stateTrigger"),
-    timingCopyButton: document.querySelector("#timingCopyButton"),
     timingDecreaseButton: document.querySelector("#timingDecreaseButton"),
-    timingDurationLabel: document.querySelector("#timingDurationLabel"),
     timingDurationInput: document.querySelector("#timingDurationInput"),
     timingEditor: document.querySelector("#timingEditor"),
-    timingExportButton: document.querySelector("#timingExportButton"),
     timingIncreaseButton: document.querySelector("#timingIncreaseButton"),
-    timingLoopSummary: document.querySelector("#timingLoopSummary"),
-    timingPrecisionNote: document.querySelector("#timingPrecisionNote"),
     timingResetStateButton: document.querySelector("#timingResetStateButton"),
     timingStatus: document.querySelector("#timingStatus"),
     timingUndoButton: document.querySelector("#timingUndoButton"),
+    timingUpdateButton: document.querySelector("#timingUpdateButton"),
     tourLabel: document.querySelector("#tourLabel"),
     tourProgress: document.querySelector("#tourProgress"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
@@ -70,6 +66,7 @@
 
   let config = null;
   let configBaseUrl = window.location.href;
+  let configIsWritableExternal = false;
   let locale = resolveInitialLocale();
   let activeVersionId = "";
   let activeStateIndex = 0;
@@ -93,6 +90,8 @@
   let timingHistory = [];
   let timingSelectedFrameIndex = 0;
   let timingStatusKey = "";
+  let timingUpdatePending = false;
+  let timingWriteSession = { writable: false, token: "" };
   let gifRequestSerial = 0;
   let tourTimer = null;
   let tourProgressTimer = null;
@@ -333,6 +332,28 @@
     }
   }
 
+  async function loadTimingWriteSession() {
+    timingWriteSession = { writable: false, token: "" };
+    if (!configIsWritableExternal) return;
+
+    try {
+      const response = await window.fetch("/__pet-studio__/session", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const session = await response.json();
+      if (session?.writable === true && typeof session.token === "string") {
+        timingWriteSession = {
+          writable: true,
+          token: session.token,
+        };
+      }
+    } catch {
+      timingWriteSession = { writable: false, token: "" };
+    }
+  }
+
   function normalizeConfig(input, includeBundledExample = false) {
     const base = cloneValue(bundledConfig);
     const next = input && typeof input === "object" ? input : {};
@@ -491,10 +512,10 @@
     return -1;
   }
 
-  function timingOverridesPayload() {
+  function timingUpdatePayload() {
+    if (!configIsWritableExternal) return null;
     return {
-      schemaVersion: 1,
-      type: "pet-studio-timing-overrides",
+      configPath: new URL(configBaseUrl).pathname,
       states: dirtyTimingStates().map((state) => ({
         id: state.id,
         durations: [...state.durations],
@@ -517,38 +538,37 @@
     );
     const selectedDuration = state.durations[timingSelectedFrameIndex];
     const dirtyStates = dirtyTimingStates();
-    const isIdle = state.id === idleState().id;
 
-    elements.timingLoopSummary.textContent = t(
-      isIdle ? "ui.timingIdleSummary" : "ui.timingActionSummary",
-      {
-        seconds: (totalDuration(state) / 1000).toFixed(3),
-        quietSeconds: (
-          (totalDuration(state) * config.runtime.idleSlowdown) /
-          1000
-        ).toFixed(2),
-        loops: config.runtime.actionLoops,
-      },
+    elements.timingDurationInput.setAttribute(
+      "aria-label",
+      t("ui.frameDuration", {
+        frame: timingSelectedFrameIndex + 1,
+      }),
     );
-    elements.timingDurationLabel.textContent = t("ui.frameDuration", {
-      frame: timingSelectedFrameIndex + 1,
-    });
     elements.timingDurationInput.value = String(selectedDuration);
     elements.timingDurationInput.removeAttribute("aria-invalid");
+    elements.timingDurationInput.disabled = timingUpdatePending;
     elements.timingDecreaseButton.disabled =
-      selectedDuration <= TIMING_MIN_MS;
+      timingUpdatePending || selectedDuration <= TIMING_MIN_MS;
     elements.timingIncreaseButton.disabled =
-      selectedDuration >= TIMING_MAX_MS;
+      timingUpdatePending || selectedDuration >= TIMING_MAX_MS;
     elements.timingUndoButton.disabled =
-      latestTimingHistoryIndex(state.id) < 0;
-    elements.timingResetStateButton.disabled = !timingStateIsDirty(state);
-    elements.timingCopyButton.disabled = dirtyStates.length === 0;
-    elements.timingExportButton.disabled = dirtyStates.length === 0;
-    elements.timingPrecisionNote.textContent = state.durations.some(
-      (duration) => duration % 10 !== 0,
-    )
-      ? t("ui.timingGifRoundingNote")
-      : t("ui.timingGifUnchangedNote");
+      timingUpdatePending || latestTimingHistoryIndex(state.id) < 0;
+    elements.timingResetStateButton.disabled =
+      timingUpdatePending || !timingStateIsDirty(state);
+    elements.timingUpdateButton.disabled =
+      timingUpdatePending ||
+      !configIsWritableExternal ||
+      !timingWriteSession.writable ||
+      dirtyStates.length === 0;
+    elements.timingUpdateButton.setAttribute(
+      "title",
+      t(
+        configIsWritableExternal && timingWriteSession.writable
+          ? "ui.updateTimingTitle"
+          : "ui.updateTimingUnavailableTitle",
+      ),
+    );
   }
 
   function refreshTimingDependentViews({ reschedule = false } = {}) {
@@ -580,9 +600,7 @@
 
     pushTimingHistory(state, [...state.durations]);
     state.durations[timingSelectedFrameIndex] = normalized;
-    setTimingStatus(
-      Number(value) === normalized ? "ui.timingUpdated" : "ui.timingSnapped",
-    );
+    setTimingStatus("");
     refreshTimingDependentViews({
       reschedule:
         shouldScheduleFrames() &&
@@ -593,9 +611,14 @@
 
   function stepSelectedTiming(delta) {
     const state = currentState();
-    updateSelectedTiming(
-      state.durations[timingSelectedFrameIndex] + delta,
+    const nextDuration = Math.min(
+      TIMING_MAX_MS,
+      Math.max(
+        TIMING_MIN_MS,
+        state.durations[timingSelectedFrameIndex] + delta,
+      ),
     );
+    updateSelectedTiming(nextDuration);
   }
 
   function undoTimingChange() {
@@ -621,34 +644,38 @@
     refreshTimingDependentViews({ reschedule: shouldScheduleFrames() });
   }
 
-  async function copyTimingOverrides() {
-    const payload = timingOverridesPayload();
-    if (!payload.states.length) return;
-    try {
-      await window.navigator.clipboard.writeText(
-        JSON.stringify(payload, null, 2),
-      );
-      setTimingStatus("ui.timingCopied");
-    } catch {
-      setTimingStatus("ui.timingCopyFailed");
-    }
-  }
+  async function updateTimingConfig() {
+    const payload = timingUpdatePayload();
+    if (!payload || !payload.states.length) return;
 
-  function exportTimingOverrides() {
-    const payload = timingOverridesPayload();
-    if (!payload.states.length) return;
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
-      type: "application/json",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "timing-overrides.json";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
-    setTimingStatus("ui.timingExported");
+    timingUpdatePending = true;
+    setTimingStatus("ui.timingUpdating");
+    renderTimingEditor();
+
+    try {
+      const response = await window.fetch("/__pet-studio__/timing", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Pet-Studio-Token": timingWriteSession.token,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error(`Timing update failed: ${response.status}`);
+
+      payload.states.forEach((state) => {
+        originalDurations.set(state.id, [...state.durations]);
+      });
+      timingHistory = [];
+      timingUpdatePending = false;
+      setTimingStatus("ui.timingUpdateSuccess");
+      refreshTimingDependentViews();
+    } catch {
+      timingUpdatePending = false;
+      setTimingStatus("ui.timingUpdateFailed");
+      renderTimingEditor();
+    }
   }
 
   function gridPosition(column, row) {
@@ -1004,8 +1031,6 @@
             )}"
           >
             <span class="frame-thumbnail" style="${frameThumbnailStyle(state, index)}"></span>
-            <span class="frame-duration">${Number(duration)} ms</span>
-            <span class="frame-number">F${index + 1}</span>
           </button>
         `,
       )
@@ -1221,10 +1246,7 @@
         loops: config.runtime.actionLoops,
       },
     );
-    elements.previewModeHelp.textContent =
-      playbackMode === "gif" && dirtyTimingStates().length
-        ? `${modeHelp} ${t("ui.gifTimingDraftNote")}`
-        : modeHelp;
+    elements.previewModeHelp.textContent = modeHelp;
     const orbitActive = lookControlMode === "orbit";
     const pointerFollowActive = lookControlMode === "pointer";
     elements.orbitButton.textContent = t("ui.autoOrbit");
@@ -1981,13 +2003,9 @@
       "click",
       resetCurrentStateTiming,
     );
-    elements.timingCopyButton.addEventListener(
+    elements.timingUpdateButton.addEventListener(
       "click",
-      copyTimingOverrides,
-    );
-    elements.timingExportButton.addEventListener(
-      "click",
-      exportTimingOverrides,
+      updateTimingConfig,
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
@@ -2069,7 +2087,13 @@
   async function boot() {
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
+    const loadedUrl = new URL(loaded.baseUrl);
+    configIsWritableExternal =
+      loaded.isExternal &&
+      ["http:", "https:"].includes(loadedUrl.protocol) &&
+      loadedUrl.origin === window.location.origin;
     config = normalizeConfig(loaded.data, loaded.isExternal);
+    await loadTimingWriteSession();
     originalDurations = new Map(
       config.states.map((state) => [state.id, [...state.durations]]),
     );

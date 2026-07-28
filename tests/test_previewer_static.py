@@ -302,19 +302,27 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("Tour all states", self.i18n)
         self.assertNotIn("巡演全部状态", self.i18n)
 
-    def test_preview_timing_editor_is_live_bounded_and_export_safe(self) -> None:
+    def test_preview_timing_editor_is_live_bounded_and_updates_source(self) -> None:
         for element_id in (
             "timingEditor",
-            "timingDurationLabel",
             "timingDurationInput",
             "timingDecreaseButton",
             "timingIncreaseButton",
             "timingUndoButton",
             "timingResetStateButton",
+            "timingUpdateButton",
+        ):
+            self.assertIn(f'id="{element_id}"', self.html)
+
+        for removed_id in (
+            "timingDurationLabel",
+            "timingLoopSummary",
+            "timingRangeNote",
+            "timingPrecisionNote",
             "timingCopyButton",
             "timingExportButton",
         ):
-            self.assertIn(f'id="{element_id}"', self.html)
+            self.assertNotIn(f'id="{removed_id}"', self.html)
 
         self.assertIn('step="5"', self.html)
         self.assertIn('min="20"', self.html)
@@ -336,6 +344,10 @@ class PreviewerStaticTests(unittest.TestCase):
             self.app,
         )
         self.assertIn(
+            "const nextDuration = Math.min(",
+            self.app,
+        )
+        self.assertIn(
             'elements.timingDurationInput.setAttribute("aria-invalid", "true");',
             self.app,
         )
@@ -347,10 +359,9 @@ class PreviewerStaticTests(unittest.TestCase):
             "const delay = state.durations[activeFrameIndex] * slowdown;",
             self.app,
         )
-        self.assertIn(
-            '<span class="frame-duration">${Number(duration)} ms</span>',
-            self.app,
-        )
+        self.assertNotIn('class="frame-duration"', self.app)
+        self.assertNotIn('class="frame-number"', self.app)
+        self.assertIn('t("ui.frameAria"', self.app)
         self.assertIn(
             'index === timingSelectedFrameIndex',
             self.app,
@@ -376,14 +387,13 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("toggleTimingPanel", self.app)
         self.assertIn("renderMechanicsBoard();", self.app)
         self.assertIn("renderDetails();", self.app)
-        self.assertIn('type: "pet-studio-timing-overrides"', self.app)
-        self.assertIn('anchor.download = "timing-overrides.json";', self.app)
-        self.assertIn("window.navigator.clipboard.writeText(", self.app)
+        self.assertNotIn("window.navigator.clipboard.writeText(", self.app)
+        self.assertNotIn('anchor.download = "timing-overrides.json";', self.app)
         self.assertIn("timingSelectedFrameIndex", self.app)
-        self.assertIn("GIFs store timing in 10 ms units", self.i18n)
-        self.assertIn("GIF 以 10 毫秒为单位记录节奏", self.i18n)
-        self.assertIn("20–5000 ms (5 seconds)", self.i18n)
-        self.assertIn("20–5000 毫秒（5 秒）", self.i18n)
+        self.assertNotIn("GIFs store timing in 10 ms units", self.i18n)
+        self.assertNotIn("GIF 以 10 毫秒为单位记录节奏", self.i18n)
+        self.assertNotIn("Quiet Idle", self.i18n)
+        self.assertNotIn("安静待机时", self.i18n)
         self.assertIn("timingDraftIndicator", self.i18n)
         self.assertNotIn("manualBrowse", self.i18n)
         self.assertIn(
@@ -392,13 +402,37 @@ class PreviewerStaticTests(unittest.TestCase):
         )
 
         payload_function = self.app.split(
-            "function timingOverridesPayload()",
+            "function timingUpdatePayload()",
             1,
         )[1].split("\n  function ", 1)[0]
+        self.assertIn("configPath: new URL(configBaseUrl).pathname", payload_function)
         self.assertIn("id: state.id", payload_function)
         self.assertIn("durations: [...state.durations]", payload_function)
-        for private_field in ("pet:", "atlasUrl", "gifRoot", "configBaseUrl"):
+        for private_field in ("pet:", "atlasUrl", "gifRoot"):
             self.assertNotIn(private_field, payload_function)
+        self.assertIn('window.fetch("/__pet-studio__/session"', self.app)
+        self.assertIn('window.fetch("/__pet-studio__/timing"', self.app)
+        self.assertIn('"X-Pet-Studio-Token": timingWriteSession.token', self.app)
+        self.assertIn(
+            '["http:", "https:"].includes(loadedUrl.protocol)',
+            self.app,
+        )
+        self.assertIn(
+            "loadedUrl.origin === window.location.origin",
+            self.app,
+        )
+        self.assertIn(
+            "if (!configIsWritableExternal) return null;",
+            payload_function,
+        )
+        self.assertIn(
+            "if (!configIsWritableExternal) return;",
+            self.app,
+        )
+        self.assertIn("originalDurations.set(state.id", self.app)
+        self.assertIn("timingHistory = [];", self.app)
+        self.assertIn("timingUpdateSuccess", self.i18n)
+        self.assertIn("timingUpdateFailed", self.i18n)
         self.assertNotIn("previewSizePercent", self.data)
 
     def test_look_controls_are_mutually_exclusive_toggles(self) -> None:
@@ -445,11 +479,9 @@ class PreviewerStaticTests(unittest.TestCase):
             'gifPlayback: "GIF Loop"',
             'gifPlaybackMissing: "GIF Loop · Not Generated"',
             'runtimeTiming: "Runtime Simulation"',
-            'frameTiming: "Frame Timing"',
-            'undoTiming: "Undo Last Change"',
-            'resetStateTiming: "Reset This State"',
-            'copyForCodex: "Copy Changes For Codex"',
-            'exportTiming: "Download Timing JSON"',
+            'undoTiming: "Undo"',
+            'resetStateTiming: "Reset"',
+            'updateTiming: "Update"',
             'title: "Resting Nearby"',
             'label: "Move Right"',
             'title: "Moving Right"',
