@@ -84,7 +84,7 @@ select:focus-visible {
   min-height: 40px;
   align-items: center;
   gap: 8px;
-  padding: 3px 4px 3px 12px;
+  padding: 3px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
@@ -152,9 +152,8 @@ select:focus-visible {
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(20px);
 }
 
 .state-panel,
@@ -350,6 +349,8 @@ select:focus-visible {
 
 .direction-target {
   position: absolute;
+  top: 0;
+  left: 0;
   z-index: 3;
   display: none;
   width: 18px;
@@ -757,7 +758,7 @@ select {
 
 .look-toggle[aria-pressed="true"]::after,
 .tour-toggle[aria-pressed="true"]::after {
-  transform: translate(14px, -50%);
+  transform: translate(12px, -50%);
 }
 
 .direction-list {
@@ -933,11 +934,14 @@ select {
 }
 
 .progress-bar {
-  width: 0;
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: #777777;
-  transition: width 100ms linear;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 160ms linear;
+  will-change: transform;
 }
 
 .mechanics-board {
@@ -983,6 +987,8 @@ select {
   gap: 16px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 230px;
 }
 
 .mechanics-row:first-child {

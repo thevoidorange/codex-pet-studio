@@ -293,7 +293,7 @@ class PreviewerStaticTests(unittest.TestCase):
             "if (tourState.active) stopTour();\n    else startTour();",
             self.app,
         )
-        self.assertIn("autoPlayAllStates: \"Auto-play all states\"", self.i18n)
+        self.assertIn("autoPlayAllStates: \"Auto-Play All States\"", self.i18n)
         self.assertIn("autoPlayAllStates: \"自动播放全部状态\"", self.i18n)
         self.assertNotIn("Tour all states", self.i18n)
         self.assertNotIn("巡演全部状态", self.i18n)
@@ -396,6 +396,40 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("stopOrbit", self.i18n)
         for key in ("lookModeAria", "autoOrbit", "pointerFollow"):
             self.assertIn(key, self.i18n)
+        self.assertIn('autoOrbit: "Auto Orbit"', self.i18n)
+        self.assertIn('pointerFollow: "Pointer Follow"', self.i18n)
+        self.assertIn("const LOOK_ORBIT_STEP_MS = 120;", self.app)
+        self.assertIn("}, LOOK_ORBIT_STEP_MS);", self.app)
+        self.assertIn("transform: translate(12px, -50%);", self.css)
+        self.assertNotIn("transform: translate(14px, -50%);", self.css)
+
+    def test_english_control_copy_uses_title_case(self) -> None:
+        expected = (
+            'autoPlayAllStates: "Auto-Play All States"',
+            'animationStates: "Animation States"',
+            'lookDirections: "16 Look Directions"',
+            'gifPlayback: "GIF Loop"',
+            'gifPlaybackMissing: "GIF Loop · Not Generated"',
+            'runtimeTiming: "Runtime Simulation"',
+            'adjustTiming: "Adjust Timing"',
+            'resetStateTiming: "Reset State"',
+            'copyForCodex: "Copy For Codex"',
+            'exportTiming: "Export Timing JSON"',
+            'title: "Resting Nearby"',
+            'label: "Move Right"',
+            'title: "Moving Right"',
+            'label: "Move Left"',
+            'title: "Moving Left"',
+            'title: "A Quiet Hello"',
+            'title: "A Light Jump"',
+            'title: "Recovering From A Setback"',
+            'title: "Waiting For A Response"',
+            'title: "Focused Activity"',
+            'title: "Inspecting A Result"',
+        )
+        for copy in expected:
+            self.assertIn(copy, self.i18n)
+        self.assertIn("padding: 3px 12px;", self.css)
 
     def test_playback_modes_have_explanatory_copy(self) -> None:
         for key in (
@@ -447,6 +481,71 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("elements.gifPlayer.replaceWith(nextPlayer);", self.app)
         self.assertIn("failedGifs.add(failureKey);", self.app)
         self.assertIn('setPlaybackMode("runtime");', self.app)
+
+    def test_pointer_follow_coalesces_updates_and_skips_same_direction(self) -> None:
+        self.assertIn("let pointerFrameRequest = null;", self.app)
+        self.assertIn("let pendingPointerSample = null;", self.app)
+        self.assertIn(
+            "pointerFrameRequest = window.requestAnimationFrame(flushPointerMove);",
+            self.app,
+        )
+        self.assertIn("function cancelPointerUpdate()", self.app)
+        self.assertIn(
+            "if (directionIndex !== activeDirectionIndex) {\n"
+            "      setDirection(directionIndex);\n"
+            "    }",
+            self.app,
+        )
+        self.assertIn("translate3d(", self.app)
+
+        set_direction = self.app.split("function setDirection(index)", 1)[1].split(
+            "function clearOrbitTimer()", 1
+        )[0]
+        self.assertNotIn("setSpriteFrame(", set_direction)
+
+    def test_background_pages_suspend_animation_work(self) -> None:
+        self.assertIn(
+            'let pageVisible = document.visibilityState !== "hidden";',
+            self.app,
+        )
+        self.assertIn("function handleVisibilityChange()", self.app)
+        self.assertIn(
+            'document.addEventListener("visibilitychange", handleVisibilityChange);',
+            self.app,
+        )
+        self.assertIn("pageVisible &&", self.app)
+        visibility_handler = self.app.split(
+            "function handleVisibilityChange()", 1
+        )[1].split("function showNextTourState()", 1)[0]
+        for call in (
+            "clearFrameTimer();",
+            "clearOrbitTimer();",
+            "cancelPointerUpdate();",
+            "clearTourTimers();",
+            "hideGifPlayer();",
+        ):
+            self.assertIn(call, visibility_handler)
+        animation_section = self.app.split(
+            "if (isAnimation) {", 1
+        )[1].split("} else {", 1)[0]
+        self.assertIn("renderFrameReadout();", animation_section)
+
+    def test_rendering_avoids_large_blur_and_eager_offscreen_paint(self) -> None:
+        workspace_rule = self.css.split(".workspace {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("backdrop-filter", workspace_rule)
+        self.assertIn("content-visibility: auto;", self.css)
+        self.assertIn("contain-intrinsic-size: auto 230px;", self.css)
+        self.assertIn("transform: scaleX(0);", self.css)
+        self.assertIn("const TOUR_PROGRESS_STEP_MS = 160;", self.app)
+
+    def test_timing_edits_update_existing_mechanics_cards(self) -> None:
+        self.assertIn('class="mechanics-duration"', self.app)
+        self.assertIn("function refreshMechanicsDurations(state)", self.app)
+        refresh_block = self.app.split(
+            "function refreshTimingDependentViews(", 1
+        )[1].split("function updateSelectedTiming(", 1)[0]
+        self.assertIn("refreshMechanicsDurations(currentState());", refresh_block)
+        self.assertNotIn("renderMechanicsBoard();", refresh_block)
 
     def test_chinese_ui_copy_is_isolated_to_i18n(self) -> None:
         chinese = re.compile(r"[\u3400-\u9fff]")

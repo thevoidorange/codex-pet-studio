@@ -9,6 +9,8 @@
   const TIMING_STEP_MS = 5;
   const TIMING_MIN_MS = 20;
   const TIMING_MAX_MS = 5000;
+  const LOOK_ORBIT_STEP_MS = 120;
+  const TOUR_PROGRESS_STEP_MS = 160;
 
   const elements = {
     animationControls: document.querySelector("#animationControls"),
@@ -82,7 +84,10 @@
   let activeBackground = "paper";
   let frameTimer = null;
   let orbitTimer = null;
+  let pointerFrameRequest = null;
+  let pendingPointerSample = null;
   let lookControlMode = "manual";
+  let pageVisible = document.visibilityState !== "hidden";
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
   let originalDurations = new Map();
@@ -100,6 +105,10 @@
     startedAt: 0,
     holdMs: 0,
   };
+  let stateButtons = [];
+  let frameButtons = [];
+  let directionButtons = [];
+  const spriteStyleCache = new WeakMap();
 
   function getStoredLocale() {
     try {
@@ -584,7 +593,7 @@
   function refreshTimingDependentViews({ reschedule = false } = {}) {
     renderStateList();
     renderDetails();
-    renderMechanicsBoard();
+    refreshMechanicsDurations(currentState());
     renderControlLabels();
     renderTimingEditor();
     renderTourStatus();
@@ -900,9 +909,16 @@
   }
 
   function setSpriteFrame(row, column, target = elements.spritePlayer) {
-    target.style.backgroundImage = `url("${atlasUrlFor(currentVersion())}")`;
-    target.style.backgroundSize = atlasBackgroundSize();
-    target.style.backgroundPosition = gridPosition(column, row);
+    const image = `url("${atlasUrlFor(currentVersion())}")`;
+    const size = atlasBackgroundSize();
+    const position = gridPosition(column, row);
+    const cached = spriteStyleCache.get(target) || {};
+
+    if (cached.image !== image) target.style.backgroundImage = image;
+    if (cached.size !== size) target.style.backgroundSize = size;
+    if (cached.position !== position) target.style.backgroundPosition = position;
+
+    spriteStyleCache.set(target, { image, size, position });
   }
 
   function applyStaticTranslations() {
@@ -975,14 +991,13 @@
       })
       .join("");
 
-    elements.stateList
-      .querySelectorAll(".state-button")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          stopTour();
-          setState(Number(button.dataset.stateIndex));
-        });
+    stateButtons = [...elements.stateList.querySelectorAll(".state-button")];
+    stateButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        stopTour();
+        setState(Number(button.dataset.stateIndex));
       });
+    });
   }
 
   function runtimeNoteFor(state) {
@@ -1050,14 +1065,13 @@
       )
       .join("");
 
-    elements.frameStrip
-      .querySelectorAll(".frame-button")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          enterFrameInspection();
-          setFrame(Number(button.dataset.frameIndex));
-        });
+    frameButtons = [...elements.frameStrip.querySelectorAll(".frame-button")];
+    frameButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        enterFrameInspection();
+        setFrame(Number(button.dataset.frameIndex));
       });
+    });
   }
 
   function renderMechanicsBoard() {
@@ -1113,7 +1127,7 @@
                 <span class="mechanics-copy">
                   <span class="mechanics-frame-meta">
                     <span>F${index + 1}</span>
-                    <span>${Number(duration)} ms</span>
+                    <span class="mechanics-duration">${Number(duration)} ms</span>
                   </span>
                   <strong>${escapeHtml(
                     (Array.isArray(board.anchors) && board.anchors[index]) ||
@@ -1160,6 +1174,16 @@
       });
   }
 
+  function refreshMechanicsDurations(state) {
+    state.durations.forEach((duration, index) => {
+      const card = elements.mechanicsRows.querySelector(
+        `.mechanics-card[data-state-id="${state.id}"][data-frame-index="${index}"]`,
+      );
+      const durationNode = card?.querySelector(".mechanics-duration");
+      if (durationNode) durationNode.textContent = `${Number(duration)} ms`;
+    });
+  }
+
   function renderDirectionList() {
     elements.directionList.innerHTML = config.directions
       .map(
@@ -1175,14 +1199,15 @@
       )
       .join("");
 
-    elements.directionList
-      .querySelectorAll(".direction-button")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          setLookControlMode("manual");
-          setDirection(Number(button.dataset.directionIndex));
-        });
+    directionButtons = [
+      ...elements.directionList.querySelectorAll(".direction-button"),
+    ];
+    directionButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setLookControlMode("manual");
+        setDirection(Number(button.dataset.directionIndex));
       });
+    });
   }
 
   function renderLookDetails() {
@@ -1293,7 +1318,7 @@
     if (tourState.completed) {
       elements.tourLabel.textContent = t("ui.allStatesPlayed");
       elements.tourProgressText.textContent = `${config.states.length} / ${config.states.length}`;
-      elements.tourProgressBar.style.width = "100%";
+      setTourProgress(100);
       return;
     }
 
@@ -1446,21 +1471,17 @@
   }
 
   function refreshActiveClasses() {
-    elements.stateList
-      .querySelectorAll(".state-button")
-      .forEach((button, index) => {
-        button.classList.toggle("is-active", index === activeStateIndex);
-      });
-    elements.frameStrip
-      .querySelectorAll(".frame-button")
-      .forEach((button, index) => {
-        button.classList.toggle(
-          "is-active",
-          index === activeFrameIndex &&
-            !runtimeFellBack &&
-            (isInspectingFrame || playbackMode === "runtime"),
-        );
-      });
+    stateButtons.forEach((button, index) => {
+      button.classList.toggle("is-active", index === activeStateIndex);
+    });
+    frameButtons.forEach((button, index) => {
+      button.classList.toggle(
+        "is-active",
+        index === activeFrameIndex &&
+          !runtimeFellBack &&
+          (isInspectingFrame || playbackMode === "runtime"),
+      );
+    });
   }
 
   function clearFrameTimer() {
@@ -1499,6 +1520,7 @@
   function shouldScheduleFrames() {
     return (
       isPlaying &&
+      pageVisible &&
       !isInspectingFrame &&
       sectionMode === "animation" &&
       playbackMode === "runtime"
@@ -1628,7 +1650,7 @@
 
     if (!options.fromTour) {
       tourState.completed = false;
-      elements.tourProgressBar.style.width = "0%";
+      setTourProgress(0);
       renderTourStatus();
     }
   }
@@ -1682,6 +1704,7 @@
       renderFrameStrip();
       renderTimingEditor();
       renderPlayer();
+      renderFrameReadout();
       scheduleNextFrame();
     } else {
       clearFrameTimer();
@@ -1693,38 +1716,57 @@
     activeDirectionIndex =
       ((index % config.directions.length) + config.directions.length) %
       config.directions.length;
-    const direction = config.directions[activeDirectionIndex];
-    setSpriteFrame(direction.row, direction.column);
-    elements.directionList
-      .querySelectorAll(".direction-button")
-      .forEach((button, buttonIndex) => {
-        button.classList.toggle(
-          "is-active",
-          buttonIndex === activeDirectionIndex,
-        );
-      });
+    directionButtons.forEach((button, buttonIndex) => {
+      button.classList.toggle(
+        "is-active",
+        buttonIndex === activeDirectionIndex,
+      );
+    });
     renderLookDetails();
     renderFrameReadout();
     renderPlayer();
+  }
+
+  function clearOrbitTimer() {
+    if (!orbitTimer) return;
+    window.clearInterval(orbitTimer);
+    orbitTimer = null;
+  }
+
+  function startOrbitTimer() {
+    clearOrbitTimer();
+    if (
+      !pageVisible ||
+      lookControlMode !== "orbit" ||
+      sectionMode !== "look"
+    ) {
+      return;
+    }
+    let directionIndex = activeDirectionIndex;
+    orbitTimer = window.setInterval(() => {
+      directionIndex = (directionIndex + 1) % config.directions.length;
+      setDirection(directionIndex);
+    }, LOOK_ORBIT_STEP_MS);
+  }
+
+  function cancelPointerUpdate() {
+    pendingPointerSample = null;
+    if (pointerFrameRequest === null) return;
+    window.cancelAnimationFrame(pointerFrameRequest);
+    pointerFrameRequest = null;
   }
 
   function setLookControlMode(mode) {
     const nextMode = ["manual", "orbit", "pointer"].includes(mode)
       ? mode
       : "manual";
-    if (orbitTimer) {
-      window.clearInterval(orbitTimer);
-      orbitTimer = null;
-    }
+    clearOrbitTimer();
+    cancelPointerUpdate();
     elements.directionTarget.style.display = "none";
     lookControlMode = nextMode;
 
     if (lookControlMode === "orbit") {
-      let directionIndex = activeDirectionIndex;
-      orbitTimer = window.setInterval(() => {
-        directionIndex = (directionIndex + 1) % config.directions.length;
-        setDirection(directionIndex);
-      }, 360);
+      startOrbitTimer();
     } else if (
       lookControlMode === "pointer" &&
       sectionMode === "look"
@@ -1746,11 +1788,32 @@
     ) {
       return;
     }
+    pendingPointerSample = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
+    if (pointerFrameRequest !== null) return;
+    pointerFrameRequest = window.requestAnimationFrame(flushPointerMove);
+  }
+
+  function flushPointerMove() {
+    pointerFrameRequest = null;
+    const sample = pendingPointerSample;
+    pendingPointerSample = null;
+    if (
+      !sample ||
+      !pageVisible ||
+      lookControlMode !== "pointer" ||
+      sectionMode !== "look"
+    ) {
+      return;
+    }
+
     const rect = elements.stage.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    const deltaX = event.clientX - centerX;
-    const deltaY = event.clientY - centerY;
+    const deltaX = sample.clientX - centerX;
+    const deltaY = sample.clientY - centerY;
     if (Math.hypot(deltaX, deltaY) < 28) return;
 
     const degrees =
@@ -1758,9 +1821,12 @@
     const directionIndex =
       Math.round(degrees / (360 / config.directions.length)) %
       config.directions.length;
-    setDirection(directionIndex);
-    elements.directionTarget.style.left = `${event.clientX - rect.left}px`;
-    elements.directionTarget.style.top = `${event.clientY - rect.top}px`;
+    if (directionIndex !== activeDirectionIndex) {
+      setDirection(directionIndex);
+    }
+    elements.directionTarget.style.transform =
+      `translate3d(${sample.clientX - rect.left}px, ${sample.clientY - rect.top}px, 0) ` +
+      "translate(-50%, -50%)";
   }
 
   function clearTourTimers() {
@@ -1779,8 +1845,35 @@
       startedAt: 0,
       holdMs: 0,
     };
-    if (!completed) elements.tourProgressBar.style.width = "0%";
+    if (!completed) setTourProgress(0);
     renderTourStatus();
+  }
+
+  function setTourProgress(percent) {
+    const bounded = Math.min(100, Math.max(0, Number(percent) || 0));
+    elements.tourProgressBar.style.transform = `scaleX(${bounded / 100})`;
+  }
+
+  function handleVisibilityChange() {
+    pageVisible = document.visibilityState !== "hidden";
+
+    if (!pageVisible) {
+      clearFrameTimer();
+      clearOrbitTimer();
+      cancelPointerUpdate();
+      clearTourTimers();
+      if (playbackMode === "gif") hideGifPlayer();
+      return;
+    }
+
+    if (tourState.active) {
+      showNextTourState();
+      return;
+    }
+
+    if (lookControlMode === "orbit") startOrbitTimer();
+    renderPlayer({ restartGif: playbackMode === "gif" });
+    scheduleNextFrame();
   }
 
   function showNextTourState() {
@@ -1809,8 +1902,8 @@
       const withinState = Math.min(1, elapsed / tourState.holdMs);
       const overall =
         ((tourState.index + withinState) / config.states.length) * 100;
-      elements.tourProgressBar.style.width = `${overall}%`;
-    }, 80);
+      setTourProgress(overall);
+    }, TOUR_PROGRESS_STEP_MS);
 
     tourTimer = window.setTimeout(() => {
       if (tourProgressTimer) window.clearInterval(tourProgressTimer);
@@ -1963,6 +2056,7 @@
     });
     elements.stage.addEventListener("pointermove", handlePointerMove);
     elements.stage.addEventListener("pointerleave", () => {
+      cancelPointerUpdate();
       if (lookControlMode === "pointer") {
         elements.directionTarget.style.display = "none";
       }
@@ -2011,6 +2105,7 @@
         }
       }
     });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
   }
 

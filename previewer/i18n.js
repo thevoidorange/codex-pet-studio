@@ -8,7 +8,7 @@ window.PET_PREVIEW_I18N = {
     en: {
       documentTitle: "Pet Previewer",
       ui: {
-        autoPlayAllStates: "Auto-play all states",
+        autoPlayAllStates: "Auto-Play All States",
         startAutoPlayTitle: "Start playing every state in sequence",
         stopAutoPlayTitle: "Stop automatic state playback",
         version: "Version",
@@ -18,23 +18,23 @@ window.PET_PREVIEW_I18N = {
         stateCount: "{count}",
         stateListAria: "Animation state list",
         previewModeAria: "Preview section",
-        animationStates: "Animation states",
-        lookDirections: "16 look directions",
-        gifLoop: "GIF loop",
+        animationStates: "Animation States",
+        lookDirections: "16 Look Directions",
+        gifLoop: "GIF Loop",
         playbackAria: "Playback mode",
-        gifPlayback: "GIF loop",
-        gifPlaybackMissing: "GIF loop · Not generated",
-        gifPlaybackFailed: "GIF loop · Unavailable",
+        gifPlayback: "GIF Loop",
+        gifPlaybackMissing: "GIF Loop · Not Generated",
+        gifPlaybackFailed: "GIF Loop · Unavailable",
         gifPlaybackTitle:
           "Play the exported QA GIF at its encoded timing",
         gifPlaybackMissingTitle:
           "No exported GIF is configured for this state",
         gifPlaybackFailedTitle:
           "The configured GIF could not be loaded",
-        runtimeTiming: "Runtime simulation",
+        runtimeTiming: "Runtime Simulation",
         runtimeTimingTitle:
           "Simulate intended playback from Previewer timing metadata; this is not an exact trace of the Codex client",
-        adjustTiming: "Adjust timing",
+        adjustTiming: "Adjust Timing",
         adjustTimingTitle:
           "Tune the current state's Preview timing in 5 ms target steps",
         timingEditorAria: "Preview timing editor",
@@ -46,9 +46,9 @@ window.PET_PREVIEW_I18N = {
         timingIncrease: "Increase frame duration by 5 milliseconds",
         frameDuration: "Selected frame duration",
         undoTiming: "Undo",
-        resetStateTiming: "Reset state",
-        copyForCodex: "Copy for Codex",
-        exportTiming: "Export timing JSON",
+        resetStateTiming: "Reset State",
+        copyForCodex: "Copy For Codex",
+        exportTiming: "Export Timing JSON",
         timingIdleSummary:
           "{seconds}s per loop · simulated with {slowdown}× slower Idle timing",
         timingActionSummary:
@@ -86,16 +86,16 @@ window.PET_PREVIEW_I18N = {
         nextFrame: "Next frame",
         restart: "Restart",
         lookModeAria: "Look interaction modes",
-        autoOrbit: "Auto orbit",
-        pointerFollow: "Pointer follow",
+        autoOrbit: "Auto Orbit",
+        pointerFollow: "Pointer Follow",
         pointerHint:
           "Turn on pointer follow, then move the pointer around the pet to inspect every look direction.",
         directionListAria: "Look direction list",
         backgroundAria: "Preview background",
         background: "Background",
-        backgroundPaper: "Paper white",
-        backgroundGray: "Mid gray",
-        backgroundDark: "Dark gray",
+        backgroundPaper: "Paper White",
+        backgroundGray: "Mid Gray",
+        backgroundDark: "Dark Gray",
         expression: "Expression",
         desktopTrigger: "Desktop trigger",
         actionLength: "Action length",
@@ -146,18 +146,18 @@ window.PET_PREVIEW_I18N = {
       },
       directions: {
         up: "Up",
-        upRight: "Up right",
+        upRight: "Up Right",
         right: "Right",
-        downRight: "Down right",
+        downRight: "Down Right",
         down: "Down",
-        downLeft: "Down left",
+        downLeft: "Down Left",
         left: "Left",
-        upLeft: "Up left",
+        upLeft: "Up Left",
       },
       states: {
         idle: {
           label: "Idle",
-          title: "Resting nearby",
+          title: "Resting Nearby",
           short: "Breathing and a small settling motion",
           description:
             "The pet keeps its weight grounded while the face and outer silhouette move only enough to feel alive.",
@@ -165,8 +165,8 @@ window.PET_PREVIEW_I18N = {
           trigger: "Shown when no higher-priority state is active.",
         },
         "running-right": {
-          label: "Move right",
-          title: "Moving right",
+          label: "Move Right",
+          title: "Moving Right",
           short: "Weight travels toward the right edge",
           description:
             "The silhouette transfers weight from left to right before the whole figure changes position.",
@@ -174,8 +174,8 @@ window.PET_PREVIEW_I18N = {
           trigger: "The desktop pet moves toward the right.",
         },
         "running-left": {
-          label: "Move left",
-          title: "Moving left",
+          label: "Move Left",
+          title: "Moving Left",
           short: "Weight travels toward the left edge",
           description:
             "The silhouette transfers weight from right to left before the whole figure changes position.",
@@ -184,7 +184,7 @@ window.PET_PREVIEW_I18N = {
         },
         waving: {
           label: "Greeting",
-          title: "A quiet hello",
+          title: "A Quiet Hello",
           short: "One restrained greeting and a soft return",
           description:
             "A small part of the figure approaches, greets once, and settles back with delayed cloth-like follow-through.",
@@ -193,7 +193,7 @@ window.PET_PREVIEW_I18N = {
         },
         jumping: {
           label: "Jumping",
-          title: "A light jump",
+          title: "A Light Jump",
           short: "Compress, lift, land, settle",
           description:
             "The full silhouette gathers weight before leaving the surface and lands with one controlled secondary motion.",
@@ -202,7 +202,7 @@ window.PET_PREVIEW_I18N = {
         },
         failed: {
           label: "Failed",
-          title: "Recovering from a setback",
+          title: "Recovering From A Setback",
           short: "Deflate, retreat, then return",
           description:
             "The form briefly loses tension, pulls back, and then reappears near its previous position.",
@@ -211,7 +211,7 @@ window.PET_PREVIEW_I18N = {
         },
         waiting: {
           label: "Waiting",
-          title: "Waiting for a response",
+          title: "Waiting For A Response",
           short: "Approach, ask once, remain nearby",
           description:
             "The pet moves closer, makes one small request gesture, then waits without repeating it.",
@@ -220,7 +220,7 @@ window.PET_PREVIEW_I18N = {
         },
         running: {
           label: "Working",
-          title: "Focused activity",
+          title: "Focused Activity",
           short: "A clear path of internal motion",
           description:
             "Attention travels through the silhouette in a purposeful route while the larger mass responds one beat later.",
@@ -229,7 +229,7 @@ window.PET_PREVIEW_I18N = {
         },
         review: {
           label: "Review",
-          title: "Inspecting a result",
+          title: "Inspecting A Result",
           short: "Lean in, observe, settle",
           description:
             "The face and nearby edge move forward first, followed by a smaller response in the rest of the figure.",
