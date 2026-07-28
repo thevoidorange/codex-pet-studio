@@ -95,12 +95,12 @@ Keep reusable identifiers in English. Add pet-specific user-facing copy without 
 }
 ```
 
-The language and version selectors preserve the current state, frame, mode, speed, and playback state when the selected version supports them.
+The language and version selectors preserve the current state, frame, selected playback mode, speed, and temporary inspection state when the selected version supports them.
 
 ## Playback modes and display size
 
-- **Exported GIF** plays the rendered QA GIF. Browsers do not expose its exact internal frame for pausing or stepping.
-- **Codex runtime** simulates desktop behavior from source frame durations: action loops repeat according to the runtime configuration, then return to slowed Idle.
-- **Inspect frames** opens the atlas sequence paused. Previous and Next always move exactly one source frame; Play may be used to loop the atlas sequence.
+- **GIF Loop** plays the native exported QA GIF at its encoded timing. When a state has no exported GIF, the mode is disabled and visibly marked as not generated; the Previewer never silently substitutes atlas playback.
+- **Runtime Simulation** uses Previewer metadata for frame durations, action-loop count, and slowed Idle behavior. It is a production approximation, not an exact trace of the Codex client.
+- **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected GIF Loop or Runtime Simulation. A browser cannot freeze a native GIF at its exact internal frame, so GIF inspection opens the corresponding atlas sequence instead.
 
 The **Size** slider in the upper-right corner of the grid stage changes only the displayed preview scale. It never resizes, rewrites, or re-exports the spritesheet or GIF.

@@ -13,7 +13,6 @@
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     followPointerButton: document.querySelector("#followPointerButton"),
-    frameModeButton: document.querySelector("#frameModeButton"),
     frameReadout: document.querySelector("#frameReadout"),
     frameStrip: document.querySelector("#frameStrip"),
     gifModeButton: document.querySelector("#gifModeButton"),
@@ -60,7 +59,8 @@
   let activeStateIndex = 0;
   let activeFrameIndex = 0;
   let activeDirectionIndex = 0;
-  let previewMode = "gif";
+  let playbackMode = "runtime";
+  let isInspectingFrame = false;
   let sectionMode = "animation";
   let isPlaying = true;
   let speed = 1;
@@ -71,6 +71,7 @@
   let lookControlMode = "manual";
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
+  let gifRequestSerial = 0;
   let tourTimer = null;
   let tourProgressTimer = null;
   let tourState = {
@@ -380,7 +381,7 @@
   }
 
   function displayedState() {
-    return previewMode === "runtime" && runtimeFellBack
+    return !isInspectingFrame && playbackMode === "runtime" && runtimeFellBack
       ? idleState()
       : currentState();
   }
@@ -593,9 +594,7 @@
       : createFixtureAtlas(version);
   }
 
-  function gifUrlFor(version, state) {
-    const failureKey = `${version.id}:${state.id}`;
-    if (failedGifs.has(failureKey)) return null;
+  function declaredGifUrlFor(version, state) {
     if (version.gifByState && version.gifByState[state.id]) {
       return resolveAssetUrl(version.gifByState[state.id]);
     }
@@ -604,6 +603,20 @@
       return `${root}/${state.id}.gif`;
     }
     return null;
+  }
+
+  function gifAvailabilityFor(version, state) {
+    const declaredUrl = declaredGifUrlFor(version, state);
+    if (!declaredUrl) return "missing";
+    return failedGifs.has(`${version.id}:${state.id}`)
+      ? "failed"
+      : "available";
+  }
+
+  function gifUrlFor(version, state) {
+    return gifAvailabilityFor(version, state) === "available"
+      ? declaredGifUrlFor(version, state)
+      : null;
   }
 
   function setSpriteFrame(row, column, target = elements.spritePlayer) {
@@ -682,7 +695,7 @@
   }
 
   function runtimeNoteFor(state) {
-    if (previewMode !== "runtime") return "";
+    if (playbackMode !== "runtime") return "";
     if (state.id === idleState().id) {
       return t("ui.runtimeIdleNote", {
         slowdown: config.runtime.idleSlowdown,
@@ -728,7 +741,13 @@
       .map(
         (_duration, index) => `
           <button
-            class="frame-button ${index === activeFrameIndex && !runtimeFellBack ? "is-active" : ""}"
+            class="frame-button ${
+              index === activeFrameIndex &&
+              !runtimeFellBack &&
+              (isInspectingFrame || playbackMode === "runtime")
+                ? "is-active"
+                : ""
+            }"
             data-frame-index="${index}"
             type="button"
             aria-label="${escapeHtml(t("ui.frameAria", { frame: index + 1 }))}"
@@ -744,8 +763,7 @@
       .querySelectorAll(".frame-button")
       .forEach((button) => {
         button.addEventListener("click", () => {
-          setPreviewMode("frames");
-          pausePlayback();
+          enterFrameInspection();
           setFrame(Number(button.dataset.frameIndex));
         });
       });
@@ -838,8 +856,7 @@
           stopTour();
           setSection("animation");
           setState(stateIndex);
-          setPreviewMode("frames");
-          pausePlayback();
+          enterFrameInspection();
           setFrame(Number(card.dataset.frameIndex));
           window.scrollTo({
             top: 0,
@@ -891,17 +908,53 @@
   }
 
   function renderControlLabels() {
-    elements.playPauseButton.textContent = isPlaying
-      ? t("ui.pause")
-      : t("ui.play");
+    const gifAvailability = activeGifAvailability();
+    const gifAvailable = gifAvailability === "available";
+    elements.playPauseButton.textContent = isInspectingFrame
+      ? t("ui.play")
+      : t("ui.pause");
+    elements.gifModeButton.textContent = t(
+      gifAvailability === "missing"
+        ? "ui.gifPlaybackMissing"
+        : gifAvailability === "failed"
+          ? "ui.gifPlaybackFailed"
+          : "ui.gifPlayback",
+    );
+    elements.gifModeButton.title = t(
+      gifAvailable
+        ? "ui.gifPlaybackTitle"
+        : gifAvailability === "failed"
+          ? "ui.gifPlaybackFailedTitle"
+          : "ui.gifPlaybackMissingTitle",
+    );
+    elements.gifModeButton.disabled = !gifAvailable;
+    elements.gifModeButton.classList.toggle(
+      "is-active",
+      playbackMode === "gif",
+    );
+    elements.gifModeButton.setAttribute(
+      "aria-pressed",
+      String(playbackMode === "gif"),
+    );
+    elements.runtimeModeButton.classList.toggle(
+      "is-active",
+      playbackMode === "runtime",
+    );
+    elements.runtimeModeButton.setAttribute(
+      "aria-pressed",
+      String(playbackMode === "runtime"),
+    );
+    elements.speedSelect.disabled = playbackMode === "gif";
+    elements.speedSelect.value =
+      playbackMode === "gif" ? "1" : String(speed);
     elements.previewModeHelp.textContent = t(
-      previewMode === "gif"
-        ? activeGifUrl()
+      isInspectingFrame
+        ? playbackMode === "gif"
+          ? "ui.frameInspectionGifHelp"
+          : "ui.frameInspectionRuntimeHelp"
+        : playbackMode === "gif"
           ? "ui.gifModeHelp"
-          : "ui.gifFallbackModeHelp"
-        : previewMode === "runtime"
-          ? "ui.runtimeModeHelp"
-          : "ui.frameModeHelp",
+          : "ui.runtimeModeHelp",
       {
         loops: config.runtime.actionLoops,
         slowdown: config.runtime.idleSlowdown,
@@ -953,14 +1006,22 @@
     }
 
     const state = currentState();
-    if (previewMode === "gif") {
+    if (isInspectingFrame) {
+      elements.frameReadout.textContent = t("ui.frameReadout", {
+        frame: activeFrameIndex + 1,
+        count: state.durations.length,
+      });
+      return;
+    }
+
+    if (playbackMode === "gif") {
       elements.frameReadout.textContent = t("ui.frameLoop", {
         count: state.durations.length,
       });
       return;
     }
 
-    if (previewMode === "runtime") {
+    if (playbackMode === "runtime") {
       const playbackState = displayedState();
       if (runtimeFellBack) {
         elements.frameReadout.textContent = t("ui.runtimeReturnedIdle", {
@@ -983,23 +1044,64 @@
       return;
     }
 
-    elements.frameReadout.textContent = t("ui.frameReadout", {
-      frame: activeFrameIndex + 1,
-      count: state.durations.length,
-    });
   }
 
   function activeGifUrl() {
     return gifUrlFor(currentVersion(), currentState());
   }
 
-  function usesNativeGif() {
-    return previewMode === "gif" && Boolean(activeGifUrl());
+  function activeGifAvailability() {
+    return gifAvailabilityFor(currentVersion(), currentState());
+  }
+
+  function hideGifPlayer() {
+    gifRequestSerial += 1;
+    elements.gifPlayer.style.display = "none";
+    elements.gifPlayer.removeAttribute("src");
+    delete elements.gifPlayer.dataset.source;
+  }
+
+  function showGifPlayer(gifUrl, { restartGif = false } = {}) {
+    if (
+      !restartGif &&
+      elements.gifPlayer.dataset.source === gifUrl
+    ) {
+      elements.gifPlayer.style.display = "block";
+      return;
+    }
+
+    const requestSerial = ++gifRequestSerial;
+    const failureKey = `${currentVersion().id}:${currentState().id}`;
+    const nextPlayer = document.createElement("img");
+    nextPlayer.id = "gifPlayer";
+    nextPlayer.className = "gif-player";
+    nextPlayer.alt = elements.gifPlayer.alt;
+    nextPlayer.style.display = "block";
+    nextPlayer.dataset.source = gifUrl;
+    nextPlayer.addEventListener(
+      "error",
+      () => {
+        if (requestSerial !== gifRequestSerial) return;
+        failedGifs.add(failureKey);
+        const activeKey = `${currentVersion().id}:${currentState().id}`;
+        if (failureKey !== activeKey) return;
+        setPlaybackMode("runtime");
+        renderControlLabels();
+        elements.previewModeHelp.textContent = t("ui.gifLoadFailedHelp");
+      },
+      { once: true },
+    );
+
+    elements.gifPlayer.replaceWith(nextPlayer);
+    elements.gifPlayer = nextPlayer;
+    nextPlayer.src = restartGif
+      ? `${gifUrl}${gifUrl.includes("?") ? "&" : "?"}restart=${Date.now()}`
+      : gifUrl;
   }
 
   function renderPlayer({ restartGif = false } = {}) {
     if (sectionMode === "look") {
-      elements.gifPlayer.style.display = "none";
+      hideGifPlayer();
       elements.spritePlayer.style.display = "block";
       const direction = config.directions[activeDirectionIndex];
       setSpriteFrame(direction.row, direction.column);
@@ -1007,37 +1109,37 @@
       return;
     }
 
+    if (isInspectingFrame) {
+      hideGifPlayer();
+      elements.spritePlayer.style.display = "block";
+      const state = currentState();
+      setSpriteFrame(state.row, activeFrameIndex);
+      elements.stageModeLabel.textContent = t("ui.frameInspectionLabel");
+      clearFrameTimer();
+      return;
+    }
+
     const gifUrl = activeGifUrl();
-    if (previewMode === "gif" && gifUrl) {
-      elements.gifPlayer.style.display = "block";
+    if (playbackMode === "gif" && gifUrl) {
       elements.spritePlayer.style.display = "none";
-      if (restartGif || elements.gifPlayer.dataset.source !== gifUrl) {
-        elements.gifPlayer.dataset.source = gifUrl;
-        elements.gifPlayer.src = restartGif
-          ? `${gifUrl}${gifUrl.includes("?") ? "&" : "?"}restart=${Date.now()}`
-          : gifUrl;
-      }
+      showGifPlayer(gifUrl, { restartGif });
       elements.stageModeLabel.textContent = t("ui.gifLoop");
       clearFrameTimer();
       return;
     }
 
-    elements.gifPlayer.style.display = "none";
+    hideGifPlayer();
     elements.spritePlayer.style.display = "block";
     const playbackState = displayedState();
     setSpriteFrame(playbackState.row, activeFrameIndex);
     elements.stageModeLabel.textContent =
-      previewMode === "gif"
-        ? t("ui.simulatedLoop")
-        : previewMode === "runtime"
-          ? runtimeFellBack
-            ? t("ui.runtimeBackToIdle")
-            : currentState().id === idleState().id
-              ? t("ui.runtimeIdle")
-              : t("ui.runtimeAction", {
-                  loops: config.runtime.actionLoops,
-                })
-          : t("ui.frameAtlas");
+      runtimeFellBack
+        ? t("ui.runtimeBackToIdle")
+        : currentState().id === idleState().id
+          ? t("ui.runtimeIdle")
+          : t("ui.runtimeAction", {
+              loops: config.runtime.actionLoops,
+            });
   }
 
   function refreshActiveClasses() {
@@ -1051,7 +1153,9 @@
       .forEach((button, index) => {
         button.classList.toggle(
           "is-active",
-          index === activeFrameIndex && !runtimeFellBack,
+          index === activeFrameIndex &&
+            !runtimeFellBack &&
+            (isInspectingFrame || playbackMode === "runtime"),
         );
       });
   }
@@ -1068,6 +1172,17 @@
     runtimeFellBack = false;
   }
 
+  function ensurePlaybackModeAvailable() {
+    if (
+      playbackMode === "gif" &&
+      activeGifAvailability() !== "available"
+    ) {
+      playbackMode = "runtime";
+      return false;
+    }
+    return true;
+  }
+
   function setFrame(index) {
     const state = displayedState();
     activeFrameIndex =
@@ -1081,10 +1196,9 @@
   function shouldScheduleFrames() {
     return (
       isPlaying &&
+      !isInspectingFrame &&
       sectionMode === "animation" &&
-      (previewMode === "frames" ||
-        previewMode === "runtime" ||
-        (previewMode === "gif" && !usesNativeGif()))
+      playbackMode === "runtime"
     );
   }
 
@@ -1094,7 +1208,7 @@
 
     const state = displayedState();
     const slowdown =
-      previewMode === "runtime" &&
+      playbackMode === "runtime" &&
       (runtimeFellBack || currentState().id === idleState().id)
         ? config.runtime.idleSlowdown
         : 1;
@@ -1104,7 +1218,7 @@
       const wrapped = activeFrameIndex + 1 >= state.durations.length;
 
       if (
-        previewMode === "runtime" &&
+        playbackMode === "runtime" &&
         wrapped &&
         !runtimeFellBack &&
         currentState().id !== idleState().id
@@ -1127,20 +1241,47 @@
   }
 
   function restartPlayback() {
+    ensurePlaybackModeAvailable();
     resetRuntimePlayback();
     activeFrameIndex = 0;
+    isInspectingFrame = false;
     isPlaying = true;
     renderControlLabels();
-    renderPlayer({ restartGif: previewMode === "gif" });
+    renderDetails();
+    renderPlayer({ restartGif: playbackMode === "gif" });
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
   }
 
-  function pausePlayback() {
+  function enterFrameInspection() {
+    if (runtimeFellBack) activeFrameIndex = 0;
+    resetRuntimePlayback();
+    activeFrameIndex = Math.min(
+      activeFrameIndex,
+      currentState().durations.length - 1,
+    );
+    isInspectingFrame = true;
     isPlaying = false;
     clearFrameTimer();
     renderControlLabels();
+    renderDetails();
+    renderPlayer();
+    renderFrameReadout();
+    refreshActiveClasses();
+  }
+
+  function resumeSelectedPlayback() {
+    ensurePlaybackModeAvailable();
+    resetRuntimePlayback();
+    isInspectingFrame = false;
+    isPlaying = true;
+    renderControlLabels();
+    renderDetails();
+    renderPlayer({ restartGif: playbackMode === "gif" });
+    renderFrameReadout();
+    refreshActiveClasses();
+    scheduleNextFrame();
   }
 
   function setPreviewSize(value) {
@@ -1158,16 +1299,8 @@
   }
 
   function togglePlayback() {
-    if (usesNativeGif()) {
-      setPreviewMode("frames", {
-        preserveFrame: true,
-        autoplay: false,
-      });
-      return;
-    }
-    isPlaying = !isPlaying;
-    renderControlLabels();
-    scheduleNextFrame();
+    if (isInspectingFrame) resumeSelectedPlayback();
+    else enterFrameInspection();
   }
 
   function setState(index, options = {}) {
@@ -1176,11 +1309,14 @@
       config.states.length;
     activeFrameIndex = 0;
     resetRuntimePlayback();
+    isInspectingFrame = false;
+    isPlaying = true;
+    ensurePlaybackModeAvailable();
     renderStateList();
     renderDetails();
     renderControlLabels();
     renderFrameStrip();
-    renderPlayer({ restartGif: previewMode === "gif" });
+    renderPlayer({ restartGif: playbackMode === "gif" });
     renderFrameReadout();
     scheduleNextFrame();
 
@@ -1191,31 +1327,18 @@
     }
   }
 
-  function setPreviewMode(mode, options = {}) {
-    const preserveFrame =
-      options.preserveFrame === undefined
-        ? mode === "frames"
-        : options.preserveFrame;
-    const autoplay =
-      options.autoplay === undefined ? mode !== "frames" : options.autoplay;
-    clearFrameTimer();
-    previewMode = mode;
-    if (mode === "gif") {
-      speed = 1;
-      elements.speedSelect.value = "1";
+  function setPlaybackMode(mode) {
+    if (!["gif", "runtime"].includes(mode)) return;
+    if (mode === "gif" && activeGifAvailability() !== "available") {
+      renderControlLabels();
+      return;
     }
+    clearFrameTimer();
+    playbackMode = mode;
     resetRuntimePlayback();
-    if (!preserveFrame) activeFrameIndex = 0;
-    isPlaying = autoplay;
-    elements.gifModeButton.classList.toggle("is-active", mode === "gif");
-    elements.runtimeModeButton.classList.toggle(
-      "is-active",
-      mode === "runtime",
-    );
-    elements.frameModeButton.classList.toggle(
-      "is-active",
-      mode === "frames",
-    );
+    activeFrameIndex = 0;
+    isInspectingFrame = false;
+    isPlaying = true;
     renderControlLabels();
     renderDetails();
     renderPlayer({ restartGif: mode === "gif" });
@@ -1225,12 +1348,8 @@
   }
 
   function stepFrame(delta) {
-    const nextFrameIndex = activeFrameIndex + delta;
-    setPreviewMode("frames", {
-      preserveFrame: true,
-      autoplay: false,
-    });
-    setFrame(nextFrameIndex);
+    enterFrameInspection();
+    setFrame(activeFrameIndex + delta);
   }
 
   function setSection(mode) {
@@ -1389,7 +1508,7 @@
   function startTour() {
     stopTour();
     setSection("animation");
-    setPreviewMode("gif");
+    setPlaybackMode("runtime");
     tourState.active = true;
     tourState.completed = false;
     tourState.index = 0;
@@ -1418,17 +1537,24 @@
     if (!nextVersion) return;
 
     const wasPlaying = isPlaying;
+    const wasInspectingFrame = isInspectingFrame;
     clearFrameTimer();
     activeVersionId = nextVersion.id;
     elements.versionSelect.value = activeVersionId;
-    const frameCount = displayedState().durations.length;
+    ensurePlaybackModeAvailable();
+    isInspectingFrame = wasInspectingFrame;
+    isPlaying = wasInspectingFrame ? false : wasPlaying;
+    const frameCount = currentState().durations.length;
     activeFrameIndex = Math.min(activeFrameIndex, frameCount - 1);
     renderFrameStrip();
     renderMechanicsBoard();
-    renderPlayer({ restartGif: previewMode === "gif" });
+    renderDetails();
+    renderPlayer({
+      restartGif: playbackMode === "gif" && !isInspectingFrame,
+    });
     renderFrameReadout();
-    isPlaying = wasPlaying;
     renderControlLabels();
+    refreshActiveClasses();
     scheduleNextFrame();
   }
 
@@ -1458,13 +1584,10 @@
     );
     elements.lookTab.addEventListener("click", () => setSection("look"));
     elements.gifModeButton.addEventListener("click", () =>
-      setPreviewMode("gif"),
+      setPlaybackMode("gif"),
     );
     elements.runtimeModeButton.addEventListener("click", () =>
-      setPreviewMode("runtime"),
-    );
-    elements.frameModeButton.addEventListener("click", () =>
-      setPreviewMode("frames"),
+      setPlaybackMode("runtime"),
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
@@ -1477,7 +1600,6 @@
     );
     elements.speedSelect.addEventListener("change", () => {
       speed = Number(elements.speedSelect.value);
-      if (usesNativeGif() && speed !== 1) setPreviewMode("frames");
       scheduleNextFrame();
     });
     elements.orbitButton.addEventListener("click", () => {
@@ -1535,14 +1657,6 @@
       }
     });
 
-    elements.gifPlayer.addEventListener("error", () => {
-      const state = currentState();
-      failedGifs.add(`${currentVersion().id}:${state.id}`);
-      elements.stageModeLabel.textContent = t("ui.gifError");
-      renderControlLabels();
-      renderPlayer();
-      scheduleNextFrame();
-    });
   }
 
   function initialVersionId() {
@@ -1557,6 +1671,8 @@
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
     activeVersionId = initialVersionId();
+    playbackMode =
+      activeGifAvailability() === "available" ? "gif" : "runtime";
 
     applyStaticTranslations();
     populateLanguageSelect();

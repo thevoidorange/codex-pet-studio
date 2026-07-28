@@ -117,13 +117,13 @@ The Previewer includes:
 
 - English and Simplified Chinese UI with browser-language detection;
 - an arbitrary-version dropdown rather than hardcoded V1/V2 controls;
-- state, runtime-timing, frame-inspection, and all-state tour modes;
+- native GIF Loop and config-driven Runtime Simulation modes, plus temporary frame inspection and an all-state tour;
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
 - grayscale preview backgrounds;
 - external JSON loading through `?config=<relative-or-absolute-url>`.
 
-Changing language or version preserves the current state, frame, playback mode, speed, and paused/playing state when the selected version supports them.
+Changing language or version preserves the current state, frame, selected playback mode, speed, and temporary inspection state when the selected version supports them. Runtime Simulation uses Previewer metadata and is not an exact trace of the Codex client.
 
 The built-in geometric figure is a non-production fixture for testing the UI. Replace `previewer/preview-data.js`, or supply an external JSON config, when a real version is ready.
 

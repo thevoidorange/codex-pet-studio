@@ -144,15 +144,17 @@ class PreviewerStaticTests(unittest.TestCase):
 
     def test_frame_step_preserves_position_and_moves_exactly_once(self) -> None:
         self.assertIn("function stepFrame(delta)", self.app)
-        self.assertIn("const nextFrameIndex = activeFrameIndex + delta;", self.app)
-        self.assertIn('setPreviewMode("frames", {', self.app)
-        self.assertIn("preserveFrame: true", self.app)
-        self.assertIn("autoplay: false", self.app)
-        self.assertIn("setFrame(nextFrameIndex);", self.app)
-        self.assertNotIn(
-            'setPreviewMode("frames");\n      pausePlayback();\n      setFrame(activeFrameIndex',
+        self.assertIn(
+            "function stepFrame(delta) {\n"
+            "    enterFrameInspection();\n"
+            "    setFrame(activeFrameIndex + delta);",
             self.app,
         )
+        self.assertIn('let playbackMode = "runtime";', self.app)
+        self.assertIn("let isInspectingFrame = false;", self.app)
+        self.assertIn("function resumeSelectedPlayback()", self.app)
+        self.assertNotIn('setPreviewMode("frames"', self.app)
+        self.assertNotIn('playbackMode = "frames"', self.app)
 
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)
@@ -196,22 +198,50 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_playback_modes_have_explanatory_copy(self) -> None:
         for key in (
             "gifPlaybackTitle",
+            "gifPlaybackMissing",
+            "gifPlaybackMissingTitle",
+            "gifPlaybackFailed",
+            "gifPlaybackFailedTitle",
             "runtimeTimingTitle",
-            "frameInspectionTitle",
             "gifModeHelp",
-            "gifFallbackModeHelp",
             "runtimeModeHelp",
-            "frameModeHelp",
+            "frameInspectionGifHelp",
+            "frameInspectionRuntimeHelp",
+            "frameInspectionLabel",
+            "gifLoadFailedHelp",
             "previewSizeTitle",
         ):
             self.assertIn(key, self.i18n)
         self.assertIn('id="previewModeHelp"', self.html)
+        self.assertIn('id="gifModeButton"', self.html)
+        self.assertIn('id="runtimeModeButton"', self.html)
+        self.assertNotIn('id="frameModeButton"', self.html)
+        self.assertNotIn("gifFallbackModeHelp", self.i18n)
+        self.assertNotIn("simulatedLoop", self.i18n)
+        self.assertNotIn("frameModeHelp", self.i18n)
+        self.assertIn("function declaredGifUrlFor(", self.app)
+        self.assertIn("function gifAvailabilityFor(", self.app)
+        self.assertIn("elements.gifModeButton.disabled = !gifAvailable;", self.app)
+        self.assertIn('playbackMode === "runtime"', self.app)
+        self.assertIn("!isInspectingFrame", self.app)
+        self.assertNotIn('(playbackMode === "gif" && !usesNativeGif())', self.app)
         self.assertIn(
-            'failedGifs.add(`${currentVersion().id}:${state.id}`);\n'
-            "      elements.stageModeLabel.textContent = t(\"ui.gifError\");\n"
-            "      renderControlLabels();",
+            "elements.speedSelect.disabled = playbackMode === \"gif\";",
             self.app,
         )
+        self.assertIn("let gifRequestSerial = 0;", self.app)
+        self.assertIn("const requestSerial = ++gifRequestSerial;", self.app)
+        self.assertIn(
+            "if (requestSerial !== gifRequestSerial) return;",
+            self.app,
+        )
+        self.assertIn(
+            'const nextPlayer = document.createElement("img");',
+            self.app,
+        )
+        self.assertIn("elements.gifPlayer.replaceWith(nextPlayer);", self.app)
+        self.assertIn("failedGifs.add(failureKey);", self.app)
+        self.assertIn('setPlaybackMode("runtime");', self.app)
 
     def test_chinese_ui_copy_is_isolated_to_i18n(self) -> None:
         chinese = re.compile(r"[\u3400-\u9fff]")
