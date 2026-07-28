@@ -1,12 +1,88 @@
 from __future__ import annotations
 
 import re
+import struct
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PREVIEWER = ROOT / "previewer"
+
+
+def parse_gif(path: Path) -> dict[str, object]:
+    data = path.read_bytes()
+    if data[:6] not in (b"GIF87a", b"GIF89a"):
+        raise AssertionError(f"Not a GIF: {path}")
+    width, height = struct.unpack_from("<HH", data, 6)
+    packed = data[10]
+    cursor = 13
+    if packed & 0x80:
+        cursor += 3 * (2 ** ((packed & 0x07) + 1))
+
+    delays: list[int] = []
+    extension_labels: list[int] = []
+    loop_count = None
+    pending_delay = 0
+
+    def read_sub_blocks(position: int) -> tuple[bytes, int]:
+        payload = bytearray()
+        while True:
+            block_size = data[position]
+            position += 1
+            if block_size == 0:
+                return bytes(payload), position
+            payload.extend(data[position : position + block_size])
+            position += block_size
+
+    while cursor < len(data):
+        marker = data[cursor]
+        cursor += 1
+        if marker == 0x3B:
+            break
+        if marker == 0x21:
+            label = data[cursor]
+            extension_labels.append(label)
+            cursor += 1
+            if label == 0xF9:
+                block_size = data[cursor]
+                cursor += 1
+                block = data[cursor : cursor + block_size]
+                cursor += block_size
+                cursor += 1
+                pending_delay = struct.unpack_from("<H", block, 1)[0]
+            elif label == 0xFF:
+                block_size = data[cursor]
+                cursor += 1
+                application = data[cursor : cursor + block_size]
+                cursor += block_size
+                payload, cursor = read_sub_blocks(cursor)
+                if (
+                    application.startswith(b"NETSCAPE")
+                    and payload[:1] == b"\x01"
+                ):
+                    loop_count = struct.unpack_from("<H", payload, 1)[0]
+            else:
+                _, cursor = read_sub_blocks(cursor)
+            continue
+        if marker == 0x2C:
+            descriptor = data[cursor : cursor + 9]
+            cursor += 9
+            if descriptor[8] & 0x80:
+                cursor += 3 * (2 ** ((descriptor[8] & 0x07) + 1))
+            cursor += 1
+            _, cursor = read_sub_blocks(cursor)
+            delays.append(pending_delay)
+            pending_delay = 0
+            continue
+        raise AssertionError(f"Unexpected GIF marker 0x{marker:02x}: {path}")
+
+    return {
+        "size": (width, height),
+        "delays": delays,
+        "loop_count": loop_count,
+        "extension_labels": extension_labels,
+    }
 
 
 class PreviewerStaticTests(unittest.TestCase):
@@ -130,6 +206,50 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('exampleVersion: "Example"', self.i18n)
         example_translation = "".join(chr(code) for code in (0x793A, 0x4F8B))
         self.assertIn(f'exampleVersion: "{example_translation}"', self.i18n)
+        self.assertIn("version && version.isBundledExample", self.app)
+        self.assertIn("? window.location.href", self.app)
+
+    def test_bundled_example_has_native_gifs(self) -> None:
+        expected_states = {
+            "idle": (280, 110, 110, 140, 140, 320),
+            "running-right": (120, 120, 120, 120, 120, 120, 120, 220),
+            "running-left": (120, 120, 120, 120, 120, 120, 120, 220),
+            "waving": (140, 140, 140, 280),
+            "jumping": (140, 140, 140, 140, 280),
+            "failed": (140, 140, 140, 140, 140, 140, 140, 240),
+            "waiting": (150, 150, 150, 150, 150, 260),
+            "running": (120, 120, 120, 120, 120, 220),
+            "review": (150, 150, 150, 150, 150, 280),
+        }
+        for version_id in ("v001", "v002"):
+            version_root = PREVIEWER / "sample-assets" / version_id
+            atlas = version_root / "spritesheet.png"
+            self.assertTrue(atlas.is_file(), atlas)
+            atlas_data = atlas.read_bytes()
+            self.assertEqual(b"\x89PNG\r\n\x1a\n", atlas_data[:8])
+            self.assertEqual(
+                (1536, 2288),
+                struct.unpack(">II", atlas_data[16:24]),
+            )
+            self.assertIn(
+                f'atlasUrl: "./sample-assets/{version_id}/spritesheet.png"',
+                self.data,
+            )
+            self.assertIn(
+                f'gifRoot: "./sample-assets/{version_id}/gifs"',
+                self.data,
+            )
+            for state_id, durations in expected_states.items():
+                gif = version_root / "gifs" / f"{state_id}.gif"
+                self.assertTrue(gif.is_file(), gif)
+                parsed = parse_gif(gif)
+                self.assertEqual((192, 208), parsed["size"])
+                self.assertEqual(
+                    [duration // 10 for duration in durations],
+                    parsed["delays"],
+                )
+                self.assertEqual(0, parsed["loop_count"])
+                self.assertNotIn(0xFE, parsed["extension_labels"])
 
     def test_css_palette_is_grayscale(self) -> None:
         colors = re.findall(r"#([0-9a-fA-F]{6})\b", self.css)

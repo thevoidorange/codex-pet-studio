@@ -104,3 +104,7 @@ The language and version selectors preserve the current state, frame, selected p
 - **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected GIF Loop or Runtime Simulation. A browser cannot freeze a native GIF at its exact internal frame, so GIF inspection opens the corresponding atlas sequence instead.
 
 The **Size** slider in the upper-right corner of the grid stage changes only the displayed preview scale. It never resizes, rewrites, or re-exports the spritesheet or GIF.
+
+The bundled geometric Example includes native GIFs for all nine standard states,
+so both playback modes remain testable even before a user project has exported
+its own GIFs.

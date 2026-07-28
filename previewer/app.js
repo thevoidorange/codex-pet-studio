@@ -354,10 +354,14 @@
     return normalized;
   }
 
-  function resolveAssetUrl(path) {
+  function resolveAssetUrl(path, version = null) {
     if (!path) return null;
     try {
-      return new URL(path, configBaseUrl).href;
+      const baseUrl =
+        version && version.isBundledExample
+          ? window.location.href
+          : configBaseUrl;
+      return new URL(path, baseUrl).href;
     } catch {
       return path;
     }
@@ -590,16 +594,19 @@
 
   function atlasUrlFor(version) {
     return version.atlasUrl
-      ? resolveAssetUrl(version.atlasUrl)
+      ? resolveAssetUrl(version.atlasUrl, version)
       : createFixtureAtlas(version);
   }
 
   function declaredGifUrlFor(version, state) {
     if (version.gifByState && version.gifByState[state.id]) {
-      return resolveAssetUrl(version.gifByState[state.id]);
+      return resolveAssetUrl(version.gifByState[state.id], version);
     }
     if (version.gifRoot) {
-      const root = resolveAssetUrl(version.gifRoot).replace(/\/$/, "");
+      const root = resolveAssetUrl(version.gifRoot, version).replace(
+        /\/$/,
+        "",
+      );
       return `${root}/${state.id}.gif`;
     }
     return null;
