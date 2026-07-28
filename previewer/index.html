@@ -182,16 +182,22 @@
           </div>
 
           <div id="lookControls" class="look-controls" hidden>
-            <div class="look-actions">
+            <div
+              class="look-actions"
+              role="group"
+              data-i18n-aria-label="ui.lookModeAria"
+            >
               <button
                 id="orbitButton"
-                class="button button-primary"
+                class="button look-toggle"
                 type="button"
+                aria-pressed="false"
               ></button>
               <button
                 id="followPointerButton"
-                class="button"
+                class="button look-toggle"
                 type="button"
+                aria-pressed="false"
               ></button>
             </div>
             <div

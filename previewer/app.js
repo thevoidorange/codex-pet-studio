@@ -68,7 +68,7 @@
   let activeBackground = "paper";
   let frameTimer = null;
   let orbitTimer = null;
-  let pointerFollow = false;
+  let lookControlMode = "manual";
   let runtimeLoopsCompleted = 0;
   let runtimeFellBack = false;
   let tourTimer = null;
@@ -871,7 +871,7 @@
       .querySelectorAll(".direction-button")
       .forEach((button) => {
         button.addEventListener("click", () => {
-          stopOrbit();
+          setLookControlMode("manual");
           setDirection(Number(button.dataset.directionIndex));
         });
       });
@@ -907,12 +907,18 @@
         slowdown: config.runtime.idleSlowdown,
       },
     );
-    elements.orbitButton.textContent = orbitTimer
-      ? t("ui.stopOrbit")
-      : t("ui.autoOrbit");
-    elements.followPointerButton.textContent = pointerFollow
-      ? t("ui.pointerFollowOn")
-      : t("ui.pointerFollowOff");
+    const orbitActive = lookControlMode === "orbit";
+    const pointerFollowActive = lookControlMode === "pointer";
+    elements.orbitButton.textContent = t("ui.autoOrbit");
+    elements.orbitButton.setAttribute(
+      "aria-pressed",
+      String(orbitActive),
+    );
+    elements.followPointerButton.textContent = t("ui.pointerFollow");
+    elements.followPointerButton.setAttribute(
+      "aria-pressed",
+      String(pointerFollowActive),
+    );
   }
 
   function renderTourStatus() {
@@ -1243,10 +1249,9 @@
     elements.animationControls.hidden = !isAnimation;
     elements.lookControls.hidden = isAnimation;
     elements.frameStrip.parentElement.hidden = !isAnimation;
-    stopOrbit();
+    setLookControlMode("manual");
 
     if (isAnimation) {
-      elements.directionTarget.style.display = "none";
       renderDetails();
       renderFrameStrip();
       renderPlayer();
@@ -1276,39 +1281,38 @@
     renderPlayer();
   }
 
-  function startOrbit() {
-    stopOrbit();
-    pointerFollow = false;
-    elements.followPointerButton.classList.remove("button-primary");
-    let directionIndex = activeDirectionIndex;
-    orbitTimer = window.setInterval(() => {
-      directionIndex = (directionIndex + 1) % config.directions.length;
-      setDirection(directionIndex);
-    }, 360);
-    renderControlLabels();
-  }
-
-  function stopOrbit() {
+  function setLookControlMode(mode) {
+    const nextMode = ["manual", "orbit", "pointer"].includes(mode)
+      ? mode
+      : "manual";
     if (orbitTimer) {
       window.clearInterval(orbitTimer);
       orbitTimer = null;
     }
+    elements.directionTarget.style.display = "none";
+    lookControlMode = nextMode;
+
+    if (lookControlMode === "orbit") {
+      let directionIndex = activeDirectionIndex;
+      orbitTimer = window.setInterval(() => {
+        directionIndex = (directionIndex + 1) % config.directions.length;
+        setDirection(directionIndex);
+      }, 360);
+    } else if (
+      lookControlMode === "pointer" &&
+      sectionMode === "look"
+    ) {
+      elements.directionTarget.style.display = "block";
+    }
     renderControlLabels();
   }
 
-  function togglePointerFollow() {
-    stopOrbit();
-    pointerFollow = !pointerFollow;
-    elements.followPointerButton.classList.toggle(
-      "button-primary",
-      pointerFollow,
-    );
-    elements.directionTarget.style.display = pointerFollow ? "block" : "none";
-    renderControlLabels();
+  function toggleLookControlMode(mode) {
+    setLookControlMode(lookControlMode === mode ? "manual" : mode);
   }
 
   function handlePointerMove(event) {
-    if (!pointerFollow || sectionMode !== "look") return;
+    if (lookControlMode !== "pointer" || sectionMode !== "look") return;
     if (
       event.target instanceof Element &&
       event.target.closest(".preview-size-control")
@@ -1477,19 +1481,21 @@
       scheduleNextFrame();
     });
     elements.orbitButton.addEventListener("click", () => {
-      if (orbitTimer) stopOrbit();
-      else startOrbit();
+      toggleLookControlMode("orbit");
     });
-    elements.followPointerButton.addEventListener(
-      "click",
-      togglePointerFollow,
-    );
+    elements.followPointerButton.addEventListener("click", () => {
+      toggleLookControlMode("pointer");
+    });
     elements.stage.addEventListener("pointermove", handlePointerMove);
     elements.stage.addEventListener("pointerleave", () => {
-      if (pointerFollow) elements.directionTarget.style.display = "none";
+      if (lookControlMode === "pointer") {
+        elements.directionTarget.style.display = "none";
+      }
     });
     elements.stage.addEventListener("pointerenter", () => {
-      if (pointerFollow) elements.directionTarget.style.display = "block";
+      if (lookControlMode === "pointer") {
+        elements.directionTarget.style.display = "block";
+      }
     });
     elements.tourButton.addEventListener("click", startTour);
     elements.stopTourButton.addEventListener("click", () => stopTour());

@@ -496,6 +496,58 @@ select {
   gap: 12px;
 }
 
+.look-toggle {
+  position: relative;
+  min-width: 142px;
+  padding-right: 52px;
+  text-align: left;
+}
+
+.look-toggle::before {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 30px;
+  height: 18px;
+  border: 1px solid #bcbcbc;
+  border-radius: 999px;
+  background: #d8d8d8;
+  content: "";
+  transform: translateY(-50%);
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.look-toggle::after {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  content: "";
+  transform: translateY(-50%);
+  transition: transform 150ms ease;
+}
+
+.look-toggle[aria-pressed="true"] {
+  border-color: #777777;
+  color: var(--ink);
+  background: #f4f4f4;
+}
+
+.look-toggle[aria-pressed="true"]::before {
+  border-color: #333333;
+  background: #333333;
+}
+
+.look-toggle[aria-pressed="true"]::after {
+  transform: translate(14px, -50%);
+}
+
 .direction-list {
   display: grid;
   grid-template-columns: repeat(8, 1fr);

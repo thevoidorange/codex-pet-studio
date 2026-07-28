@@ -163,6 +163,36 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('event.target.closest(".preview-size-control")', self.app)
         self.assertNotIn("previewSizePercent", self.data)
 
+    def test_look_controls_are_mutually_exclusive_toggles(self) -> None:
+        self.assertRegex(
+            self.html,
+            r'id="orbitButton"\s+class="button look-toggle"\s+'
+            r'type="button"\s+aria-pressed="false"',
+        )
+        self.assertRegex(
+            self.html,
+            r'id="followPointerButton"\s+class="button look-toggle"\s+'
+            r'type="button"\s+aria-pressed="false"',
+        )
+        self.assertIn('role="group"', self.html)
+        self.assertIn('data-i18n-aria-label="ui.lookModeAria"', self.html)
+        self.assertIn('.look-toggle[aria-pressed="true"]', self.css)
+        self.assertIn('let lookControlMode = "manual";', self.app)
+        self.assertIn("function setLookControlMode(mode)", self.app)
+        self.assertIn("function toggleLookControlMode(mode)", self.app)
+        self.assertIn('toggleLookControlMode("orbit")', self.app)
+        self.assertIn('toggleLookControlMode("pointer")', self.app)
+        self.assertIn('setLookControlMode("manual");', self.app)
+        self.assertIn('lookControlMode === "orbit"', self.app)
+        self.assertIn('lookControlMode === "pointer"', self.app)
+        self.assertIn('elements.directionTarget.style.display = "none";', self.app)
+        self.assertNotIn("let pointerFollow =", self.app)
+        self.assertNotIn("pointerFollowOn", self.i18n)
+        self.assertNotIn("pointerFollowOff", self.i18n)
+        self.assertNotIn("stopOrbit", self.i18n)
+        for key in ("lookModeAria", "autoOrbit", "pointerFollow"):
+            self.assertIn(key, self.i18n)
+
     def test_playback_modes_have_explanatory_copy(self) -> None:
         for key in (
             "gifPlaybackTitle",
