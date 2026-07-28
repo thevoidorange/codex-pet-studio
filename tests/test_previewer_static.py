@@ -434,6 +434,22 @@ class PreviewerStaticTests(unittest.TestCase):
         )[0]
         self.assertNotIn("setSpriteFrame(", set_direction)
 
+    def test_look_mechanics_title_stays_stable_while_direction_changes(self) -> None:
+        look_details = self.app.split("function renderLookDetails()", 1)[1].split(
+            "function renderControlLabels()", 1
+        )[0]
+        self.assertIn(
+            'elements.stateTitle.textContent = t("ui.lookTitle");',
+            look_details,
+        )
+        self.assertNotIn("activeDirectionIndex", look_details)
+        self.assertIn('lookTitle: "Following Attention"', self.i18n)
+        self.assertIn('lookTitle: "视线跟随"', self.i18n)
+        self.assertIn(
+            "`${direction.degree}° · ${directionLabel(direction)}`",
+            self.app,
+        )
+
     def test_background_pages_suspend_animation_work(self) -> None:
         self.assertIn(
             'let pageVisible = document.visibilityState !== "hidden";',

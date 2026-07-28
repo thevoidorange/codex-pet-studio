@@ -86,7 +86,7 @@ window.PET_PREVIEW_I18N = {
         endlessLoopNote: " · repeats indefinitely at the fixed cadence",
         duration: "{frames} frames · {seconds}s / loop{runtimeNote}",
         lookTag: "LOOK MECHANICS",
-        lookTitle: "{degree}° · Looking {direction}",
+        lookTitle: "Following Attention",
         lookDescription:
           "The body remains anchored. Attention is expressed through the eyes, the face position, and small local silhouette changes.",
         lookIntent:
@@ -464,7 +464,7 @@ window.PET_PREVIEW_I18N = {
         endlessLoopNote: " · 按固定节奏无限重复",
         duration: "{frames} 帧 · {seconds} 秒 / 圈{runtimeNote}",
         lookTag: "LOOK MECHANICS",
-        lookTitle: "{degree}° · 看向{direction}",
+        lookTitle: "视线跟随",
         lookDescription:
           "主体保持锚定，注意力主要通过眼睛、脸的位置，以及局部轮廓的轻微形变来表达。",
         lookIntent: "它在跟随你，但不会把整个身体机械地旋转。",

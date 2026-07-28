@@ -885,12 +885,8 @@
   }
 
   function renderLookDetails() {
-    const direction = config.directions[activeDirectionIndex];
     elements.stateTag.textContent = t("ui.lookTag");
-    elements.stateTitle.textContent = t("ui.lookTitle", {
-      degree: direction.degree,
-      direction: directionLabel(direction),
-    });
+    elements.stateTitle.textContent = t("ui.lookTitle");
     elements.stateDescription.textContent = t("ui.lookDescription");
     elements.stateIntent.textContent = t("ui.lookIntent");
     elements.stateTrigger.textContent = t("ui.lookTrigger");
