@@ -186,12 +186,38 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function withBundledExample(projectVersions, bundledVersions) {
+    const versions = cloneValue(projectVersions);
+    const usedIds = new Set(versions.map((version) => version.id));
+    let exampleId = "example";
+    let suffix = 2;
+    while (usedIds.has(exampleId)) {
+      exampleId = `example-${suffix}`;
+      suffix += 1;
+    }
+
+    const bundledDefault =
+      bundledVersions.find((version) => version.isDefault) ||
+      bundledVersions[0];
+    const example = {
+      ...cloneValue(bundledDefault),
+      id: exampleId,
+      displayName: "Example",
+      labelKey: "ui.exampleVersion",
+      statusKey: null,
+      isDefault: false,
+      isBundledExample: true,
+    };
+    return [...versions, example];
+  }
+
   async function loadConfig() {
     const configUrl = new URLSearchParams(window.location.search).get("config");
     if (!configUrl) {
       return {
         data: bundledConfig,
         baseUrl: window.location.href,
+        isExternal: false,
       };
     }
 
@@ -205,29 +231,36 @@
       return {
         data,
         baseUrl: resolvedUrl.href,
+        isExternal: true,
       };
     } catch (error) {
       console.warn("Could not load external preview config.", error);
       return {
         data: bundledConfig,
         baseUrl: window.location.href,
+        isExternal: false,
       };
     }
   }
 
-  function normalizeConfig(input) {
+  function normalizeConfig(input, includeBundledExample = false) {
     const base = cloneValue(bundledConfig);
     const next = input && typeof input === "object" ? input : {};
+    const projectVersions =
+      Array.isArray(next.versions) && next.versions.length
+        ? next.versions
+        : null;
     const normalized = {
       ...base,
       ...next,
       pet: { ...base.pet, ...(next.pet || {}) },
       sprite: { ...base.sprite, ...(next.sprite || {}) },
       runtime: { ...base.runtime, ...(next.runtime || {}) },
-      versions:
-        Array.isArray(next.versions) && next.versions.length
-          ? next.versions
-          : base.versions,
+      versions: projectVersions
+        ? includeBundledExample
+          ? withBundledExample(projectVersions, base.versions)
+          : projectVersions
+        : base.versions,
       states:
         Array.isArray(next.states) && next.states.length
           ? next.states
@@ -306,6 +339,9 @@
   }
 
   function versionLabel(version) {
+    if (version.labelKey) {
+      return t(version.labelKey);
+    }
     if (version.labels && version.labels[locale]) {
       return version.labels[locale];
     }
@@ -1401,7 +1437,7 @@
   async function boot() {
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
-    config = normalizeConfig(loaded.data);
+    config = normalizeConfig(loaded.data, loaded.isExternal);
     activeVersionId = initialVersionId();
 
     applyStaticTranslations();

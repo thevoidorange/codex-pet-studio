@@ -95,6 +95,7 @@ window.PET_PREVIEW_I18N = {
           "Shortcuts: ← → frames, Space play / pause, 1–9 states",
         currentVersion: "Current",
         baselineVersion: "Baseline",
+        exampleVersion: "Example",
       },
       directions: {
         up: "Up",
@@ -354,6 +355,7 @@ window.PET_PREVIEW_I18N = {
           "快捷键：← → 切帧，空格播放 / 暂停，1–9 切换状态",
         currentVersion: "当前",
         baselineVersion: "基线",
+        exampleVersion: "示例",
       },
       directions: {
         up: "上",

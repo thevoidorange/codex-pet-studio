@@ -52,6 +52,16 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('"zh-CN"', self.i18n)
         self.assertIn('"en"', self.i18n)
 
+    def test_external_versions_keep_example_but_load_project_first(self) -> None:
+        self.assertIn("withBundledExample(projectVersions, base.versions)", self.app)
+        self.assertIn("return [...versions, example];", self.app)
+        self.assertIn("isBundledExample: true", self.app)
+        self.assertIn("isDefault: false", self.app)
+        self.assertIn("config = normalizeConfig(loaded.data, loaded.isExternal)", self.app)
+        self.assertIn('exampleVersion: "Example"', self.i18n)
+        example_translation = "".join(chr(code) for code in (0x793A, 0x4F8B))
+        self.assertIn(f'exampleVersion: "{example_translation}"', self.i18n)
+
     def test_css_palette_is_grayscale(self) -> None:
         colors = re.findall(r"#([0-9a-fA-F]{6})\b", self.css)
         self.assertTrue(colors)

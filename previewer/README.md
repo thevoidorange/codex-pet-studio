@@ -48,7 +48,7 @@ Asset paths are resolved relative to the external JSON file.
 }
 ```
 
-Any number of versions is supported. Keep the same state IDs and atlas contract across versions for like-for-like review.
+Any number of project versions is supported. When an external config supplies at least one project version, the Previewer selects the project default (or its first version) on load and appends one bundled `Example` option to the version dropdown. The example remains available for orientation without taking over the first view. Keep the same state IDs and atlas contract across versions for like-for-like review.
 
 ## Stable state IDs
 
