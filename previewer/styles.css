@@ -320,7 +320,7 @@ select:focus-visible {
   z-index: 2;
   width: 288px;
   height: 312px;
-  filter: grayscale(1) drop-shadow(0 16px 18px rgba(0, 0, 0, 0.07));
+  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.07));
 }
 
 .gif-player {
@@ -582,7 +582,6 @@ select {
   width: 48px;
   height: 52px;
   background-repeat: no-repeat;
-  filter: grayscale(1);
 }
 
 .frame-number {
@@ -713,7 +712,6 @@ select {
   height: 104px;
   margin: 10px auto 4px;
   background-repeat: no-repeat;
-  filter: grayscale(1);
 }
 
 .mechanics-copy {

@@ -60,6 +60,9 @@ class PreviewerStaticTests(unittest.TestCase):
             self.assertEqual(red, green, value)
             self.assertEqual(green, blue, value)
 
+    def test_pet_content_preserves_source_color(self) -> None:
+        self.assertNotIn("grayscale(", self.css)
+
     def test_chinese_ui_copy_is_isolated_to_i18n(self) -> None:
         chinese = re.compile(r"[\u3400-\u9fff]")
         self.assertRegex(self.i18n, chinese)
