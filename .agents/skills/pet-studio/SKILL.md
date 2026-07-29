@@ -11,6 +11,10 @@ Turn inspiration into a production-ready Codex pet through a paced creative part
 
 - Speak and write project-facing decision notes in the user's language unless the user requests another language.
 - Keep repository filenames, IDs, schema keys, code, comments, and reusable templates in English.
+- Author each supported UI locale independently from the same product facts and
+  interaction behavior. Do not translate one locale sentence by sentence into
+  another. Review every locale in the rendered Previewer, including tooltips,
+  status changes, accessibility labels, long copy, and narrow layouts.
 - Treat reference files as private inputs by default. Never commit, publish, or copy them into a public example.
 - Do not generate a complete pet pack at the beginning. Move through approval gates and ask for visual alignment at the smallest useful scope.
 - Preserve the latest approved work before exploring a new direction. Create a new version instead of silently overwriting it.
@@ -103,7 +107,7 @@ Review at 80, 144, and 224 px so the same fixed sequence works across the client
 
 Use both Previewer playback views for different questions:
 
-- **Runtime Simulation** verifies the real state lifecycle: three action loops, then the slowed Idle row.
+- **Runtime Simulation** verifies the real state lifecycle: three action loops, then Idle at one-sixth speed.
 - **Endless Loop** uses the exact same fixed per-frame durations but repeats the selected row indefinitely, making loop seams, pose spacing, weight transfer, and material follow-through easier to inspect.
 
 Neither mode plays an exported GIF. Both render the source atlas directly so GIF palette and edge artifacts cannot be mistaken for sprite defects.

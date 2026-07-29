@@ -59,7 +59,7 @@ These are verified current-client facts, not a permanent public API. Re-read the
 
 The Previewer exposes two atlas-based readings of these same immutable slots:
 
-- **Runtime Simulation** plays three action loops and then returns to slowed Idle.
+- **Runtime Simulation** plays three action loops and then returns to Idle at one-sixth speed.
 - **Endless Loop** keeps the selected row repeating with the identical per-frame durations.
 
 Use Runtime Simulation to validate the state lifecycle. Use Endless Loop to

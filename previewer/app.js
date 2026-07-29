@@ -1900,7 +1900,9 @@
             : "ui.frameInspectionRuntimeHelp"
           : playbackMode === "loop"
             ? "ui.endlessModeHelp"
-            : "ui.runtimeModeHelp",
+            : currentState().id === "idle"
+              ? "ui.runtimeIdleModeHelp"
+              : "ui.runtimeModeHelp",
       {
         loops: FIXED_ACTION_LOOPS,
       },

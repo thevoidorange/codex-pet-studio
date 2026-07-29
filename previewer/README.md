@@ -97,7 +97,7 @@ Runtime Simulation, and Endless Loop so continuity can be reviewed.
 Confirmation is session-only review metadata. It does not rewrite the source
 atlas, Previewer JSON, Take asset, neighboring frame, Candidate, or QA status,
 and it is cleared by a page reload. Reopen the Keyframe rail to audition and
-confirm a different Take or return to Original. Motion Timing Board continues
+confirm a different Take or return to Original. Motion Timing continues
 to show the source atlas.
 
 ## Stable state IDs
@@ -116,7 +116,7 @@ The bundled defaults use the Codex v2 identifiers:
 
 State rows, frame counts, per-frame durations, action-loop count, and Idle slowdown are fixed by the current Codex desktop runtime. External Previewer JSON cannot override them. A project may still provide localized labels and descriptions, mechanics-board copy, backgrounds, versions, and asset paths.
 
-The Motion Timing Board always covers all nine standard states in atlas-row order. Partial `mechanics` overrides are merged by `stateId`, so a project can replace one state's anchors without making the other eight states disappear.
+Motion Timing always covers all nine standard states in atlas-row order. Partial `mechanics` overrides are merged by `stateId`, so a project can replace one state's anchors without making the other eight states disappear.
 
 ## Fixed desktop runtime contract
 
@@ -169,7 +169,7 @@ The language and version selectors preserve the current state, frame, selected p
 
 ## Playback modes and display size
 
-- **Runtime Simulation** reproduces the pinned current Codex desktop cadence: fixed per-frame durations, three action loops, then 6× Idle.
+- **Runtime Simulation** reproduces the pinned current Codex desktop timing: fixed per-frame durations, three action loops, then Idle at one-sixth speed.
 - **Endless Loop** uses the same spritesheet and fixed per-frame durations, but repeats the selected state indefinitely instead of returning to Idle.
 - **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected Runtime Simulation or Endless Loop.
 

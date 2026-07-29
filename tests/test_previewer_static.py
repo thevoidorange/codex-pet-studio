@@ -339,10 +339,10 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('version: "方案"', self.i18n)
         self.assertIn('originalFrame: "Original"', self.i18n)
         self.assertIn('originalFrame: "原始"', self.i18n)
-        self.assertIn('confirmTake: "Confirm Current Take"', self.i18n)
+        self.assertIn('confirmTake: "Confirm Take"', self.i18n)
         self.assertIn('confirmTake: "确认当前 Take"', self.i18n)
-        self.assertIn('previousTakes: "Scroll Takes Left"', self.i18n)
-        self.assertIn('nextTakes: "Scroll Takes Right"', self.i18n)
+        self.assertIn('previousTakes: "Previous Takes"', self.i18n)
+        self.assertIn('nextTakes: "Next Takes"', self.i18n)
         self.assertIn('previousTakes: "向左查看更多 Takes"', self.i18n)
         self.assertIn('nextTakes: "向右查看更多 Takes"', self.i18n)
 
@@ -370,7 +370,7 @@ class PreviewerStaticTests(unittest.TestCase):
             "if (tourState.active) stopTour();\n    else startTour();",
             self.app,
         )
-        self.assertIn("autoPlayAllStates: \"Auto-Play All States\"", self.i18n)
+        self.assertIn("autoPlayAllStates: \"Play All States\"", self.i18n)
         self.assertIn("autoPlayAllStates: \"自动播放全部状态\"", self.i18n)
         self.assertNotIn("Tour all states", self.i18n)
         self.assertNotIn("巡演全部状态", self.i18n)
@@ -549,16 +549,16 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("transform: translate(12px, -50%);", self.css)
         self.assertNotIn("transform: translate(14px, -50%);", self.css)
 
-    def test_english_control_copy_uses_title_case(self) -> None:
+    def test_english_copy_is_native_and_contextual(self) -> None:
         expected = (
-            'autoPlayAllStates: "Auto-Play All States"',
-            'animationStates: "Animation States"',
-            'lookDirections: "16 Look Directions"',
+            'autoPlayAllStates: "Play All States"',
+            'animationStates: "State Animations"',
+            'lookDirections: "16 Gaze Directions"',
             'runtimeTiming: "Runtime Simulation"',
             'endlessLoop: "Endless Loop"',
-            'confirmTake: "Confirm Current Take"',
+            'confirmTake: "Confirm Take"',
             'keyframes: "Keyframes"',
-            'mechanicsTitle: "Motion Timing Board"',
+            'mechanicsTitle: "Motion Timing"',
             'title: "Resting Nearby"',
             'label: "Move Right"',
             'title: "Moving Right"',
@@ -566,13 +566,40 @@ class PreviewerStaticTests(unittest.TestCase):
             'title: "Moving Left"',
             'title: "A Quiet Hello"',
             'title: "A Light Jump"',
-            'title: "Recovering From A Setback"',
-            'title: "Waiting For A Response"',
-            'title: "Focused Activity"',
-            'title: "Inspecting A Result"',
+            'title: "Bouncing Back"',
+            'title: "Waiting for You"',
+            'title: "Focused on the Task"',
+            'title: "Checking the Result"',
+            'lookTitle: "Responsive Gaze"',
+            'takeAssetLoading: "Loading Take…"',
+            'duration: "{frames} frames · {seconds} s per loop{runtimeNote}"',
         )
         for copy in expected:
             self.assertIn(copy, self.i18n)
+        for awkward in (
+            "Auto-Play All States",
+            "pauses on the atlas",
+            "Following Attention",
+            "A task is processing",
+            "6× Idle",
+            "Slow Idle",
+            "Scroll Takes Left",
+            "Scroll Takes Right",
+            "replace through preview-data.js",
+            "Direction reads at full strength",
+            "Cadence closes cleanly",
+        ):
+            self.assertNotIn(awkward, self.i18n)
+        self.assertIn(
+            'runtimeIdleModeHelp:',
+            self.i18n,
+        )
+        self.assertIn(
+            'currentState().id === "idle"\n'
+            '              ? "ui.runtimeIdleModeHelp"\n'
+            '              : "ui.runtimeModeHelp"',
+            self.app,
+        )
         self.assertIn("padding: 3px 12px;", self.css)
 
     def test_playback_modes_have_explanatory_copy(self) -> None:
@@ -580,6 +607,7 @@ class PreviewerStaticTests(unittest.TestCase):
             "runtimeTimingTitle",
             "endlessLoopTitle",
             "endlessModeHelp",
+            "runtimeIdleModeHelp",
             "runtimeModeHelp",
             "frameInspectionEndlessHelp",
             "frameInspectionRuntimeHelp",
@@ -646,7 +674,7 @@ class PreviewerStaticTests(unittest.TestCase):
             look_details,
         )
         self.assertNotIn("activeDirectionIndex", look_details)
-        self.assertIn('lookTitle: "Following Attention"', self.i18n)
+        self.assertIn('lookTitle: "Responsive Gaze"', self.i18n)
         self.assertIn('lookTitle: "视线跟随"', self.i18n)
         self.assertIn(
             "`${direction.degree}° · ${directionLabel(direction)}`",

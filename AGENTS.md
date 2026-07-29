@@ -24,6 +24,18 @@ Do not begin by generating every state or packaging a pet.
 - Keep canonical filenames, state IDs, version IDs, and reusable internal artifacts in English.
 - The Previewer may be bilingual, pairing stable English identifiers with Chinese labels.
 - Do not translate or rename technical identifiers differently across versions.
+- Author each locale independently from shared product facts and interaction
+  behavior. Never produce English by translating the Chinese sentence by
+  sentence, or Chinese by translating the English sentence by sentence.
+- In English UI copy, use natural product language: Title Case for established
+  control labels, conventional headline case for headings, and sentence case
+  for help text, descriptions, status messages, tooltips, and accessibility
+  labels. Keep internal animation jargon out of user-facing copy unless the
+  interface explicitly teaches it.
+- Review the actual rendered interface in every supported locale. Check the
+  longest labels, active and inactive control states, status changes,
+  accessibility names, and narrow layouts before considering localized copy
+  complete.
 
 ## Required phase gates
 

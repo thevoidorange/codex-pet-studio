@@ -134,7 +134,7 @@ These are observed current-client facts, not a stable forever API. Re-read the i
 
 Because the time slots are immutable, motion design happens inside the drawings: use pose spacing and material deformation as easing, keep important poses visually close across long holds, make transition slots do concise work, and let the final slot settle cleanly. Runtime Simulation exists to review that fixed cadence; it is not a timing editor.
 
-The built-in geometric figure is a non-production fixture for testing the UI. Supply an external JSON config for real version assets and localized project copy; do not redefine the fixed runtime state schedule. Both playback modes read the same atlas: Runtime Simulation returns actions to slow Idle after three loops, while Endless Loop repeats the selected state indefinitely.
+The built-in geometric figure is a non-production fixture for testing the UI. Supply an external JSON config for real version assets and localized project copy; do not redefine the fixed runtime state schedule. Both playback modes read the same atlas: Runtime Simulation returns actions to Idle at one-sixth speed after three loops, while Endless Loop repeats the selected state indefinitely.
 
 ## Deterministic tools
 
