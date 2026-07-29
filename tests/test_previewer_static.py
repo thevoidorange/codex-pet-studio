@@ -192,14 +192,12 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("stateId: state.id", self.app)
         self.assertIn("frameIndex: activeFrameIndex", self.app)
         self.assertIn("clearFrameTakeState();", self.app)
-        self.assertIn('id="confirmTakeButton"', self.html)
-        self.assertLess(
-            self.html.index('id="nextFrameButton"'),
-            self.html.index('id="confirmTakeButton"'),
-        )
-        self.assertLess(
-            self.html.index('id="confirmTakeButton"'),
-            self.html.index('id="restartButton"'),
+        self.assertNotIn('id="confirmTakeButton"', self.html)
+        self.assertIn('class="take-rail-layout"', self.app)
+        self.assertIn('class="take-rail-confirm-button"', self.app)
+        self.assertIn(
+            "grid-template-columns: minmax(0, 1fr) 30px;",
+            self.css,
         )
         self.assertIn("const confirmedFrameTakeIds = new Map();", self.app)
         self.assertIn("confirmedFrameTakeIds.has(key)", self.app)
@@ -207,12 +205,14 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("function hasConfirmedFrameTakeForFrame(", self.app)
         self.assertIn("function previewFrameTake(takeId)", self.app)
         self.assertIn("function confirmFrameTake()", self.app)
-        self.assertIn("function stepTake(delta)", self.app)
-        self.assertIn("function stepTransport(delta)", self.app)
         self.assertIn(
-            "if (expandedTakeFrameIndex !== null) stepTake(delta);",
+            "function activeTakeReadyForConfirmation()",
             self.app,
         )
+        self.assertIn("function stepTake(delta)", self.app)
+        self.assertNotIn("function stepTransport(delta)", self.app)
+        self.assertIn("stepFrame(-1)", self.app)
+        self.assertIn("stepFrame(1)", self.app)
         self.assertIn(
             "confirmedFrameTakeIds.set(key, takeId);",
             self.app,
@@ -220,7 +220,6 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('id="transportControls"', self.html)
         self.assertIn('id="takeStatus"', self.html)
         self.assertIn("function announceTakeConfirmation(", self.app)
-        self.assertIn('"ui.takeTransportAria"', self.app)
         self.assertIn("function focusPreviewedTake()", self.app)
         self.assertIn("focusFrameButton(frameIndex);", self.app)
         self.assertIn("focusFrameButton(activeFrameIndex);", self.app)
@@ -282,8 +281,6 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('originalFrame: "原始"', self.i18n)
         self.assertIn('confirmTake: "Confirm Current Take"', self.i18n)
         self.assertIn('confirmTake: "确认当前 Take"', self.i18n)
-        self.assertIn('previousTake: "Previous Take"', self.i18n)
-        self.assertIn('nextTake: "下一个 Take"', self.i18n)
 
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)
@@ -462,8 +459,6 @@ class PreviewerStaticTests(unittest.TestCase):
             'lookDirections: "16 Look Directions"',
             'runtimeTiming: "Runtime Simulation"',
             'endlessLoop: "Endless Loop"',
-            'previousTake: "Previous Take"',
-            'nextTake: "Next Take"',
             'confirmTake: "Confirm Current Take"',
             'keyframes: "Keyframes"',
             'mechanicsTitle: "Motion Timing Board"',

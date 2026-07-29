@@ -488,12 +488,6 @@ select:focus-visible {
   height: 38px;
 }
 
-.confirm-take-button {
-  border-color: #a7a7a7;
-  background: #f4f4f4;
-  font-weight: 800;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -803,11 +797,51 @@ select {
   transform: translateX(-50%);
 }
 
+.take-rail-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+}
+
 .take-rail-viewport {
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
+}
+
+.take-rail-confirm-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #a7a7a7;
+  border-radius: 50%;
+  color: var(--ink);
+  background: #f4f4f4;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.take-rail-confirm-button:hover,
+.take-rail-confirm-button:focus-visible {
+  border-color: #777777;
+  background: #ffffff;
+}
+
+.take-rail-confirm-button:disabled {
+  border-color: var(--line);
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.take-rail-confirm-button:disabled:hover {
+  background: #f4f4f4;
 }
 
 .take-track {

@@ -20,7 +20,6 @@
     animationControls: document.querySelector("#animationControls"),
     animationTab: document.querySelector("#animationTab"),
     autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
-    confirmTakeButton: document.querySelector("#confirmTakeButton"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     endlessModeButton: document.querySelector("#endlessModeButton"),
@@ -99,6 +98,7 @@
   let stateButtons = [];
   let frameButtons = [];
   let takeButtons = [];
+  let takeConfirmButton = null;
   let directionButtons = [];
   const spriteStyleCache = new WeakMap();
 
@@ -913,6 +913,20 @@
     focusFrameButton(frameIndex);
   }
 
+  function activeTakeReadyForConfirmation() {
+    const activeTake =
+      expandedTakeFrameIndex === activeFrameIndex
+        ? activeTakeForCurrentFrame()
+        : null;
+    return (
+      !activeTake ||
+      !activeTake.assetUrl ||
+      takeAssetStatus.get(
+        resolveAssetUrl(activeTake.assetUrl, currentVersion()),
+      ) === "ready"
+    );
+  }
+
   function announceTakeConfirmation(takeLabel) {
     elements.takeStatus.textContent = "";
     window.requestAnimationFrame(() => {
@@ -1260,6 +1274,7 @@
       state,
       frameIndex,
     );
+    const activeTakeReady = activeTakeReadyForConfirmation();
     const railId = `take-rail-${state.id}-${frameIndex}`;
     return `
       <div
@@ -1271,62 +1286,77 @@
         )}"
         data-frame-index="${frameIndex}"
       >
-        <div class="take-rail-viewport">
-          <div class="take-track">
-            ${options
-              .map(
-                (option) => {
-                  const unavailable = isFrameTakeUnavailable(
-                    option.take,
-                    currentVersion(),
-                  );
-                  const confirmed =
-                    hasConfirmedTake && option.id === confirmedTakeId;
-                  return `
-                  <button
-                    class="take-card ${
-                      option.id === activeTakeId ? "is-previewing" : ""
-                    } ${
-                      confirmed ? "is-confirmed" : ""
-                    } ${unavailable ? "is-unavailable" : ""}"
-                    type="button"
-                    data-take-id="${escapeHtml(option.id)}"
-                    ${unavailable ? "disabled" : ""}
-                    aria-pressed="${String(option.id === activeTakeId)}"
-                    aria-label="${escapeHtml(
-                      t(
-                        unavailable
-                          ? "ui.takeUnavailableAria"
-                          : confirmed
-                            ? "ui.takeConfirmedAria"
-                            : "ui.takeAria",
-                        {
-                          frame: frameIndex + 1,
-                          take: option.label,
-                        },
-                      ),
-                    )}"
-                  >
-                    <span
-                      class="take-thumbnail"
-                      style="${frameTakeStyle(
-                        option.take,
-                        state,
-                        frameIndex,
+        <div class="take-rail-layout">
+          <div class="take-rail-viewport">
+            <div class="take-track">
+              ${options
+                .map(
+                  (option) => {
+                    const unavailable = isFrameTakeUnavailable(
+                      option.take,
+                      currentVersion(),
+                    );
+                    const confirmed =
+                      hasConfirmedTake && option.id === confirmedTakeId;
+                    return `
+                    <button
+                      class="take-card ${
+                        option.id === activeTakeId ? "is-previewing" : ""
+                      } ${
+                        confirmed ? "is-confirmed" : ""
+                      } ${unavailable ? "is-unavailable" : ""}"
+                      type="button"
+                      data-take-id="${escapeHtml(option.id)}"
+                      ${unavailable ? "disabled" : ""}
+                      aria-pressed="${String(option.id === activeTakeId)}"
+                      aria-label="${escapeHtml(
+                        t(
+                          unavailable
+                            ? "ui.takeUnavailableAria"
+                            : confirmed
+                              ? "ui.takeConfirmedAria"
+                              : "ui.takeAria",
+                          {
+                            frame: frameIndex + 1,
+                            take: option.label,
+                          },
+                        ),
                       )}"
-                    ></span>
-                    <small>${escapeHtml(option.label)}</small>
-                    ${
-                      confirmed
-                        ? '<span class="take-confirmed-mark" aria-hidden="true">✓</span>'
-                        : ""
-                    }
-                  </button>
-                `;
-                },
-              )
-              .join("")}
+                    >
+                      <span
+                        class="take-thumbnail"
+                        style="${frameTakeStyle(
+                          option.take,
+                          state,
+                          frameIndex,
+                        )}"
+                      ></span>
+                      <small>${escapeHtml(option.label)}</small>
+                      ${
+                        confirmed
+                          ? '<span class="take-confirmed-mark" aria-hidden="true">✓</span>'
+                          : ""
+                      }
+                    </button>
+                  `;
+                  },
+                )
+                .join("")}
+            </div>
           </div>
+          <button
+            class="take-rail-confirm-button"
+            type="button"
+            title="${escapeHtml(
+              t(activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading"),
+            )}"
+            aria-label="${escapeHtml(
+              t(activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading"),
+            )}"
+            ${activeTakeReady ? "" : "disabled"}
+          >
+            ✓
+          </button>
         </div>
       </div>
     `;
@@ -1525,6 +1555,12 @@
         previewFrameTake(button.dataset.takeId);
       });
     });
+    takeConfirmButton = elements.frameStrip.querySelector(
+      ".take-rail-confirm-button",
+    );
+    if (takeConfirmButton) {
+      takeConfirmButton.addEventListener("click", confirmFrameTake);
+    }
     if (expandedRowEnd !== null) scheduleTakeRailPosition();
   }
 
@@ -1691,60 +1727,33 @@
       String(playbackMode === "runtime"),
     );
     const browsingTakes = expandedTakeFrameIndex !== null;
-    const activeTake = browsingTakes ? activeTakeForCurrentFrame() : null;
-    const activeTakeReady =
-      !activeTake ||
-      !activeTake.assetUrl ||
-      takeAssetStatus.get(
-        resolveAssetUrl(activeTake.assetUrl, currentVersion()),
-      ) === "ready";
-    elements.confirmTakeButton.hidden = !browsingTakes;
-    elements.confirmTakeButton.disabled =
-      !browsingTakes || !activeTakeReady;
-    elements.confirmTakeButton.title = t(
-      activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading",
-    );
-    elements.confirmTakeButton.setAttribute(
-      "aria-label",
-      t(activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading"),
-    );
+    const activeTakeReady = activeTakeReadyForConfirmation();
+    if (takeConfirmButton) {
+      takeConfirmButton.disabled = !activeTakeReady;
+      takeConfirmButton.title = t(
+        activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading",
+      );
+      takeConfirmButton.setAttribute(
+        "aria-label",
+        t(activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading"),
+      );
+    }
     elements.transportControls.setAttribute(
       "aria-label",
-      t(browsingTakes ? "ui.takeTransportAria" : "ui.transportAria"),
+      t("ui.transportAria"),
     );
-    elements.previousFrameButton.title = t(
-      browsingTakes ? "ui.previousTake" : "ui.previousFrame",
-    );
+    elements.previousFrameButton.title = t("ui.previousFrame");
     elements.previousFrameButton.setAttribute(
       "aria-label",
-      t(browsingTakes ? "ui.previousTake" : "ui.previousFrame"),
+      t("ui.previousFrame"),
     );
-    elements.nextFrameButton.title = t(
-      browsingTakes ? "ui.nextTake" : "ui.nextFrame",
-    );
+    elements.nextFrameButton.title = t("ui.nextFrame");
     elements.nextFrameButton.setAttribute(
       "aria-label",
-      t(browsingTakes ? "ui.nextTake" : "ui.nextFrame"),
+      t("ui.nextFrame"),
     );
-    if (browsingTakes) {
-      const options = availableTakeOptionsFor(
-        currentVersion(),
-        currentState(),
-        activeFrameIndex,
-      );
-      const activeIndex = Math.max(
-        0,
-        options.findIndex(
-          (option) => option.id === activeTakeIdForCurrentFrame(),
-        ),
-      );
-      elements.previousFrameButton.disabled = activeIndex === 0;
-      elements.nextFrameButton.disabled =
-        activeIndex === options.length - 1;
-    } else {
-      elements.previousFrameButton.disabled = false;
-      elements.nextFrameButton.disabled = false;
-    }
+    elements.previousFrameButton.disabled = false;
+    elements.nextFrameButton.disabled = false;
     const modeHelp = t(
       browsingTakes
         ? "ui.takeRailHelp"
@@ -2184,11 +2193,6 @@
     inspectFrame(activeFrameIndex + delta);
   }
 
-  function stepTransport(delta) {
-    if (expandedTakeFrameIndex !== null) stepTake(delta);
-    else stepFrame(delta);
-  }
-
   function setSection(mode) {
     if (tourState.active) stopTour();
     clearFrameTakeState();
@@ -2506,14 +2510,10 @@
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
-      stepTransport(-1),
+      stepFrame(-1),
     );
     elements.nextFrameButton.addEventListener("click", () =>
-      stepTransport(1),
-    );
-    elements.confirmTakeButton.addEventListener(
-      "click",
-      confirmFrameTake,
+      stepFrame(1),
     );
     elements.restartButton.addEventListener("click", restartPlayback);
     elements.previewSizeInput.addEventListener("input", () =>
@@ -2570,11 +2570,13 @@
         event.preventDefault();
         const focusedTake = event.target.closest(".take-card");
         const focusedFrame = event.target.closest(".frame-button");
-        stepTransport(event.key === "ArrowLeft" ? -1 : 1);
+        const delta = event.key === "ArrowLeft" ? -1 : 1;
         if (focusedTake && expandedTakeFrameIndex !== null) {
+          stepTake(delta);
           focusPreviewedTake();
-        } else if (focusedFrame && expandedTakeFrameIndex === null) {
-          focusFrameButton(activeFrameIndex);
+        } else {
+          stepFrame(delta);
+          if (focusedFrame) focusFrameButton(activeFrameIndex);
         }
         return;
       }

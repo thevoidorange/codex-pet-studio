@@ -36,19 +36,16 @@ window.PET_PREVIEW_I18N = {
         frameInspectionRuntimeHelp:
           "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Runtime simulation from this frame.",
         takeRailHelp:
-          "Previous and Next audition Takes only. Confirm selects the current Take for this Keyframe and closes the rail.",
+          "Click a Take to audition it. Confirm on the rail selects the current Take for this Keyframe and closes the rail.",
         previewSize: "Size",
         previewSizeAria: "Preview display size",
         previewSizeTitle:
           "Preview the desktop size setting from 80–224 px. Source assets and export dimensions stay unchanged.",
         transportAria: "Frame playback controls",
-        takeTransportAria: "Take audition and confirmation controls",
         previousFrame: "Previous frame",
         pause: "Pause",
         play: "Play",
         nextFrame: "Next frame",
-        previousTake: "Previous Take",
-        nextTake: "Next Take",
         confirmTake: "Confirm Current Take",
         restart: "Restart",
         lookModeAria: "Look interaction modes",
@@ -119,7 +116,7 @@ window.PET_PREVIEW_I18N = {
         assetAlt: "{pet}: {state}",
         sourceFooter: "Generic sample data · replace through preview-data.js",
         shortcutFooter:
-          "Shortcuts: ← → frames or Takes, Space play / pause, 1–9 states",
+          "Shortcuts: ← → frames (Takes while focused), Space play / pause, 1–9 states",
         currentVersion: "Current",
         baselineVersion: "Baseline",
         exampleVersion: "Example",
@@ -435,19 +432,16 @@ window.PET_PREVIEW_I18N = {
         frameInspectionRuntimeHelp:
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到运行模拟。",
         takeRailHelp:
-          "左右键只浏览 Takes；确认键会选择当前 Take，并收起 Rail。",
+          "点击 Take 进行试听；Rail 右侧的确认键会选择当前 Take，并收起 Rail。",
         previewSize: "大小",
         previewSizeAria: "预览显示大小",
         previewSizeTitle:
           "预览桌面端 80–224 px 的显示设置，不修改原素材或导出尺寸。",
         transportAria: "逐帧播放控制",
-        takeTransportAria: "Take 试听与确认控制",
         previousFrame: "上一帧",
         pause: "暂停",
         play: "播放",
         nextFrame: "下一帧",
-        previousTake: "上一个 Take",
-        nextTake: "下一个 Take",
         confirmTake: "确认当前 Take",
         restart: "重播",
         lookModeAria: "视线交互方式",
@@ -516,7 +510,7 @@ window.PET_PREVIEW_I18N = {
         assetAlt: "{pet}：{state}",
         sourceFooter: "通用示例数据 · 可通过 preview-data.js 替换",
         shortcutFooter:
-          "快捷键：← → 切帧或浏览 Takes，空格播放 / 暂停，1–9 切换状态",
+          "快捷键：← → 切帧（焦点在 Take 时浏览 Takes），空格播放 / 暂停，1–9 切换状态",
         currentVersion: "当前",
         baselineVersion: "基线",
         exampleVersion: "示例",
