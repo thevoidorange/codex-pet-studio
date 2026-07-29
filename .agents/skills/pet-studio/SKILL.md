@@ -136,10 +136,12 @@ The Previewer language and version selectors must not reset the current state, f
 Use single-frame Takes only for a narrow visual choice inside one Candidate.
 Manage private working assets under
 `design/takes/<candidate>/<state>/fNN/`, expose only the review Takes needed by
-Previewer config, and keep Take selection temporary. Never treat a Take click
-as approval or writeback. If the new frame has a continuity problem, generate
-another Take for that requested frame; do not silently revise either adjacent
-frame.
+Previewer config, and keep Take audition temporary. Never treat a Take click as
+approval or writeback. Previewer Confirm may record the current Take as the
+choice for that exact Candidate, state, and Keyframe in the current review
+session; it does not modify source files, approve QA, or promote a Candidate. If
+the new frame has a continuity problem, generate another Take for that requested
+frame; do not silently revise either adjacent frame.
 
 ## Use deterministic project tools
 

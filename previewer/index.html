@@ -126,6 +126,7 @@
               ></button>
             </div>
             <div
+              id="transportControls"
               class="transport"
               data-i18n-aria-label="ui.transportAria"
             >
@@ -147,6 +148,15 @@
                 →
               </button>
               <button
+                id="confirmTakeButton"
+                class="icon-button confirm-take-button"
+                type="button"
+                data-i18n-title="ui.confirmTake"
+                hidden
+              >
+                ✓
+              </button>
+              <button
                 id="restartButton"
                 class="button"
                 type="button"
@@ -154,6 +164,12 @@
               ></button>
             </div>
             <p id="previewModeHelp" class="mode-help" aria-live="polite"></p>
+            <p
+              id="takeStatus"
+              class="sr-only"
+              role="status"
+              aria-live="polite"
+            ></p>
           </div>
 
           <div id="lookControls" class="look-controls" hidden>

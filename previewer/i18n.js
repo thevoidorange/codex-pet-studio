@@ -35,15 +35,21 @@ window.PET_PREVIEW_I18N = {
           "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Endless Loop from this frame.",
         frameInspectionRuntimeHelp:
           "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Runtime simulation from this frame.",
+        takeRailHelp:
+          "Previous and Next audition Takes only. Confirm selects the current Take for this Keyframe and closes the rail.",
         previewSize: "Size",
         previewSizeAria: "Preview display size",
         previewSizeTitle:
           "Preview the desktop size setting from 80–224 px. Source assets and export dimensions stay unchanged.",
         transportAria: "Frame playback controls",
+        takeTransportAria: "Take audition and confirmation controls",
         previousFrame: "Previous frame",
         pause: "Pause",
         play: "Play",
         nextFrame: "Next frame",
+        previousTake: "Previous Take",
+        nextTake: "Next Take",
+        confirmTake: "Confirm Current Take",
         restart: "Restart",
         lookModeAria: "Look interaction modes",
         autoOrbit: "Auto Orbit",
@@ -63,6 +69,12 @@ window.PET_PREVIEW_I18N = {
         originalFrame: "Original",
         takeRailAria: "Takes for Frame {frame}",
         takeAria: "Preview Frame {frame} · {take}",
+        takeConfirmedAria:
+          "Preview Frame {frame} · {take} · current selection",
+        takeUnavailableAria:
+          "Frame {frame} · {take} · unavailable because the asset is missing or has the wrong dimensions",
+        takeAssetLoading: "Checking Current Take",
+        takeConfirmedStatus: "{take} selected",
         allStatesPlayed: "All states played",
         autoPlayingState: "Playing · {state}",
         mechanicsEyebrow: "FIXED RUNTIME TIMING",
@@ -73,6 +85,8 @@ window.PET_PREVIEW_I18N = {
         frameAria: "View Frame {frame} · {duration}",
         frameWithTakesAria:
           "View Frame {frame} · {duration} · {count} Takes",
+        frameWithConfirmedTakeAria:
+          "View Frame {frame} · {duration} · {count} Takes · selected {take}",
         frameDurationFixed: "{duration} ms",
         idleFrameDuration: "{duration} ms × {multiplier}",
         frameReadout: "Frame {frame} / {count}",
@@ -105,7 +119,7 @@ window.PET_PREVIEW_I18N = {
         assetAlt: "{pet}: {state}",
         sourceFooter: "Generic sample data · replace through preview-data.js",
         shortcutFooter:
-          "Shortcuts: ← → frames, Space play / pause, 1–9 states",
+          "Shortcuts: ← → frames or Takes, Space play / pause, 1–9 states",
         currentVersion: "Current",
         baselineVersion: "Baseline",
         exampleVersion: "Example",
@@ -420,15 +434,21 @@ window.PET_PREVIEW_I18N = {
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到无限循环。",
         frameInspectionRuntimeHelp:
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到运行模拟。",
+        takeRailHelp:
+          "左右键只浏览 Takes；确认键会选择当前 Take，并收起 Rail。",
         previewSize: "大小",
         previewSizeAria: "预览显示大小",
         previewSizeTitle:
           "预览桌面端 80–224 px 的显示设置，不修改原素材或导出尺寸。",
         transportAria: "逐帧播放控制",
+        takeTransportAria: "Take 试听与确认控制",
         previousFrame: "上一帧",
         pause: "暂停",
         play: "播放",
         nextFrame: "下一帧",
+        previousTake: "上一个 Take",
+        nextTake: "下一个 Take",
+        confirmTake: "确认当前 Take",
         restart: "重播",
         lookModeAria: "视线交互方式",
         autoOrbit: "自动巡看",
@@ -448,6 +468,12 @@ window.PET_PREVIEW_I18N = {
         originalFrame: "原始",
         takeRailAria: "第 {frame} 帧的 Takes",
         takeAria: "预览第 {frame} 帧 · {take}",
+        takeConfirmedAria:
+          "预览第 {frame} 帧 · {take} · 当前选择",
+        takeUnavailableAria:
+          "第 {frame} 帧 · {take} · 素材缺失或尺寸不符，暂不可用",
+        takeAssetLoading: "正在检查当前 Take",
+        takeConfirmedStatus: "已选择 {take}",
         allStatesPlayed: "全部状态播放完成",
         autoPlayingState: "正在播放 · {state}",
         mechanicsEyebrow: "固定运行时序",
@@ -458,6 +484,8 @@ window.PET_PREVIEW_I18N = {
         frameAria: "查看第 {frame} 帧 · {duration}",
         frameWithTakesAria:
           "查看第 {frame} 帧 · {duration} · {count} 个 Takes",
+        frameWithConfirmedTakeAria:
+          "查看第 {frame} 帧 · {duration} · {count} 个 Takes · 已选择 {take}",
         frameDurationFixed: "{duration} 毫秒",
         idleFrameDuration: "{duration} 毫秒 × {multiplier}",
         frameReadout: "第 {frame} / {count} 帧",
@@ -488,7 +516,7 @@ window.PET_PREVIEW_I18N = {
         assetAlt: "{pet}：{state}",
         sourceFooter: "通用示例数据 · 可通过 preview-data.js 替换",
         shortcutFooter:
-          "快捷键：← → 切帧，空格播放 / 暂停，1–9 切换状态",
+          "快捷键：← → 切帧或浏览 Takes，空格播放 / 暂停，1–9 切换状态",
         currentVersion: "当前",
         baselineVersion: "基线",
         exampleVersion: "示例",

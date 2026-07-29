@@ -124,7 +124,8 @@ Do not promise that a Previewer value changes runtime timing. The creative contr
 
 - Use `design/takes/<candidate>/<state>/fNN/` for Codex-managed working Takes.
 - Add a Take to Previewer config only as a temporary, read-only comparison for one exact Candidate, state, and frame.
-- Selecting a Take changes no source atlas, adjacent frame, Candidate, or approval state.
+- Clicking a Take only auditions it. Explicit Previewer Confirm may remember the current session choice for that exact Candidate, state, and frame.
+- Confirm changes no source atlas, Previewer JSON, adjacent frame, Candidate, QA result, or approval state.
 - If a new Take exposes a continuity problem, create another Take for the requested frame. Never silently adjust either neighboring frame.
 - Do not add upload, save, promote, or QA controls to the Previewer Take Rail.
 

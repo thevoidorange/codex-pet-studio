@@ -20,6 +20,7 @@
     animationControls: document.querySelector("#animationControls"),
     animationTab: document.querySelector("#animationTab"),
     autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
+    confirmTakeButton: document.querySelector("#confirmTakeButton"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     endlessModeButton: document.querySelector("#endlessModeButton"),
@@ -51,10 +52,12 @@
     stateTag: document.querySelector("#stateTag"),
     stateTitle: document.querySelector("#stateTitle"),
     stateTrigger: document.querySelector("#stateTrigger"),
+    takeStatus: document.querySelector("#takeStatus"),
     tourLabel: document.querySelector("#tourLabel"),
     tourProgress: document.querySelector("#tourProgress"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
     tourProgressText: document.querySelector("#tourProgressText"),
+    transportControls: document.querySelector("#transportControls"),
     versionSelect: document.querySelector("#versionSelect"),
     versionStatus: document.querySelector("#versionStatus"),
   };
@@ -67,6 +70,7 @@
   let activeFrameIndex = 0;
   let expandedTakeFrameIndex = null;
   let activeFrameTake = null;
+  const confirmedFrameTakeIds = new Map();
   let activeDirectionIndex = 0;
   let playbackMode = "runtime";
   let isInspectingFrame = false;
@@ -664,6 +668,79 @@
     }, []);
   }
 
+  function frameTakeSelectionKey(versionId, stateId, frameIndex) {
+    return JSON.stringify([versionId, stateId, frameIndex]);
+  }
+
+  function takeOptionsFor(version, state, frameIndex) {
+    return [
+      { id: ORIGINAL_TAKE_ID, take: null },
+      ...frameTakesFor(version, state, frameIndex).map((take) => ({
+        id: take.id,
+        take,
+      })),
+    ];
+  }
+
+  function isFrameTakeUnavailable(take, version = currentVersion()) {
+    if (!take || !take.assetUrl) return false;
+    const assetUrl = resolveAssetUrl(take.assetUrl, version);
+    return takeAssetStatus.get(assetUrl) === "failed";
+  }
+
+  function availableTakeOptionsFor(version, state, frameIndex) {
+    return takeOptionsFor(version, state, frameIndex).filter(
+      (option) => !isFrameTakeUnavailable(option.take, version),
+    );
+  }
+
+  function confirmedSelectionForFrame(version, state, frameIndex) {
+    const key = frameTakeSelectionKey(version.id, state.id, frameIndex);
+    if (!confirmedFrameTakeIds.has(key)) {
+      return {
+        hasSelection: false,
+        id: ORIGINAL_TAKE_ID,
+        take: null,
+      };
+    }
+
+    const takeId = confirmedFrameTakeIds.get(key);
+    if (takeId === ORIGINAL_TAKE_ID) {
+      return {
+        hasSelection: true,
+        id: ORIGINAL_TAKE_ID,
+        take: null,
+      };
+    }
+
+    const take =
+      frameTakesFor(version, state, frameIndex).find(
+        (candidate) => candidate.id === takeId,
+      ) || null;
+    if (take && !isFrameTakeUnavailable(take, version)) {
+      return { hasSelection: true, id: takeId, take };
+    }
+
+    confirmedFrameTakeIds.delete(key);
+    return {
+      hasSelection: false,
+      id: ORIGINAL_TAKE_ID,
+      take: null,
+    };
+  }
+
+  function hasConfirmedFrameTakeForFrame(version, state, frameIndex) {
+    return confirmedSelectionForFrame(version, state, frameIndex).hasSelection;
+  }
+
+  function confirmedTakeIdForFrame(version, state, frameIndex) {
+    return confirmedSelectionForFrame(version, state, frameIndex).id;
+  }
+
+  function confirmedTakeForFrame(version, state, frameIndex) {
+    return confirmedSelectionForFrame(version, state, frameIndex).take;
+  }
+
   function isSafeTakeAssetUrl(path) {
     if (
       !path ||
@@ -674,7 +751,13 @@
     }
     try {
       const url = new URL(path, configBaseUrl);
-      return ["http:", "https:"].includes(url.protocol);
+      const baseUrl = new URL(configBaseUrl, window.location.href);
+      return (
+        ["http:", "https:"].includes(url.protocol) &&
+        url.origin === baseUrl.origin &&
+        !url.username &&
+        !url.password
+      );
     } catch {
       return false;
     }
@@ -689,7 +772,9 @@
   }
 
   function frameTakeStyle(take, state, frameIndex) {
-    if (!take) return frameThumbnailStyle(state, frameIndex);
+    if (!take || isFrameTakeUnavailable(take)) {
+      return frameThumbnailStyle(state, frameIndex);
+    }
     if (take.assetUrl) {
       return [
         `background-image:url('${resolveAssetUrl(take.assetUrl, currentVersion())}')`,
@@ -715,8 +800,29 @@
     }
     return (
       frameTakesFor(currentVersion(), currentState(), activeFrameIndex).find(
-        (take) => take.id === activeFrameTake.takeId,
+        (take) =>
+          take.id === activeFrameTake.takeId &&
+          !isFrameTakeUnavailable(take),
       ) || null
+    );
+  }
+
+  function activeTakeIdForCurrentFrame() {
+    const take = activeTakeForCurrentFrame();
+    return take ? take.id : ORIGINAL_TAKE_ID;
+  }
+
+  function displayedTakeForCurrentFrame() {
+    if (
+      expandedTakeFrameIndex === activeFrameIndex &&
+      isInspectingFrame
+    ) {
+      return activeTakeForCurrentFrame();
+    }
+    return confirmedTakeForFrame(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
     );
   }
 
@@ -725,14 +831,14 @@
     if (closeRail) expandedTakeFrameIndex = null;
   }
 
-  function setFrameTake(takeId) {
+  function previewFrameTake(takeId) {
     const state = currentState();
     const takes = frameTakesFor(currentVersion(), state, activeFrameIndex);
     if (takeId === ORIGINAL_TAKE_ID) {
       activeFrameTake = null;
     } else {
       const take = takes.find((candidate) => candidate.id === takeId);
-      if (!take) return;
+      if (!take || isFrameTakeUnavailable(take)) return;
       activeFrameTake = {
         versionId: activeVersionId,
         stateId: state.id,
@@ -743,39 +849,266 @@
     refreshTakeClasses();
     renderPlayer();
     renderFrameReadout();
+    renderControlLabels();
+    scheduleTakeRailPosition();
   }
 
-  function setTakeSpriteFrame(take, target = elements.spritePlayer) {
+  function primeFrameTakeFromConfirmed() {
+    const takeId = confirmedTakeIdForFrame(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
+    );
+    if (takeId === ORIGINAL_TAKE_ID) {
+      activeFrameTake = null;
+      return;
+    }
+    activeFrameTake = {
+      versionId: activeVersionId,
+      stateId: currentState().id,
+      frameIndex: activeFrameIndex,
+      takeId,
+    };
+  }
+
+  function confirmFrameTake() {
+    if (
+      expandedTakeFrameIndex === null ||
+      expandedTakeFrameIndex !== activeFrameIndex
+    ) {
+      return;
+    }
+    const activeTake = activeTakeForCurrentFrame();
+    if (
+      activeTake &&
+      activeTake.assetUrl &&
+      takeAssetStatus.get(
+        resolveAssetUrl(activeTake.assetUrl, currentVersion()),
+      ) !== "ready"
+    ) {
+      return;
+    }
+    const frameIndex = activeFrameIndex;
+    const key = frameTakeSelectionKey(
+      activeVersionId,
+      currentState().id,
+      frameIndex,
+    );
+    const takeId = activeTakeIdForCurrentFrame();
+    const takes = frameTakesFor(
+      currentVersion(),
+      currentState(),
+      frameIndex,
+    );
+    const takeLabel = activeTake
+      ? frameTakeLabel(activeTake, takes.indexOf(activeTake))
+      : t("ui.originalFrame");
+    confirmedFrameTakeIds.set(key, takeId);
+    clearFrameTakeState();
+    renderFrameStrip();
+    renderControlLabels();
+    renderPlayer();
+    renderFrameReadout();
+    announceTakeConfirmation(takeLabel);
+    focusFrameButton(frameIndex);
+  }
+
+  function announceTakeConfirmation(takeLabel) {
+    elements.takeStatus.textContent = "";
+    window.requestAnimationFrame(() => {
+      elements.takeStatus.textContent = t("ui.takeConfirmedStatus", {
+        take: takeLabel,
+      });
+    });
+  }
+
+  function stepTake(delta) {
+    if (
+      expandedTakeFrameIndex === null ||
+      expandedTakeFrameIndex !== activeFrameIndex
+    ) {
+      return;
+    }
+    const options = availableTakeOptionsFor(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
+    );
+    const activeIndex = Math.max(
+      0,
+      options.findIndex(
+        (option) => option.id === activeTakeIdForCurrentFrame(),
+      ),
+    );
+    const nextIndex = Math.min(
+      options.length - 1,
+      Math.max(0, activeIndex + delta),
+    );
+    if (nextIndex === activeIndex) return;
+    previewFrameTake(options[nextIndex].id);
+  }
+
+  function rawTakeForSelection(version, state, frameIndex, takeId) {
+    if (!version || !state || takeId === ORIGINAL_TAKE_ID) return null;
+    return (
+      frameTakesFor(version, state, frameIndex).find(
+        (take) => take.id === takeId,
+      ) || null
+    );
+  }
+
+  function takeAssetUrlForSelection(version, state, frameIndex, takeId) {
+    const take = rawTakeForSelection(version, state, frameIndex, takeId);
+    return take && take.assetUrl
+      ? resolveAssetUrl(take.assetUrl, version)
+      : null;
+  }
+
+  function activeTakeAssetUrl() {
+    if (!activeFrameTake) return null;
+    const version = config.versions.find(
+      (candidate) => candidate.id === activeFrameTake.versionId,
+    );
+    const state = config.states.find(
+      (candidate) => candidate.id === activeFrameTake.stateId,
+    );
+    return takeAssetUrlForSelection(
+      version,
+      state,
+      activeFrameTake.frameIndex,
+      activeFrameTake.takeId,
+    );
+  }
+
+  function confirmedTakeAssetUrl(version, state, frameIndex) {
+    const key = frameTakeSelectionKey(version.id, state.id, frameIndex);
+    if (!confirmedFrameTakeIds.has(key)) return null;
+    return takeAssetUrlForSelection(
+      version,
+      state,
+      frameIndex,
+      confirmedFrameTakeIds.get(key),
+    );
+  }
+
+  function currentTakeAssetUsage(assetUrl) {
+    const version = currentVersion();
+    const state = currentState();
+    const playbackState = displayedState();
+    const activeUrl = activeTakeAssetUrl();
+    const currentConfirmedUrl = confirmedTakeAssetUrl(
+      version,
+      state,
+      activeFrameIndex,
+    );
+    const playbackConfirmedUrl = confirmedTakeAssetUrl(
+      version,
+      playbackState,
+      activeFrameIndex,
+    );
+    const stageUrl = isInspectingFrame
+      ? expandedTakeFrameIndex === activeFrameIndex
+        ? activeUrl
+        : currentConfirmedUrl
+      : playbackConfirmedUrl;
+    const railContainsAsset =
+      expandedTakeFrameIndex === activeFrameIndex &&
+      frameTakesFor(version, state, activeFrameIndex).some(
+        (take) =>
+          take.assetUrl &&
+          resolveAssetUrl(take.assetUrl, version) === assetUrl,
+      );
+    return {
+      rail: railContainsAsset,
+      stage: stageUrl === assetUrl,
+      controls: activeUrl === assetUrl,
+    };
+  }
+
+  function removeConfirmedSelectionsForAsset(assetUrl) {
+    confirmedFrameTakeIds.forEach((takeId, key) => {
+      let versionId;
+      let stateId;
+      let frameIndex;
+      try {
+        [versionId, stateId, frameIndex] = JSON.parse(key);
+      } catch {
+        confirmedFrameTakeIds.delete(key);
+        return;
+      }
+      const version = config.versions.find(
+        (candidate) => candidate.id === versionId,
+      );
+      const state = config.states.find(
+        (candidate) => candidate.id === stateId,
+      );
+      if (
+        takeAssetUrlForSelection(
+          version,
+          state,
+          frameIndex,
+          takeId,
+        ) === assetUrl
+      ) {
+        confirmedFrameTakeIds.delete(key);
+      }
+    });
+  }
+
+  function invalidateTakeAsset(assetUrl) {
+    const usage = currentTakeAssetUsage(assetUrl);
+    const restoreTakeFocus =
+      document.activeElement instanceof Element &&
+      Boolean(document.activeElement.closest(".take-card"));
+    takeAssetStatus.set(assetUrl, "failed");
+    removeConfirmedSelectionsForAsset(assetUrl);
+    if (activeTakeAssetUrl() === assetUrl) {
+      activeFrameTake = null;
+    }
+    if (usage.rail) {
+      renderFrameStrip();
+      renderControlLabels();
+      if (restoreTakeFocus) focusPreviewedTake();
+    } else if (usage.controls) {
+      renderControlLabels();
+    }
+    if (usage.stage) {
+      renderPlayer();
+      renderFrameReadout();
+    }
+  }
+
+  function setTakeSpriteFrame(
+    take,
+    target = elements.spritePlayer,
+    fallbackState = currentState(),
+    frameIndex = activeFrameIndex,
+  ) {
     if (take.assetUrl) {
-      const assetUrl = resolveAssetUrl(take.assetUrl, currentVersion());
+      const version = currentVersion();
+      const assetUrl = resolveAssetUrl(take.assetUrl, version);
       if (takeAssetStatus.get(assetUrl) === "failed") {
-        activeFrameTake = null;
-        setSpriteFrame(currentState().row, activeFrameIndex, target);
-        refreshTakeClasses();
-        renderFrameReadout();
+        setSpriteFrame(fallbackState.row, frameIndex, target);
         return;
       }
       if (!takeAssetStatus.has(assetUrl)) {
         takeAssetStatus.set(assetUrl, "loading");
         const probe = new Image();
         probe.addEventListener("load", () => {
-          takeAssetStatus.set(assetUrl, "ready");
-        });
-        probe.addEventListener("error", () => {
-          takeAssetStatus.set(assetUrl, "failed");
-          const activeTake = activeTakeForCurrentFrame();
           if (
-            !activeTake ||
-            activeTake.id !== take.id ||
-            resolveAssetUrl(activeTake.assetUrl, currentVersion()) !==
-              assetUrl
+            probe.naturalWidth !== config.sprite.frameWidth ||
+            probe.naturalHeight !== config.sprite.frameHeight
           ) {
+            invalidateTakeAsset(assetUrl);
             return;
           }
-          activeFrameTake = null;
-          setSpriteFrame(currentState().row, activeFrameIndex, target);
-          refreshTakeClasses();
-          renderFrameReadout();
+          takeAssetStatus.set(assetUrl, "ready");
+          if (currentTakeAssetUsage(assetUrl).controls) {
+            renderControlLabels();
+          }
+        });
+        probe.addEventListener("error", () => {
+          invalidateTakeAsset(assetUrl);
         });
         probe.src = assetUrl;
       }
@@ -916,8 +1249,17 @@
         take,
       })),
     ];
-    const activeTake = activeTakeForCurrentFrame();
-    const activeTakeId = activeTake ? activeTake.id : ORIGINAL_TAKE_ID;
+    const activeTakeId = activeTakeIdForCurrentFrame();
+    const hasConfirmedTake = hasConfirmedFrameTakeForFrame(
+      currentVersion(),
+      state,
+      frameIndex,
+    );
+    const confirmedTakeId = confirmedTakeIdForFrame(
+      currentVersion(),
+      state,
+      frameIndex,
+    );
     const railId = `take-rail-${state.id}-${frameIndex}`;
     return `
       <div
@@ -933,19 +1275,36 @@
           <div class="take-track">
             ${options
               .map(
-                (option) => `
+                (option) => {
+                  const unavailable = isFrameTakeUnavailable(
+                    option.take,
+                    currentVersion(),
+                  );
+                  const confirmed =
+                    hasConfirmedTake && option.id === confirmedTakeId;
+                  return `
                   <button
                     class="take-card ${
                       option.id === activeTakeId ? "is-previewing" : ""
-                    }"
+                    } ${
+                      confirmed ? "is-confirmed" : ""
+                    } ${unavailable ? "is-unavailable" : ""}"
                     type="button"
                     data-take-id="${escapeHtml(option.id)}"
+                    ${unavailable ? "disabled" : ""}
                     aria-pressed="${String(option.id === activeTakeId)}"
                     aria-label="${escapeHtml(
-                      t("ui.takeAria", {
-                        frame: frameIndex + 1,
-                        take: option.label,
-                      }),
+                      t(
+                        unavailable
+                          ? "ui.takeUnavailableAria"
+                          : confirmed
+                            ? "ui.takeConfirmedAria"
+                            : "ui.takeAria",
+                        {
+                          frame: frameIndex + 1,
+                          take: option.label,
+                        },
+                      ),
                     )}"
                   >
                     <span
@@ -957,8 +1316,14 @@
                       )}"
                     ></span>
                     <small>${escapeHtml(option.label)}</small>
+                    ${
+                      confirmed
+                        ? '<span class="take-confirmed-mark" aria-hidden="true">✓</span>'
+                        : ""
+                    }
                   </button>
-                `,
+                `;
+                },
               )
               .join("")}
           </div>
@@ -1021,6 +1386,15 @@
     });
   }
 
+  function focusPreviewedTake() {
+    window.requestAnimationFrame(() => {
+      const previewedTake = elements.frameStrip.querySelector(
+        ".take-card.is-previewing",
+      );
+      if (previewedTake) previewedTake.focus({ preventScroll: true });
+    });
+  }
+
   function renderFrameStrip() {
     const state = currentState();
     const takesByFrame = new Map(
@@ -1050,6 +1424,21 @@
 
     state.durations.forEach((duration, index) => {
       const takes = takesByFrame.get(index) || [];
+      const hasConfirmedTake = hasConfirmedFrameTakeForFrame(
+        currentVersion(),
+        state,
+        index,
+      );
+      const confirmedTakeId = confirmedTakeIdForFrame(
+        currentVersion(),
+        state,
+        index,
+      );
+      const confirmedTake = confirmedTakeForFrame(
+        currentVersion(),
+        state,
+        index,
+      );
       const isExpanded =
         expandedTakeFrameIndex === index && takes.length > 0;
       const railId = `take-rail-${state.id}-${index}`;
@@ -1071,21 +1460,42 @@
             ${isExpanded ? `aria-controls="${escapeHtml(railId)}"` : ""}
             aria-label="${escapeHtml(
               takes.length
-                ? t("ui.frameWithTakesAria", {
-                    frame: index + 1,
-                    duration: runtimeDurationLabel(state, index),
-                    count: takes.length,
-                  })
+                ? t(
+                    hasConfirmedTake
+                      ? "ui.frameWithConfirmedTakeAria"
+                      : "ui.frameWithTakesAria",
+                    {
+                      frame: index + 1,
+                      duration: runtimeDurationLabel(state, index),
+                      count: takes.length,
+                      take:
+                        confirmedTakeId === ORIGINAL_TAKE_ID
+                          ? t("ui.originalFrame")
+                          : frameTakeLabel(
+                              confirmedTake,
+                              takes.indexOf(confirmedTake),
+                            ),
+                    },
+                  )
                 : t("ui.frameAria", {
                     frame: index + 1,
                     duration: runtimeDurationLabel(state, index),
                   }),
             )}"
           >
-            <span class="frame-thumbnail" style="${frameThumbnailStyle(state, index)}"></span>
+            <span class="frame-thumbnail" style="${frameTakeStyle(
+              confirmedTake,
+              state,
+              index,
+            )}"></span>
             <small class="frame-duration">${escapeHtml(
               runtimeDurationLabel(state, index),
             )}</small>
+            ${
+              hasConfirmedTake
+                ? '<span class="frame-take-confirmed" aria-hidden="true">✓</span>'
+                : ""
+            }
           </button>
       `);
       if (expandedRowEnd === index) {
@@ -1112,7 +1522,7 @@
     takeButtons = [...elements.frameStrip.querySelectorAll(".take-card")];
     takeButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        setFrameTake(button.dataset.takeId);
+        previewFrameTake(button.dataset.takeId);
       });
     });
     if (expandedRowEnd !== null) scheduleTakeRailPosition();
@@ -1280,14 +1690,71 @@
       "aria-pressed",
       String(playbackMode === "runtime"),
     );
+    const browsingTakes = expandedTakeFrameIndex !== null;
+    const activeTake = browsingTakes ? activeTakeForCurrentFrame() : null;
+    const activeTakeReady =
+      !activeTake ||
+      !activeTake.assetUrl ||
+      takeAssetStatus.get(
+        resolveAssetUrl(activeTake.assetUrl, currentVersion()),
+      ) === "ready";
+    elements.confirmTakeButton.hidden = !browsingTakes;
+    elements.confirmTakeButton.disabled =
+      !browsingTakes || !activeTakeReady;
+    elements.confirmTakeButton.title = t(
+      activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading",
+    );
+    elements.confirmTakeButton.setAttribute(
+      "aria-label",
+      t(activeTakeReady ? "ui.confirmTake" : "ui.takeAssetLoading"),
+    );
+    elements.transportControls.setAttribute(
+      "aria-label",
+      t(browsingTakes ? "ui.takeTransportAria" : "ui.transportAria"),
+    );
+    elements.previousFrameButton.title = t(
+      browsingTakes ? "ui.previousTake" : "ui.previousFrame",
+    );
+    elements.previousFrameButton.setAttribute(
+      "aria-label",
+      t(browsingTakes ? "ui.previousTake" : "ui.previousFrame"),
+    );
+    elements.nextFrameButton.title = t(
+      browsingTakes ? "ui.nextTake" : "ui.nextFrame",
+    );
+    elements.nextFrameButton.setAttribute(
+      "aria-label",
+      t(browsingTakes ? "ui.nextTake" : "ui.nextFrame"),
+    );
+    if (browsingTakes) {
+      const options = availableTakeOptionsFor(
+        currentVersion(),
+        currentState(),
+        activeFrameIndex,
+      );
+      const activeIndex = Math.max(
+        0,
+        options.findIndex(
+          (option) => option.id === activeTakeIdForCurrentFrame(),
+        ),
+      );
+      elements.previousFrameButton.disabled = activeIndex === 0;
+      elements.nextFrameButton.disabled =
+        activeIndex === options.length - 1;
+    } else {
+      elements.previousFrameButton.disabled = false;
+      elements.nextFrameButton.disabled = false;
+    }
     const modeHelp = t(
-      isInspectingFrame
-        ? playbackMode === "loop"
-          ? "ui.frameInspectionEndlessHelp"
-          : "ui.frameInspectionRuntimeHelp"
-        : playbackMode === "loop"
-          ? "ui.endlessModeHelp"
-          : "ui.runtimeModeHelp",
+      browsingTakes
+        ? "ui.takeRailHelp"
+        : isInspectingFrame
+          ? playbackMode === "loop"
+            ? "ui.frameInspectionEndlessHelp"
+            : "ui.frameInspectionRuntimeHelp"
+          : playbackMode === "loop"
+            ? "ui.endlessModeHelp"
+            : "ui.runtimeModeHelp",
       {
         loops: FIXED_ACTION_LOOPS,
       },
@@ -1350,7 +1817,7 @@
 
     const state = currentState();
     if (isInspectingFrame) {
-      const take = activeTakeForCurrentFrame();
+      const take = displayedTakeForCurrentFrame();
       elements.frameReadout.textContent = take
         ? t("ui.takeFrameReadout", {
             frame: activeFrameIndex + 1,
@@ -1416,9 +1883,17 @@
     if (isInspectingFrame) {
       elements.spritePlayer.style.display = "block";
       const state = currentState();
-      const take = activeTakeForCurrentFrame();
-      if (take) setTakeSpriteFrame(take);
-      else setSpriteFrame(state.row, activeFrameIndex);
+      const take = displayedTakeForCurrentFrame();
+      if (take) {
+        setTakeSpriteFrame(
+          take,
+          elements.spritePlayer,
+          state,
+          activeFrameIndex,
+        );
+      } else {
+        setSpriteFrame(state.row, activeFrameIndex);
+      }
       elements.stageModeLabel.textContent = t("ui.frameInspectionLabel");
       clearFrameTimer();
       return;
@@ -1426,7 +1901,21 @@
 
     elements.spritePlayer.style.display = "block";
     const playbackState = displayedState();
-    setSpriteFrame(playbackState.row, activeFrameIndex);
+    const confirmedTake = confirmedTakeForFrame(
+      currentVersion(),
+      playbackState,
+      activeFrameIndex,
+    );
+    if (confirmedTake) {
+      setTakeSpriteFrame(
+        confirmedTake,
+        elements.spritePlayer,
+        playbackState,
+        activeFrameIndex,
+      );
+    } else {
+      setSpriteFrame(playbackState.row, activeFrameIndex);
+    }
     elements.stageModeLabel.textContent =
       playbackMode === "loop"
         ? t("ui.endlessLoop")
@@ -1457,11 +1946,23 @@
   }
 
   function refreshTakeClasses() {
-    const activeTake = activeTakeForCurrentFrame();
-    const activeTakeId = activeTake ? activeTake.id : ORIGINAL_TAKE_ID;
+    const activeTakeId = activeTakeIdForCurrentFrame();
+    const hasConfirmedTake = hasConfirmedFrameTakeForFrame(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
+    );
+    const confirmedTakeId = confirmedTakeIdForFrame(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
+    );
     takeButtons.forEach((button) => {
       const isActive = button.dataset.takeId === activeTakeId;
+      const isConfirmed =
+        hasConfirmedTake && button.dataset.takeId === confirmedTakeId;
       button.classList.toggle("is-previewing", isActive);
+      button.classList.toggle("is-confirmed", isConfirmed);
       button.setAttribute("aria-pressed", String(isActive));
     });
   }
@@ -1484,7 +1985,7 @@
     activeFrameIndex =
       ((index % state.durations.length) + state.durations.length) %
       state.durations.length;
-    setSpriteFrame(state.row, activeFrameIndex);
+    renderPlayer();
     refreshActiveClasses();
     renderFrameReadout();
   }
@@ -1551,7 +2052,7 @@
     scheduleNextFrame();
   }
 
-  function enterFrameInspection() {
+  function enterFrameInspection({ render = true } = {}) {
     clearFrameTakeState();
     if (runtimeFellBack) activeFrameIndex = 0;
     resetRuntimePlayback();
@@ -1562,6 +2063,7 @@
     isInspectingFrame = true;
     isPlaying = false;
     clearFrameTimer();
+    if (!render) return;
     renderFrameStrip();
     renderControlLabels();
     renderDetails();
@@ -1588,8 +2090,10 @@
     index,
     { revealTakes = false, restoreFocus = false } = {},
   ) {
-    enterFrameInspection();
-    setFrame(index);
+    enterFrameInspection({ render: false });
+    const frameCount = currentState().durations.length;
+    activeFrameIndex =
+      ((index % frameCount) + frameCount) % frameCount;
     const takes = frameTakesFor(
       currentVersion(),
       currentState(),
@@ -1597,9 +2101,14 @@
     );
     expandedTakeFrameIndex =
       revealTakes && takes.length ? activeFrameIndex : null;
+    if (expandedTakeFrameIndex !== null) {
+      primeFrameTakeFromConfirmed();
+    }
     renderFrameStrip();
+    renderControlLabels();
     renderPlayer();
     renderFrameReadout();
+    refreshActiveClasses();
     if (restoreFocus) focusFrameButton(activeFrameIndex);
   }
 
@@ -1675,6 +2184,11 @@
     inspectFrame(activeFrameIndex + delta);
   }
 
+  function stepTransport(delta) {
+    if (expandedTakeFrameIndex !== null) stepTake(delta);
+    else stepFrame(delta);
+  }
+
   function setSection(mode) {
     if (tourState.active) stopTour();
     clearFrameTakeState();
@@ -1697,6 +2211,7 @@
     if (isAnimation) {
       renderDetails();
       renderFrameStrip();
+      renderControlLabels();
       renderPlayer();
       renderFrameReadout();
       scheduleNextFrame();
@@ -1991,9 +2506,15 @@
     );
     elements.playPauseButton.addEventListener("click", togglePlayback);
     elements.previousFrameButton.addEventListener("click", () =>
-      stepFrame(-1),
+      stepTransport(-1),
     );
-    elements.nextFrameButton.addEventListener("click", () => stepFrame(1));
+    elements.nextFrameButton.addEventListener("click", () =>
+      stepTransport(1),
+    );
+    elements.confirmTakeButton.addEventListener(
+      "click",
+      confirmFrameTake,
+    );
     elements.restartButton.addEventListener("click", restartPlayback);
     elements.previewSizeInput.addEventListener("input", () =>
       setPreviewSize(elements.previewSizeInput.value),
@@ -2032,25 +2553,35 @@
         const frameIndex = expandedTakeFrameIndex;
         clearFrameTakeState();
         renderFrameStrip();
+        renderControlLabels();
         renderPlayer();
         renderFrameReadout();
         focusFrameButton(frameIndex);
         return;
       }
-      if (event.target.matches("select, button, input, textarea")) return;
+      if (event.target.matches("select, input, textarea")) return;
       if (
         sectionMode === "look" &&
         [" ", "ArrowLeft", "ArrowRight"].includes(event.key)
       ) {
         return;
       }
+      if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
+        event.preventDefault();
+        const focusedTake = event.target.closest(".take-card");
+        const focusedFrame = event.target.closest(".frame-button");
+        stepTransport(event.key === "ArrowLeft" ? -1 : 1);
+        if (focusedTake && expandedTakeFrameIndex !== null) {
+          focusPreviewedTake();
+        } else if (focusedFrame && expandedTakeFrameIndex === null) {
+          focusFrameButton(activeFrameIndex);
+        }
+        return;
+      }
+      if (event.target.matches("button")) return;
       if (event.key === " ") {
         event.preventDefault();
         togglePlayback();
-      } else if (event.key === "ArrowLeft") {
-        stepFrame(-1);
-      } else if (event.key === "ArrowRight") {
-        stepFrame(1);
       } else if (/^[1-9]$/.test(event.key)) {
         const stateIndex = Number(event.key) - 1;
         if (stateIndex < config.states.length) {

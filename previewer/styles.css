@@ -133,9 +133,15 @@ select:focus-visible {
   transform: translateY(-1px);
 }
 
-.button:disabled {
+.button:disabled,
+.icon-button:disabled {
   cursor: default;
   opacity: 0.42;
+  transform: none;
+}
+
+.icon-button:disabled:hover {
+  border-color: var(--line);
   transform: none;
 }
 
@@ -482,6 +488,24 @@ select:focus-visible {
   height: 38px;
 }
 
+.confirm-take-button {
+  border-color: #a7a7a7;
+  background: #f4f4f4;
+  font-weight: 800;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 select {
   min-height: 36px;
   padding: 0 28px 0 10px;
@@ -729,6 +753,22 @@ select {
   background-repeat: no-repeat;
 }
 
+.frame-take-confirmed {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #565656;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .frame-duration {
   color: var(--muted);
   font-size: 8px;
@@ -777,6 +817,7 @@ select {
 }
 
 .take-card {
+  position: relative;
   display: grid;
   min-width: 44px;
   min-height: 54px;
@@ -801,6 +842,31 @@ select {
 
 .take-card.is-previewing {
   border-color: #bcbcbc;
+}
+
+.take-card.is-confirmed:not(.is-previewing) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.take-card.is-unavailable {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.take-confirmed-mark {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  width: 11px;
+  height: 11px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #666666;
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .take-thumbnail {

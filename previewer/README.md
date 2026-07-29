@@ -86,9 +86,17 @@ source per Take. Keep private working files under
 Previewer needs into the generated build beside its JSON.
 
 Clicking a Keyframe with Takes reveals a smaller rail below that Keyframe row.
-Selecting a Take changes only the static Stage preview. Runtime Simulation,
-Endless Loop, the Motion Timing Board, the Candidate atlas, and adjacent frames
-remain untouched. Play or navigation exits the temporary Take preview.
+Clicking a Take, or using Previous / Next while the rail is open, only auditions
+that option. The small Confirm button beside Next records the current choice for
+that exact Candidate, state, and Keyframe, then closes the rail. The confirmed
+Take is used by the Keyframe thumbnail, Runtime Simulation, and Endless Loop so
+continuity can be reviewed.
+
+Confirmation is session-only review metadata. It does not rewrite the source
+atlas, Previewer JSON, Take asset, neighboring frame, Candidate, or QA status,
+and it is cleared by a page reload. Reopen the Keyframe rail to audition and
+confirm a different Take or return to Original. Motion Timing Board continues
+to show the source atlas.
 
 ## Stable state IDs
 
