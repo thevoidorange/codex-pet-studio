@@ -15,6 +15,12 @@
   const TOUR_PROGRESS_STEP_MS = 160;
   const KEYFRAME_COLUMNS = 4;
   const ORIGINAL_TAKE_ID = "original";
+  const REVIEW_CONTEXT_PARAMS = Object.freeze({
+    candidate: "candidate",
+    state: "state",
+    frame: "frame",
+    take: "take",
+  });
 
   const elements = {
     animationControls: document.querySelector("#animationControls"),
@@ -63,6 +69,13 @@
 
   let config = null;
   let configBaseUrl = window.location.href;
+  let reviewContextReady = false;
+  let reviewFocus = {
+    candidateId: "",
+    stateId: "",
+    frameIndex: null,
+    takeId: null,
+  };
   let locale = resolveInitialLocale();
   let activeVersionId = "";
   let activeStateIndex = 0;
@@ -276,6 +289,7 @@
         data: bundledConfig,
         baseUrl: window.location.href,
         isExternal: false,
+        externalLoadFailed: false,
       };
     }
 
@@ -290,6 +304,7 @@
         data,
         baseUrl: resolvedUrl.href,
         isExternal: true,
+        externalLoadFailed: false,
       };
     } catch (error) {
       console.warn("Could not load external preview config.", error);
@@ -297,6 +312,7 @@
         data: bundledConfig,
         baseUrl: window.location.href,
         isExternal: false,
+        externalLoadFailed: true,
       };
     }
   }
@@ -365,6 +381,193 @@
 
   function currentState() {
     return config.states[activeStateIndex] || config.states[0];
+  }
+
+  function readReviewContextFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      candidateId: params.get(REVIEW_CONTEXT_PARAMS.candidate),
+      stateId: params.get(REVIEW_CONTEXT_PARAMS.state),
+      frame: params.get(REVIEW_CONTEXT_PARAMS.frame),
+      takeId: params.get(REVIEW_CONTEXT_PARAMS.take),
+    };
+  }
+
+  function reviewTakeIdForCurrentFrame() {
+    if (expandedTakeFrameIndex === activeFrameIndex) {
+      return activeTakeIdForCurrentFrame();
+    }
+    return confirmedTakeIdForFrame(
+      currentVersion(),
+      currentState(),
+      activeFrameIndex,
+    );
+  }
+
+  function validReviewTakeId(version, state, frameIndex, takeId) {
+    const requestedTake = takeOptionsFor(version, state, frameIndex).find(
+      (option) =>
+        option.id === takeId &&
+        !isFrameTakeUnavailable(option.take, version),
+    );
+    return requestedTake ? requestedTake.id : ORIGINAL_TAKE_ID;
+  }
+
+  function setReviewFocusFromCurrent({
+    includeFrame = false,
+    takeId = null,
+  } = {}) {
+    const version = currentVersion();
+    const state = currentState();
+    const frameIndex = includeFrame ? activeFrameIndex : null;
+    const resolvedTakeId = includeFrame
+      ? validReviewTakeId(
+          version,
+          state,
+          frameIndex,
+          takeId ?? reviewTakeIdForCurrentFrame(),
+        )
+      : null;
+    reviewFocus = {
+      candidateId: version.id,
+      stateId: state.id,
+      frameIndex,
+      takeId: resolvedTakeId,
+    };
+    syncReviewContextToUrl();
+  }
+
+  function syncReviewContextToUrl() {
+    if (
+      !reviewContextReady ||
+      !config ||
+      !reviewFocus.candidateId ||
+      !reviewFocus.stateId
+    ) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set(
+      REVIEW_CONTEXT_PARAMS.candidate,
+      reviewFocus.candidateId,
+    );
+    url.searchParams.set(
+      REVIEW_CONTEXT_PARAMS.state,
+      reviewFocus.stateId,
+    );
+
+    if (Number.isInteger(reviewFocus.frameIndex)) {
+      url.searchParams.set(
+        REVIEW_CONTEXT_PARAMS.frame,
+        String(reviewFocus.frameIndex + 1),
+      );
+      url.searchParams.set(
+        REVIEW_CONTEXT_PARAMS.take,
+        reviewFocus.takeId || ORIGINAL_TAKE_ID,
+      );
+    } else {
+      url.searchParams.delete(REVIEW_CONTEXT_PARAMS.frame);
+      url.searchParams.delete(REVIEW_CONTEXT_PARAMS.take);
+    }
+
+    window.history.replaceState(window.history.state, "", url.href);
+  }
+
+  function clearReviewContextFromUrl() {
+    const url = new URL(window.location.href);
+    Object.values(REVIEW_CONTEXT_PARAMS).forEach((parameter) => {
+      url.searchParams.delete(parameter);
+    });
+    window.history.replaceState(window.history.state, "", url.href);
+  }
+
+  function restoreReviewContextFromUrl(context) {
+    clearFrameTimer();
+    clearFrameTakeState();
+    resetRuntimePlayback();
+    activeFrameIndex = 0;
+    isInspectingFrame = false;
+    isPlaying = true;
+
+    let canRestoreState = false;
+    if (context.candidateId !== null) {
+      const requestedVersion = config.versions.find(
+        (version) => version.id === context.candidateId,
+      );
+      if (requestedVersion) {
+        activeVersionId = requestedVersion.id;
+        canRestoreState = true;
+      }
+    }
+
+    let canRestoreFrame = false;
+    if (canRestoreState && context.stateId !== null) {
+      const requestedStateIndex = config.states.findIndex(
+        (state) => state.id === context.stateId,
+      );
+      if (requestedStateIndex >= 0) {
+        activeStateIndex = requestedStateIndex;
+        canRestoreFrame = true;
+      }
+    }
+
+    let restoredFrameIndex = null;
+    let restoredTakeId = null;
+    const frameNumber = Number(context.frame);
+    const frameCount = currentState().durations.length;
+    if (
+      canRestoreFrame &&
+      context.frame !== null &&
+      /^[1-9]\d*$/.test(context.frame) &&
+      Number.isInteger(frameNumber) &&
+      frameNumber >= 1 &&
+      frameNumber <= frameCount
+    ) {
+      activeFrameIndex = frameNumber - 1;
+      restoredFrameIndex = activeFrameIndex;
+      isInspectingFrame = true;
+      isPlaying = false;
+
+      const options = takeOptionsFor(
+        currentVersion(),
+        currentState(),
+        activeFrameIndex,
+      );
+      restoredTakeId = validReviewTakeId(
+        currentVersion(),
+        currentState(),
+        activeFrameIndex,
+        context.takeId,
+      );
+      if (options.length > 1) {
+        expandedTakeFrameIndex = activeFrameIndex;
+        if (restoredTakeId !== ORIGINAL_TAKE_ID) {
+          activeFrameTake = {
+            versionId: activeVersionId,
+            stateId: currentState().id,
+            frameIndex: activeFrameIndex,
+            takeId: restoredTakeId,
+          };
+        }
+      }
+    }
+
+    reviewFocus = {
+      candidateId: activeVersionId,
+      stateId: currentState().id,
+      frameIndex: restoredFrameIndex,
+      takeId: restoredTakeId,
+    };
+    elements.versionSelect.value = activeVersionId;
+    renderStateList();
+    renderFrameStrip();
+    renderMechanicsBoard();
+    renderDetails();
+    renderControlLabels();
+    renderPlayer();
+    renderFrameReadout();
+    refreshActiveClasses();
+    scheduleNextFrame();
   }
 
   function idleState() {
@@ -851,6 +1054,10 @@
     renderFrameReadout();
     renderControlLabels();
     scheduleTakeRailPosition();
+    setReviewFocusFromCurrent({
+      includeFrame: true,
+      takeId: activeTakeIdForCurrentFrame(),
+    });
   }
 
   function primeFrameTakeFromConfirmed() {
@@ -911,6 +1118,7 @@
     renderFrameReadout();
     announceTakeConfirmation(takeLabel);
     focusFrameButton(frameIndex);
+    setReviewFocusFromCurrent({ includeFrame: true, takeId });
   }
 
   function activeTakeReadyForConfirmation() {
@@ -1089,6 +1297,27 @@
     if (usage.stage) {
       renderPlayer();
       renderFrameReadout();
+    }
+    if (
+      Number.isInteger(reviewFocus.frameIndex) &&
+      reviewFocus.takeId !== ORIGINAL_TAKE_ID
+    ) {
+      const focusedVersion = config.versions.find(
+        (version) => version.id === reviewFocus.candidateId,
+      );
+      const focusedState = config.states.find(
+        (state) => state.id === reviewFocus.stateId,
+      );
+      const focusedAssetUrl = takeAssetUrlForSelection(
+        focusedVersion,
+        focusedState,
+        reviewFocus.frameIndex,
+        reviewFocus.takeId,
+      );
+      if (focusedAssetUrl === assetUrl) {
+        reviewFocus.takeId = ORIGINAL_TAKE_ID;
+        syncReviewContextToUrl();
+      }
     }
   }
 
@@ -2218,6 +2447,7 @@
     renderPlayer();
     renderFrameReadout();
     refreshActiveClasses();
+    setReviewFocusFromCurrent({ includeFrame: true });
   }
 
   function resumeSelectedPlayback() {
@@ -2258,6 +2488,7 @@
     renderFrameReadout();
     refreshActiveClasses();
     if (restoreFocus) focusFrameButton(activeFrameIndex);
+    setReviewFocusFromCurrent({ includeFrame: true });
   }
 
   function setPreviewSize(value) {
@@ -2307,6 +2538,7 @@
       tourState.completed = false;
       setTourProgress(0);
       renderTourStatus();
+      setReviewFocusFromCurrent();
     }
   }
 
@@ -2332,7 +2564,8 @@
     inspectFrame(activeFrameIndex + delta);
   }
 
-  function setSection(mode) {
+  function setSection(mode, { updateReviewFocus = false } = {}) {
+    const sectionChanged = sectionMode !== mode;
     if (tourState.active) stopTour();
     clearFrameTakeState();
     sectionMode = mode;
@@ -2361,6 +2594,11 @@
     } else {
       clearFrameTimer();
       setDirection(activeDirectionIndex);
+    }
+    if (sectionChanged && updateReviewFocus) {
+      setReviewFocusFromCurrent({
+        includeFrame: mode === "animation" && isInspectingFrame,
+      });
     }
   }
 
@@ -2614,6 +2852,10 @@
     renderControlLabels();
     refreshActiveClasses();
     scheduleNextFrame();
+    setReviewFocusFromCurrent({
+      includeFrame:
+        sectionMode === "animation" && isInspectingFrame,
+    });
   }
 
   function setLocale(nextLocale) {
@@ -2638,9 +2880,11 @@
 
   function attachEvents() {
     elements.animationTab.addEventListener("click", () =>
-      setSection("animation"),
+      setSection("animation", { updateReviewFocus: true }),
     );
-    elements.lookTab.addEventListener("click", () => setSection("look"));
+    elements.lookTab.addEventListener("click", () =>
+      setSection("look", { updateReviewFocus: true }),
+    );
     elements.runtimeModeButton.addEventListener("click", () =>
       setPlaybackMode("runtime"),
     );
@@ -2696,6 +2940,7 @@
         renderPlayer();
         renderFrameReadout();
         focusFrameButton(frameIndex);
+        setReviewFocusFromCurrent({ includeFrame: true });
         return;
       }
       if (event.target.matches("select, input, textarea")) return;
@@ -2753,6 +2998,7 @@
   }
 
   async function boot() {
+    const requestedReviewContext = readReviewContextFromUrl();
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
@@ -2772,6 +3018,13 @@
     setPreviewSize(previewSizePx);
     setState(0);
     setSection("animation");
+    if (loaded.externalLoadFailed) {
+      clearReviewContextFromUrl();
+    } else {
+      restoreReviewContextFromUrl(requestedReviewContext);
+      reviewContextReady = true;
+      syncReviewContextToUrl();
+    }
   }
 
   boot();

@@ -141,6 +141,25 @@ Do not promise that a Previewer value changes runtime timing. The creative contr
 - If a new Take exposes a continuity problem, create another Take for the requested frame. Never silently adjust either neighboring frame.
 - Do not add upload, save, promote, or QA controls to the Previewer Take Rail.
 
+## Conversation-first review handoff
+
+The Previewer is the human review surface. The Codex task is the editing surface.
+
+- Do not add an **Install in Codex** button, **Request New Take** field, prompt box, upload control, or any other action that implies the Previewer can author assets or mutate a project.
+- Keep deliberate review focus in the Previewer URL with `candidate`, `state`, `frame`, and `take`. Preserve the existing `config` parameter.
+- `candidate` is a stable Candidate ID, `state` is a stable runtime state ID, `frame` is one-based, and `take` is either an exact Take ID or `original`.
+- Restore URL context only after validating every value against the loaded Previewer config. Unknown values must never select an arbitrary asset or path.
+- If an explicit `config` URL cannot be loaded, treat the entire review context as unavailable. Never resolve colliding Candidate, state, frame, or Take IDs against the bundled example.
+- Treat the URL as review focus, not live playback state. Do not rewrite it on every runtime frame tick, during Auto Orbit, or during all-state playback.
+- When `frame` and `take` are absent, there is no active animation-Keyframe handoff. Do not infer a previously viewed frame.
+- When the user says “this,” “this frame,” or “another Take like this,” first inspect the current Previewer URL available through task context or browser tools. Resolve it against the current config and project files. Do not ask the user to repeat valid context that is already available.
+- If URL context is missing, stale, or ambiguous, ask one concise clarification rather than guessing.
+- Treat the selected Take as the current visual reference, not as permission to overwrite or promote it.
+- Create requested Takes additively under `design/takes/<candidate>/<state>/fNN/`, assign a non-colliding Take ID, expose the review asset in Previewer config, and preserve the source atlas, existing Takes, and adjacent frames. Return a refreshed URL pointing to the same Candidate, state, and frame with the new Take selected.
+- Never revise neighboring frames during a single-frame request. If continuity needs another option, create another Take for the requested frame unless the user explicitly broadens the scope.
+
+Installation remains an explicit conversational request handled by the agent through the validated packaging and installation workflow. Previewer actions and URL changes must never install, package, publish, or write outside the project.
+
 ## Preview and QA
 
 Preview work before claiming completion.

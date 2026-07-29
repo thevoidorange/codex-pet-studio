@@ -22,6 +22,26 @@ http://127.0.0.1:8765/previewer/?config=../build/preview.json
 
 Asset paths are resolved relative to the external JSON file.
 
+## Review-context URLs
+
+The Previewer keeps deliberate review focus in the URL:
+
+```text
+http://127.0.0.1:8765/previewer/?config=../build/preview.json&candidate=v002&state=idle&frame=2&take=t003
+```
+
+- `candidate` is a loaded Candidate ID.
+- `state` is a loaded runtime state ID.
+- `frame` is one-based.
+- `take` is a loaded Take ID or the explicit value `original`.
+- Existing query parameters, including `config`, are preserved.
+
+Candidate, state, Keyframe, and Take selections update the URL without reloading the page. Switching to 16 Gaze Directions clears the animation `frame` and `take`; Auto Orbit and pointer movement then leave the remaining review context unchanged. Runtime frame ticks and all-state playback also do not rewrite it. A valid review link restores the selected frame in inspection mode and auditions its Take; it does not confirm, approve, save, generate, install, or publish anything.
+
+Unknown or stale values fail closed and are replaced with valid project defaults. URL values are matched only against the loaded config and cannot introduce an arbitrary asset path.
+
+If an explicitly requested external `config` fails to load, the Previewer may show its bundled example as a fallback, but it removes all review-context fields and stops writing them. This prevents a project link from being mistaken for a colliding example Candidate, frame, or Take.
+
 ## Minimal shape
 
 ```json

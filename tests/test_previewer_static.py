@@ -119,6 +119,226 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('"zh-CN"', self.i18n)
         self.assertIn('"en"', self.i18n)
 
+    def test_review_context_url_is_validated_stable_and_agent_readable(self) -> None:
+        for key in ("candidate", "state", "frame", "take"):
+            self.assertIn(f'{key}: "{key}"', self.app)
+        self.assertIn("function readReviewContextFromUrl()", self.app)
+        self.assertIn("function syncReviewContextToUrl()", self.app)
+        self.assertIn("function clearReviewContextFromUrl()", self.app)
+        self.assertIn("function restoreReviewContextFromUrl(context)", self.app)
+        self.assertIn(
+            "window.history.replaceState(window.history.state, \"\", url.href);",
+            self.app,
+        )
+        self.assertRegex(
+            self.app,
+            r"url\.searchParams\.set\(\s*"
+            r"REVIEW_CONTEXT_PARAMS\.frame,\s*"
+            r"String\(reviewFocus\.frameIndex \+ 1\),",
+        )
+        self.assertIn(
+            "url.searchParams.delete(REVIEW_CONTEXT_PARAMS.frame);",
+            self.app,
+        )
+        self.assertIn(
+            "url.searchParams.delete(REVIEW_CONTEXT_PARAMS.take);",
+            self.app,
+        )
+        self.assertIn(
+            "(version) => version.id === context.candidateId",
+            self.app,
+        )
+        self.assertIn(
+            "(state) => state.id === context.stateId",
+            self.app,
+        )
+        self.assertIn("Number.isInteger(frameNumber)", self.app)
+        self.assertIn("frameNumber >= 1", self.app)
+        self.assertIn("frameNumber <= frameCount", self.app)
+        self.assertIn("let reviewFocus = {", self.app)
+        self.assertIn("function setReviewFocusFromCurrent({", self.app)
+        self.assertIn("function validReviewTakeId(", self.app)
+        self.assertIn("let canRestoreState = false;", self.app)
+        self.assertIn("let canRestoreFrame = false;", self.app)
+        self.assertIn("canRestoreFrame &&", self.app)
+        self.assertIn("/^[1-9]\\d*$/.test(context.frame)", self.app)
+        self.assertIn(
+            "const requestedReviewContext = readReviewContextFromUrl();",
+            self.app,
+        )
+        self.assertIn(
+            "restoreReviewContextFromUrl(requestedReviewContext);",
+            self.app,
+        )
+        self.assertIn("reviewContextReady = true;", self.app)
+        restore_context = self.app.split(
+            "function restoreReviewContextFromUrl(context) {",
+            1,
+        )[1].split(
+            "function idleState()",
+            1,
+        )[0]
+        self.assertNotIn("confirmedFrameTakeIds.set", restore_context)
+        self.assertLess(
+            restore_context.index("if (context.candidateId !== null)"),
+            restore_context.index("if (canRestoreState && context.stateId !== null)"),
+        )
+        self.assertLess(
+            restore_context.index("if (canRestoreState && context.stateId !== null)"),
+            restore_context.index("canRestoreFrame &&"),
+        )
+        self.assertIn(
+            "activeVersionId = requestedVersion.id;\n"
+            "        canRestoreState = true;",
+            restore_context,
+        )
+        self.assertIn(
+            "activeStateIndex = requestedStateIndex;\n"
+            "        canRestoreFrame = true;",
+            restore_context,
+        )
+
+        sync_context = self.app.split(
+            "function syncReviewContextToUrl() {",
+            1,
+        )[1].split(
+            "function restoreReviewContextFromUrl(context)",
+            1,
+        )[0]
+        self.assertIn("reviewFocus.candidateId", sync_context)
+        self.assertIn("reviewFocus.stateId", sync_context)
+        self.assertIn("reviewFocus.frameIndex", sync_context)
+        self.assertIn("reviewFocus.takeId", sync_context)
+        self.assertNotIn("isInspectingFrame", sync_context)
+        self.assertNotIn("activeFrameIndex", sync_context)
+
+        set_frame = self.app.split(
+            "function setFrame(index) {",
+            1,
+        )[1].split(
+            "function shouldScheduleFrames()",
+            1,
+        )[0]
+        scheduler = self.app.split(
+            "function scheduleNextFrame() {",
+            1,
+        )[1].split(
+            "function restartPlayback(",
+            1,
+        )[0]
+        self.assertNotIn("syncReviewContextToUrl", set_frame)
+        self.assertNotIn("syncReviewContextToUrl", scheduler)
+        for function_name, next_function in (
+            ("restartPlayback()", "enterFrameInspection("),
+            ("resumeSelectedPlayback()", "inspectFrame("),
+            ("setPlaybackMode(mode)", "stepFrame("),
+        ):
+            function_body = self.app.split(
+                f"function {function_name} {{",
+                1,
+            )[1].split(
+                f"function {next_function}",
+                1,
+            )[0]
+            self.assertNotIn("syncReviewContextToUrl", function_body)
+            self.assertNotIn("setReviewFocusFromCurrent", function_body)
+        self.assertIn("if (!options.fromTour) {", self.app)
+        self.assertIn("setReviewFocusFromCurrent();", self.app)
+        self.assertIn("setReviewFocusFromCurrent({ includeFrame: true });", self.app)
+        self.assertNotIn("syncContext", self.app)
+
+        load_config = self.app.split(
+            "async function loadConfig() {",
+            1,
+        )[1].split(
+            "function normalizeConfig(",
+            1,
+        )[0]
+        self.assertIn("externalLoadFailed: false", load_config)
+        self.assertIn("externalLoadFailed: true", load_config)
+        boot = self.app.split(
+            "async function boot() {",
+            1,
+        )[1].split(
+            "\n  boot();",
+            1,
+        )[0]
+        self.assertIn("if (loaded.externalLoadFailed) {", boot)
+        self.assertIn("clearReviewContextFromUrl();", boot)
+        self.assertIn("restoreReviewContextFromUrl(requestedReviewContext);", boot)
+        self.assertLess(
+            boot.index("if (loaded.externalLoadFailed) {"),
+            boot.index("restoreReviewContextFromUrl(requestedReviewContext);"),
+        )
+
+        set_section = self.app.split(
+            "function setSection(mode, { updateReviewFocus = false } = {}) {",
+            1,
+        )[1].split(
+            "function setDirection(",
+            1,
+        )[0]
+        self.assertIn("const sectionChanged = sectionMode !== mode;", set_section)
+        self.assertIn(
+            "if (sectionChanged && updateReviewFocus) {",
+            set_section,
+        )
+        self.assertIn(
+            'includeFrame: mode === "animation" && isInspectingFrame',
+            set_section,
+        )
+        self.assertIn(
+            'setSection("look", { updateReviewFocus: true })',
+            self.app,
+        )
+
+        invalidate_take = self.app.split(
+            "function invalidateTakeAsset(assetUrl) {",
+            1,
+        )[1].split(
+            "function setTakeSpriteFrame(",
+            1,
+        )[0]
+        self.assertIn("reviewFocus.candidateId", invalidate_take)
+        self.assertIn("reviewFocus.stateId", invalidate_take)
+        self.assertIn("reviewFocus.frameIndex", invalidate_take)
+        self.assertIn("reviewFocus.takeId", invalidate_take)
+        self.assertIn("focusedAssetUrl === assetUrl", invalidate_take)
+        self.assertNotIn(
+            "reviewFocus.frameIndex === activeFrameIndex",
+            invalidate_take,
+        )
+
+        previewer_readme = (PREVIEWER / "README.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "&candidate=v002&state=idle&frame=2&take=t003",
+            previewer_readme,
+        )
+        self.assertIn("`frame` is one-based.", previewer_readme)
+        self.assertIn("Existing query parameters, including `config`, are preserved.", previewer_readme)
+
+    def test_previewer_has_no_embedded_agent_or_install_action(self) -> None:
+        public_ui = (self.html + self.i18n).lower()
+        for forbidden in (
+            "install in codex",
+            "request new take",
+            "agent prompt",
+            "type=\"file\"",
+        ):
+            self.assertNotIn(forbidden, public_ui)
+
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (
+            ROOT / ".agents" / "skills" / "pet-studio" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        for instructions in (agents, skill):
+            self.assertIn("Install in Codex", instructions)
+            self.assertIn("Request New Take", instructions)
+            self.assertIn("candidate", instructions)
+            self.assertIn("one-based", instructions)
+            self.assertIn("adjacent frame", instructions)
+            self.assertIn("conversation", instructions.lower())
+
     def test_external_versions_keep_example_but_load_project_first(self) -> None:
         self.assertIn("withBundledExample(projectVersions, base.versions)", self.app)
         self.assertIn("return [...versions, example];", self.app)

@@ -122,9 +122,12 @@ The Previewer includes:
 - the 16 v2 look directions, auto orbit, and pointer following;
 - keyframe and motion-timing boards;
 - grayscale preview backgrounds;
-- external JSON loading through `?config=<relative-or-absolute-url>`.
+- external JSON loading through `?config=<relative-or-absolute-url>`;
+- stable review links carrying the active Candidate, state, Keyframe, and Take.
 
 Changing language or version preserves the current state, frame, selected playback mode, and temporary inspection state when the selected version supports them. The Previewer is read-only: it does not edit project JSON, regenerate assets, or change the installed pet.
+
+When its URL is available to the current Codex task, the Previewer carries enough review context for natural feedback such as “make two more Takes for this” without requiring the user to restate the Candidate, state, Keyframe, or Take. Asset generation and installation still happen through the Codex conversation, never through an embedded Previewer prompt or install button.
 
 ### Current client playback snapshot
 

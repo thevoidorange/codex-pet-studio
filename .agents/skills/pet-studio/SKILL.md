@@ -1,6 +1,6 @@
 ---
 name: pet-studio
-description: Co-design a Codex desktop pet from personal inspirations through staged visual decisions, motion mechanics, state animation, preview, QA, and Codex v2 packaging. Use when a user wants to create, refine, compare, validate, export, or install a Codex pet without jumping directly from references to a finished sprite atlas.
+description: Co-design a Codex desktop pet from personal inspirations through staged visual decisions, motion mechanics, state animation, Previewer review context, QA, and Codex v2 packaging. Use when a user wants to create, refine, compare, request frame Takes, validate, export, or install a Codex pet without jumping directly from references to a finished sprite atlas.
 ---
 
 # Pet Studio
@@ -146,6 +146,22 @@ choice for that exact Candidate, state, and Keyframe in the current review
 session; it does not modify source files, approve QA, or promote a Candidate. If
 the new frame has a continuity problem, generate another Take for that requested
 frame; do not silently revise either adjacent frame.
+
+## Resolve Previewer review context
+
+The Previewer reviews work; the Codex conversation requests and produces it. Do not add an **Install in Codex** button, **Request New Take** field, upload flow, or embedded agent prompt to the Previewer.
+
+When the user refers to “this” or asks for another Take:
+
+1. Read the current Previewer URL when it is available through task context or browser tools.
+2. Resolve `candidate`, `state`, one-based `frame`, and `take` against the loaded config and project files. Preserve any existing `config` query parameter.
+3. Treat `take=original` as the source atlas frame. Treat any other valid Take ID as the current visual reference, not as an approval or overwrite target.
+4. If an explicit `config` URL cannot be loaded, invalidate the entire handoff. Never resolve colliding IDs against the bundled example. If `frame` and `take` are absent, do not infer a previously viewed animation frame.
+5. If the context is valid, continue without asking the user to restate it. If it is unavailable or invalid, ask one concise question.
+6. Create a new additive Take for that exact frame. Never overwrite an existing Take, source frame, or neighboring frame.
+7. Update the generated Previewer assets and config, validate them, and return a refreshed URL pointing to the same Candidate, state, and frame with the new Take selected.
+
+A one-frame continuity concern produces another Take for the requested frame. Do not silently repair adjacent frames. Candidate promotion, QA approval, packaging, installation, and publication remain separate explicit decisions. Installation happens only when the user asks for it in conversation; the Previewer never performs it.
 
 ## Use deterministic project tools
 
