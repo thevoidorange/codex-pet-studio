@@ -862,6 +862,7 @@ select {
   display: grid;
   width: 28px;
   height: 28px;
+  flex: 0 0 28px;
   place-items: center;
   padding: 0;
   border: 1px solid #a7a7a7;

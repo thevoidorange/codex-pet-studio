@@ -210,6 +210,14 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("display: flex;", self.css)
         self.assertIn(".take-rail-nav-button", self.css)
         self.assertIn(
+            ".take-rail-confirm-button {\n"
+            "  display: grid;\n"
+            "  width: 28px;\n"
+            "  height: 28px;\n"
+            "  flex: 0 0 28px;",
+            self.css,
+        )
+        self.assertIn(
             "const hasOverflow = track.scrollWidth > viewport.clientWidth + 2;",
             self.app,
         )
