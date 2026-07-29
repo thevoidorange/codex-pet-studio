@@ -86,12 +86,13 @@ source per Take. Keep private working files under
 Previewer needs into the generated build beside its JSON.
 
 Clicking a Keyframe with Takes reveals a smaller rail below that Keyframe row.
-Clicking a Take only auditions that option. The fixed Confirm button at the
-right edge of the Take Rail records the current choice for that exact Candidate,
-state, and Keyframe, then closes the rail. The Viewer Previous / Next controls
-always move between Keyframes; arrow keys move between Takes only while a Take
-card has focus. The confirmed Take is used by the Keyframe thumbnail, Runtime
-Simulation, and Endless Loop so continuity can be reviewed.
+When the rail overflows, its own Previous / Next arrows only reveal more Takes;
+they never change the auditioned option. Clicking a Take auditions it. The fixed
+Confirm button at the right edge records the current choice for that exact
+Candidate, state, and Keyframe, then closes the rail. The Viewer Previous / Next
+controls always move between Keyframes; arrow keys move between Takes only while
+a Take card has focus. The confirmed Take is used by the Keyframe thumbnail,
+Runtime Simulation, and Endless Loop so continuity can be reviewed.
 
 Confirmation is session-only review metadata. It does not rewrite the source
 atlas, Previewer JSON, Take asset, neighboring frame, Candidate, or QA status,

@@ -36,7 +36,9 @@ window.PET_PREVIEW_I18N = {
         frameInspectionRuntimeHelp:
           "Frame inspection pauses on the atlas. Previous and Next move exactly one frame; Play returns to Runtime simulation from this frame.",
         takeRailHelp:
-          "Click a Take to audition it. Confirm on the rail selects the current Take for this Keyframe and closes the rail.",
+          "Use the rail arrows to reveal more Takes. Click a Take to audition it; Confirm selects it for this Keyframe and closes the rail.",
+        previousTakes: "Scroll Takes Left",
+        nextTakes: "Scroll Takes Right",
         previewSize: "Size",
         previewSizeAria: "Preview display size",
         previewSizeTitle:
@@ -432,7 +434,9 @@ window.PET_PREVIEW_I18N = {
         frameInspectionRuntimeHelp:
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到运行模拟。",
         takeRailHelp:
-          "点击 Take 进行试听；Rail 右侧的确认键会选择当前 Take，并收起 Rail。",
+          "用 Rail 左右箭头查看更多 Takes；点击 Take 试听，确认键会选择当前 Take 并收起 Rail。",
+        previousTakes: "向左查看更多 Takes",
+        nextTakes: "向右查看更多 Takes",
         previewSize: "大小",
         previewSizeAria: "预览显示大小",
         previewSizeTitle:

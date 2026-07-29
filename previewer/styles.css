@@ -798,18 +798,60 @@ select {
 }
 
 .take-rail-layout {
-  display: grid;
+  display: flex;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 30px;
   align-items: center;
   gap: 6px;
 }
 
 .take-rail-viewport {
+  min-width: 0;
   max-width: 100%;
+  flex: 1 1 auto;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.take-rail-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.take-rail-nav-button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #c6c6c6;
+  border-radius: 50%;
+  color: var(--ink);
+  background: #ededed;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.take-rail-nav-button[hidden] {
+  display: none;
+}
+
+.take-rail-nav-button:hover,
+.take-rail-nav-button:focus-visible {
+  border-color: #8e8e8e;
+  background: #ffffff;
+}
+
+.take-rail-nav-button:disabled {
+  border-color: var(--line);
+  opacity: 0.32;
+  cursor: default;
+}
+
+.take-rail-nav-button:disabled:hover {
+  background: #ededed;
 }
 
 .take-rail-confirm-button {

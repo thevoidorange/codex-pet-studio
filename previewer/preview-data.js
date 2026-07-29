@@ -33,6 +33,21 @@ window.PET_PREVIEW_CONFIG = {
               label: "Take 02",
               atlasSlot: { row: 0, column: 2 },
             },
+            {
+              id: "t003",
+              label: "Take 03",
+              atlasSlot: { row: 0, column: 3 },
+            },
+            {
+              id: "t004",
+              label: "Take 04",
+              atlasSlot: { row: 0, column: 4 },
+            },
+            {
+              id: "t005",
+              label: "Take 05",
+              atlasSlot: { row: 0, column: 5 },
+            },
           ],
         },
       ],

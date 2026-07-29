@@ -181,9 +181,19 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("frameTakes: [", self.data)
         self.assertIn('id: "t001"', self.data)
         self.assertIn('id: "t002"', self.data)
+        self.assertIn('id: "t003"', self.data)
+        self.assertIn('id: "t004"', self.data)
+        self.assertIn('id: "t005"', self.data)
+        self.assertIn("atlasSlot: { row: 0, column: 0 }", self.data)
+        self.assertIn("atlasSlot: { row: 0, column: 2 }", self.data)
+        self.assertIn("atlasSlot: { row: 0, column: 3 }", self.data)
+        self.assertIn("atlasSlot: { row: 0, column: 4 }", self.data)
+        self.assertIn("atlasSlot: { row: 0, column: 5 }", self.data)
         self.assertIn("function frameTakesFor(", self.app)
         self.assertIn("function renderTakeRail(", self.app)
         self.assertIn("function positionTakeRail(", self.app)
+        self.assertIn("function updateTakeRailNavigation()", self.app)
+        self.assertIn("function scrollTakeRail(delta)", self.app)
         self.assertIn('class="take-rail"', self.app)
         self.assertIn('class="take-card ${', self.app)
         self.assertIn("grid-column: 1 / -1;", self.css)
@@ -194,10 +204,60 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("clearFrameTakeState();", self.app)
         self.assertNotIn('id="confirmTakeButton"', self.html)
         self.assertIn('class="take-rail-layout"', self.app)
+        self.assertIn('class="take-rail-nav-button take-rail-previous"', self.app)
+        self.assertIn('class="take-rail-nav-button take-rail-next"', self.app)
         self.assertIn('class="take-rail-confirm-button"', self.app)
+        self.assertIn("display: flex;", self.css)
+        self.assertIn(".take-rail-nav-button", self.css)
         self.assertIn(
-            "grid-template-columns: minmax(0, 1fr) 30px;",
-            self.css,
+            "const hasOverflow = track.scrollWidth > viewport.clientWidth + 2;",
+            self.app,
+        )
+        self.assertIn(
+            'rail.style.setProperty("--take-anchor-x", `${railAnchor}px`);',
+            self.app,
+        )
+        self.assertIn(
+            "activeCardOffset + activeCard.offsetWidth / 2 - viewportAnchor",
+            self.app,
+        )
+        self.assertIn("previousButton.hidden = !hasOverflow;", self.app)
+        self.assertIn("nextButton.hidden = !hasOverflow;", self.app)
+        self.assertIn(
+            'previousButton.setAttribute(\n      "aria-disabled"',
+            self.app,
+        )
+        self.assertIn(
+            'nextButton.setAttribute("aria-disabled"',
+            self.app,
+        )
+        self.assertIn("scrollTakeRail(-1)", self.app)
+        self.assertIn("scrollTakeRail(1)", self.app)
+        self.assertIn(
+            "activeCard.getBoundingClientRect().left -\n"
+            "      track.getBoundingClientRect().left",
+            self.app,
+        )
+        self.assertIn(
+            "card.getBoundingClientRect().left - trackLeft",
+            self.app,
+        )
+        scroll_take_rail = self.app.split(
+            "function scrollTakeRail(delta) {",
+            1,
+        )[1].split(
+            "function scheduleTakeRailPosition()",
+            1,
+        )[0]
+        self.assertNotIn("previewFrameTake(", scroll_take_rail)
+        self.assertIn(
+            'const railActionControl = event.target.closest(',
+            self.app,
+        )
+        self.assertIn(
+            'if (["ArrowLeft", "ArrowRight"].includes(event.key)) {\n'
+            "          event.preventDefault();",
+            self.app,
         )
         self.assertIn("const confirmedFrameTakeIds = new Map();", self.app)
         self.assertIn("confirmedFrameTakeIds.has(key)", self.app)
@@ -281,6 +341,10 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('originalFrame: "原始"', self.i18n)
         self.assertIn('confirmTake: "Confirm Current Take"', self.i18n)
         self.assertIn('confirmTake: "确认当前 Take"', self.i18n)
+        self.assertIn('previousTakes: "Scroll Takes Left"', self.i18n)
+        self.assertIn('nextTakes: "Scroll Takes Right"', self.i18n)
+        self.assertIn('previousTakes: "向左查看更多 Takes"', self.i18n)
+        self.assertIn('nextTakes: "向右查看更多 Takes"', self.i18n)
 
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)

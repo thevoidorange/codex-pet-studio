@@ -1276,6 +1276,7 @@
     );
     const activeTakeReady = activeTakeReadyForConfirmation();
     const railId = `take-rail-${state.id}-${frameIndex}`;
+    const viewportId = `${railId}-viewport`;
     return `
       <div
         id="${escapeHtml(railId)}"
@@ -1287,7 +1288,20 @@
         data-frame-index="${frameIndex}"
       >
         <div class="take-rail-layout">
-          <div class="take-rail-viewport">
+          <button
+            class="take-rail-nav-button take-rail-previous"
+            type="button"
+            title="${escapeHtml(t("ui.previousTakes"))}"
+            aria-label="${escapeHtml(t("ui.previousTakes"))}"
+            aria-controls="${escapeHtml(viewportId)}"
+            hidden
+          >
+            ←
+          </button>
+          <div
+            id="${escapeHtml(viewportId)}"
+            class="take-rail-viewport"
+          >
             <div class="take-track">
               ${options
                 .map(
@@ -1345,6 +1359,16 @@
             </div>
           </div>
           <button
+            class="take-rail-nav-button take-rail-next"
+            type="button"
+            title="${escapeHtml(t("ui.nextTakes"))}"
+            aria-label="${escapeHtml(t("ui.nextTakes"))}"
+            aria-controls="${escapeHtml(viewportId)}"
+            hidden
+          >
+            →
+          </button>
+          <button
             class="take-rail-confirm-button"
             type="button"
             title="${escapeHtml(
@@ -1362,45 +1386,136 @@
     `;
   }
 
+  function updateTakeRailNavigation() {
+    const rail = elements.frameStrip.querySelector(".take-rail");
+    if (!rail) return;
+    const viewport = rail.querySelector(".take-rail-viewport");
+    const previousButton = rail.querySelector(".take-rail-previous");
+    const nextButton = rail.querySelector(".take-rail-next");
+    if (
+      !viewport ||
+      !previousButton ||
+      !nextButton ||
+      previousButton.hidden ||
+      nextButton.hidden
+    ) {
+      return;
+    }
+    const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    previousButton.disabled = viewport.scrollLeft <= 1;
+    nextButton.disabled = viewport.scrollLeft >= maxScroll - 1;
+    previousButton.setAttribute(
+      "aria-disabled",
+      String(previousButton.disabled),
+    );
+    nextButton.setAttribute("aria-disabled", String(nextButton.disabled));
+  }
+
   function positionTakeRail() {
     const rail = elements.frameStrip.querySelector(".take-rail");
     if (!rail) return;
     const viewport = rail.querySelector(".take-rail-viewport");
     const track = rail.querySelector(".take-track");
+    const previousButton = rail.querySelector(".take-rail-previous");
+    const nextButton = rail.querySelector(".take-rail-next");
     const selectedFrame = elements.frameStrip.querySelector(
       `.frame-button[data-frame-index="${expandedTakeFrameIndex}"]`,
     );
-    if (!viewport || !track || !selectedFrame) return;
+    if (
+      !viewport ||
+      !track ||
+      !previousButton ||
+      !nextButton ||
+      !selectedFrame
+    ) {
+      return;
+    }
 
     track.style.marginInlineStart = "0px";
+    previousButton.hidden = true;
+    nextButton.hidden = true;
+    const hasOverflow = track.scrollWidth > viewport.clientWidth + 2;
+    previousButton.hidden = !hasOverflow;
+    nextButton.hidden = !hasOverflow;
+
     const viewportRect = viewport.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
     const frameRect = selectedFrame.getBoundingClientRect();
-    const anchor = Math.min(
+    const frameCenter = frameRect.left + frameRect.width / 2;
+    const viewportAnchor = Math.min(
       viewport.clientWidth,
-      Math.max(0, frameRect.left + frameRect.width / 2 - viewportRect.left),
+      Math.max(0, frameCenter - viewportRect.left),
     );
-    rail.style.setProperty("--take-anchor-x", `${anchor}px`);
+    const railAnchor = Math.min(
+      rail.clientWidth,
+      Math.max(0, frameCenter - railRect.left),
+    );
+    rail.style.setProperty("--take-anchor-x", `${railAnchor}px`);
 
     const trackWidth = track.scrollWidth;
-    if (trackWidth <= viewport.clientWidth) {
-      const desiredLeft = anchor - trackWidth / 2;
+    if (!hasOverflow) {
+      const desiredLeft = viewportAnchor - trackWidth / 2;
       const boundedLeft = Math.min(
         viewport.clientWidth - trackWidth,
         Math.max(0, desiredLeft),
       );
       track.style.marginInlineStart = `${boundedLeft}px`;
       viewport.scrollLeft = 0;
+      updateTakeRailNavigation();
       return;
     }
 
     const activeCard = track.querySelector(".take-card.is-previewing");
-    if (!activeCard) return;
+    if (!activeCard) {
+      updateTakeRailNavigation();
+      return;
+    }
+    const activeCardOffset =
+      activeCard.getBoundingClientRect().left -
+      track.getBoundingClientRect().left;
     const desiredScroll =
-      activeCard.offsetLeft + activeCard.offsetWidth / 2 - anchor;
+      activeCardOffset + activeCard.offsetWidth / 2 - viewportAnchor;
     viewport.scrollLeft = Math.min(
       trackWidth - viewport.clientWidth,
       Math.max(0, desiredScroll),
     );
+    updateTakeRailNavigation();
+  }
+
+  function scrollTakeRail(delta) {
+    const rail = elements.frameStrip.querySelector(".take-rail");
+    if (!rail) return;
+    const viewport = rail.querySelector(".take-rail-viewport");
+    const track = rail.querySelector(".take-track");
+    const cards = [...rail.querySelectorAll(".take-card")];
+    if (!viewport || !track || cards.length === 0) return;
+
+    const currentScroll = viewport.scrollLeft;
+    const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const trackLeft = track.getBoundingClientRect().left;
+    const cardOffsets = cards.map((card) => ({
+      card,
+      left: card.getBoundingClientRect().left - trackLeft,
+    }));
+    let targetScroll = currentScroll;
+    if (delta > 0) {
+      const nextCard = cardOffsets.find(
+        (entry) => entry.left > currentScroll + 1,
+      );
+      targetScroll = nextCard ? nextCard.left : maxScroll;
+    } else {
+      const previousCards = cardOffsets.filter(
+        (entry) => entry.left < currentScroll - 1,
+      );
+      const previousCard = previousCards.at(-1);
+      targetScroll = previousCard ? previousCard.left : 0;
+    }
+    viewport.scrollTo({
+      left: Math.min(maxScroll, Math.max(0, targetScroll)),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   }
 
   function scheduleTakeRailPosition() {
@@ -1560,6 +1675,28 @@
     );
     if (takeConfirmButton) {
       takeConfirmButton.addEventListener("click", confirmFrameTake);
+    }
+    const takePreviousButton = elements.frameStrip.querySelector(
+      ".take-rail-previous",
+    );
+    const takeNextButton = elements.frameStrip.querySelector(
+      ".take-rail-next",
+    );
+    const takeRailViewport = elements.frameStrip.querySelector(
+      ".take-rail-viewport",
+    );
+    if (takePreviousButton) {
+      takePreviousButton.addEventListener("click", () => scrollTakeRail(-1));
+    }
+    if (takeNextButton) {
+      takeNextButton.addEventListener("click", () => scrollTakeRail(1));
+    }
+    if (takeRailViewport) {
+      takeRailViewport.addEventListener(
+        "scroll",
+        updateTakeRailNavigation,
+        { passive: true },
+      );
     }
     if (expandedRowEnd !== null) scheduleTakeRailPosition();
   }
@@ -2560,6 +2697,15 @@
         return;
       }
       if (event.target.matches("select, input, textarea")) return;
+      const railActionControl = event.target.closest(
+        ".take-rail-nav-button, .take-rail-confirm-button",
+      );
+      if (railActionControl) {
+        if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
+          event.preventDefault();
+        }
+        return;
+      }
       if (
         sectionMode === "look" &&
         [" ", "ArrowLeft", "ArrowRight"].includes(event.key)
