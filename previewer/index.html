@@ -46,6 +46,21 @@
             class="state-list"
             data-i18n-aria-label="ui.stateListAria"
           ></nav>
+
+          <div
+            id="tourProgress"
+            class="tour-progress"
+            aria-live="polite"
+            hidden
+          >
+            <div class="tour-progress-row">
+              <span id="tourLabel"></span>
+              <span id="tourProgressText"></span>
+            </div>
+            <div class="progress-track">
+              <div id="tourProgressBar" class="progress-bar"></div>
+            </div>
+          </div>
         </aside>
 
         <section class="viewer-panel">
@@ -241,16 +256,6 @@
               <span data-i18n="ui.keyframes"></span>
             </div>
             <div id="frameStrip" class="frame-strip"></div>
-          </div>
-
-          <div id="tourProgress" class="tour-progress" aria-live="polite" hidden>
-            <div class="tour-progress-row">
-              <span id="tourLabel"></span>
-              <span id="tourProgressText"></span>
-            </div>
-            <div class="progress-track">
-              <div id="tourProgressBar" class="progress-bar"></div>
-            </div>
           </div>
         </aside>
       </section>

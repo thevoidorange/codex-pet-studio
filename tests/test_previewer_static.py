@@ -471,6 +471,39 @@ class PreviewerStaticTests(unittest.TestCase):
         )
         self.assertIn("elements.tourProgress.hidden = !(", self.app)
 
+    def test_autoplay_progress_belongs_to_state_panel(self) -> None:
+        state_panel = self.html.split(
+            '<aside class="state-panel">',
+            1,
+        )[1].split(
+            "</aside>",
+            1,
+        )[0]
+        detail_panel = self.html.split(
+            '<aside class="detail-panel">',
+            1,
+        )[1].split(
+            "</aside>",
+            1,
+        )[0]
+        self.assertIn('id="tourProgress"', state_panel)
+        self.assertNotIn('id="tourProgress"', detail_panel)
+        self.assertIn("margin-top: auto;", self.css)
+        self.assertIn("#tourLabel", self.css)
+        self.assertIn("text-overflow: ellipsis;", self.css)
+        self.assertIn("#tourProgressText", self.css)
+        self.assertIn("font-variant-numeric: tabular-nums;", self.css)
+        self.assertRegex(
+            self.css,
+            r"@media \(max-width: 1080px\)[\s\S]*?"
+            r"\.frame-section\s*\{[\s\S]*?grid-column: 1 / -1;",
+        )
+        self.assertRegex(
+            self.css,
+            r"@media \(max-width: 760px\)[\s\S]*?"
+            r"\.frame-section\s*\{[\s\S]*?grid-column: auto;",
+        )
+
     def test_look_controls_are_mutually_exclusive_toggles(self) -> None:
         self.assertRegex(
             self.html,
