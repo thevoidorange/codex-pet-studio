@@ -1,244 +1,120 @@
 # Codex Pet Studio — Agent Instructions
 
-## Mission
+## Mission and workflow authority
 
-Help the user create a distinctive Codex pet through collaborative design, versioned preview, rigorous QA, and final packaging.
+Help the user turn personal inspiration into a distinctive, validated Codex pet
+through focused review and reversible decisions. This is a durable co-design
+workspace, not a one-shot generator.
 
-The repository is a creative studio, not a one-shot asset generator. Preserve the user’s taste and approvals while doing the technical work autonomously.
+Keep three authority scopes separate:
 
-Use the project-local `$pet-studio` skill for inspiration, ideation, mechanics, state, motion, preview, QA, packaging, and installation requests.
+- **Creative truth:** current user steering, private approvals, and exact evidence.
+- **Conduct and method:** this file for rules and `$pet-studio` for workflow.
+- **Target truth:** installed `$hatch-pet`; checked-in target docs are a dated
+  snapshot.
 
-## First response in a new project
+Read [the product model](docs/product-model.md) for roles and target boundaries.
+Codex Pet v2 is the only supported Delivery Target.
 
-1. Inspect the repository and any inspiration the user has supplied.
-2. Summarize what appears important in plain language.
-3. Separate observations from interpretation.
-4. Ask only the questions that materially affect the first design direction.
-5. Propose the next small reviewable artifact.
+## Re-enter before acting
 
-Do not begin by generating every state or packaging a pet.
+Do not mistake a new Codex task for a new project. Before changing files:
 
-## Language boundary
+1. confirm the root, branch, and dirty worktree;
+2. inspect `pet-studio.json`, populated `design/`, Candidates, Takes, `build/`, unresolved QA, and any focused Previewer URL;
+3. summarize `Locked`, `Open`, `Current Focus`, and `Next`;
+4. resume by the shortest truthful route.
 
-- Collaborate in the user’s preferred language.
-- Keep canonical filenames, state IDs, version IDs, and reusable internal artifacts in English.
-- The Previewer may be bilingual, pairing stable English identifiers with Chinese labels.
-- Do not translate or rename technical identifiers differently across versions.
-- Author each locale independently from shared product facts and interaction
-  behavior. Never produce English by translating the Chinese sentence by
-  sentence, or Chinese by translating the English sentence by sentence.
-- In English UI copy, use natural product language: Title Case for established
-  control labels, conventional headline case for headings, and sentence case
-  for help text, descriptions, status messages, tooltips, and accessibility
-  labels. Keep internal animation jargon out of user-facing copy unless the
-  interface explicitly teaches it.
-- Review the actual rendered interface in every supported locale. Check the
-  longest labels, active and inactive control states, status changes,
-  accessibility names, and narrow layouts before considering localized copy
-  complete.
+For a true cold start, run idempotent initialization and readiness checks,
+classify inspiration as private, populate only the inspiration brief, and stop
+for alignment before visual generation.
 
-## Required phase gates
+## Route by user intent
 
-Treat each phase as an explicit approval gate:
+Use `$pet-studio` and its references to route work:
 
-1. **Inspiration understanding**
-2. **Creative genome**
-3. **Default form and identity lock**
-4. **Variable mechanics**
-5. **State choreography and key poses**
-6. **Motion language and version comparison**
-7. **Production and QA**
-8. **Release, optional installation, or publication**
+- new inspiration: begin with inspiration understanding;
+- existing character: resume at the first unresolved creative decision;
+- one focused Keyframe or Take: use the additive single-frame Take workflow;
+- existing pack repair: validate first and repair only the affected unit;
+- preview, validation, packaging, export, or explicit installation: perform it
+  without restarting ideation;
+- repository maintenance: work directly without manufacturing creative gates.
 
-At each gate:
+Creative gates apply only to new or reopened creative decisions. Adjacent
+gates may be combined when the user wants, but unresolved dependencies remain
+open.
 
-- show the smallest artifact that can resolve the current uncertainty;
-- explain what is fixed, what remains variable, and what decision is needed;
-- record the user’s feedback precisely;
-- do not treat silence or partial approval as a global lock;
-- keep prior approved work available.
+## Review and approval boundary
 
-Loops are allowed. When a decision changes, identify the dependent phases that need review.
+The Previewer is a read-only co-design review workbench. The Codex task is the
+editing surface.
 
-Keep private project artifacts under `design/`, using the matching English templates from `templates/`. `init` may scaffold all blank templates for convenience, but start by populating only `inspiration-brief.md`. Populate and treat the identity, mechanism, state, motion, QA, and attribution files as active only when their gate begins.
+If task context contains `config`, `candidate`, `state`, `frame`, and `take`,
+validate them through the `$pet-studio` review workflow and use them as the
+current focus. Do not ask the user to repeat valid context. If the config
+cannot be loaded and safely mapped to this repository, invalidate the whole
+focus; never fall back to a colliding bundled Example.
 
-## Creative conduct
+Review URLs use a one-based `frame`. Single-frame work never silently changes
+an adjacent frame.
 
-- Derive character rules from the user’s inspiration; do not merely trace it.
-- Preserve asymmetry, restraint, oddness, or subtlety when those are deliberate.
-- Avoid generic “cute pet” defaults unless the user asks for them.
-- Judge states at real desktop scale, not only on large artboards.
-- Distinguish states through intention, spatial composition, pose spacing, and physical response—not only eye direction or small limb changes.
-- Use motion to express personality.
-- Prefer a few strong, reviewable variations over a large undirected batch.
+- clicking a Take auditions it;
+- Previewer Confirm is session-only review state;
+- approval requires an explicit conversational decision tied to exact evidence;
+- one approved Take does not promote an entire Candidate;
+- material changes create a Candidate or Take instead of overwriting the only
+  approved result;
 
-## Identity lock
+Never add generation, upload, save, QA, packaging, publishing, or installation
+actions such as **Request New Take** or **Install in Codex** to the Previewer.
 
-Before broad state production, document:
+## Private workspace and public repository
 
-- default silhouette and proportions;
-- facial rules;
-- fixed visual anchors;
-- permitted deformations;
-- forbidden substitutions;
-- signature behaviors;
-- desktop-scale readability constraints.
+Never force-add or unignore `.pet-studio-private.json`, `inputs/`, `design/`,
+`build/`, or `dist/`.
 
-When refining one component, explicitly protect the other approved components. Do not allow a regeneration step to silently redesign the face, body, hands, or silhouette.
+Do not commit personal inspiration, names, home imagery, anecdotes,
+credentials, machine paths, metadata, personal skills, or private UI kits.
+Public examples must be neutral project-owned fixtures with reviewed rights.
 
-## Mechanism and state design
+Before commit, export, or publication, run the privacy check and inspect staged
+paths, visuals, and metadata. External upload or publication requires explicit
+permission.
 
-For each variable element, define:
+## Language and repository conventions
 
-- its neutral form;
-- movement or deformation range;
-- attachment and continuity rules;
-- interaction with adjacent elements;
-- conditions under which it may hide or appear;
-- what it must never resemble.
+Collaborate in the user's language. Keep public docs, filenames, IDs, schema
+keys, code, and reusable artifacts in natural English.
 
-For each state, define:
+Use **Candidate** for a coherent proposal, **Keyframe** for a reviewed target
+sample, and **Take** for an additive one-frame alternative. `versions` is a
+legacy Previewer data field, not user-facing terminology.
 
-- behavioral intention;
-- screen position and facing;
-- key poses;
-- anticipation, action, settle, and loop behavior;
-- differences from neighboring states;
-- transitions into and out of the state;
-- how the required poses map onto the fixed frame slots and client durations.
+Author every UI locale natively from shared facts; do not translate sentence by
+sentence. Review each locale in the rendered interface.
 
-Do not use maximal movement everywhere. Quiet states may be subtle, but they must still be legible and intentional.
+## Verification and truthful status
 
-## Current client playback snapshot
+Run proportionate checks. Separate character, motion, target, pack, Previewer,
+privacy, and rights QA. Automated success does not overrule a visible
+regression.
 
-Treat runtime behavior as a current-client snapshot, not a permanent public API. Before production, re-read the installed `$hatch-pet` skill and update the project only when newer authoritative instructions disagree.
+Report `generated`, `reviewed`, `approved`, `validated`, `packaged`,
+`exported`, `installed`, and `published` as distinct outcomes. Claim only the
+statuses verified for the exact artifact.
 
-In the current v2 client:
+Installation and publication always require explicit user requests.
 
-- the nine standard animation rows have fixed used-cell counts and fixed per-cell durations;
-- each non-Idle action plays three loops, then returns to Idle;
-- Idle plays at six times the listed base durations;
-- `pet.json` carries no frame-duration, loop-count, Idle-multiplier, or display-size fields;
-- pet display size is a client setting from 80 to 224 px.
+## Standard project commands
 
-Do not promise that a Previewer value changes runtime timing. The creative control surface is the drawing inside the immutable slots: pose spacing, silhouette change, deformation, anticipation, follow-through, and which slot receives the visual hold. Prefer long visual holds, short readable transitions, and a settled final frame.
-
-## Version rules
-
-- Never overwrite the only approved version.
-- Create a new version for material changes.
-- Keep version IDs stable and sortable, such as `v001`, `v002`, and `v003`.
-- Record a concise change note for each version.
-- Use the Previewer version dropdown to compare like-for-like states.
-- Promote only an explicitly approved version to packaging.
-
-## Single-frame takes
-
-- Use `design/takes/<candidate>/<state>/fNN/` for Codex-managed working Takes.
-- Add a Take to Previewer config only as a temporary, read-only comparison for one exact Candidate, state, and frame.
-- Clicking a Take only auditions it. Explicit Previewer Confirm may remember the current session choice for that exact Candidate, state, and frame.
-- Confirm changes no source atlas, Previewer JSON, adjacent frame, Candidate, QA result, or approval state.
-- If a new Take exposes a continuity problem, create another Take for the requested frame. Never silently adjust either neighboring frame.
-- Do not add upload, save, promote, or QA controls to the Previewer Take Rail.
-
-## Conversation-first review handoff
-
-The Previewer is the human review surface. The Codex task is the editing surface.
-
-- Do not add an **Install in Codex** button, **Request New Take** field, prompt box, upload control, or any other action that implies the Previewer can author assets or mutate a project.
-- Keep deliberate review focus in the Previewer URL with `candidate`, `state`, `frame`, and `take`. Preserve the existing `config` parameter.
-- `candidate` is a stable Candidate ID, `state` is a stable runtime state ID, `frame` is one-based, and `take` is either an exact Take ID or `original`.
-- Restore URL context only after validating every value against the loaded Previewer config. Unknown values must never select an arbitrary asset or path.
-- If an explicit `config` URL cannot be loaded, treat the entire review context as unavailable. Never resolve colliding Candidate, state, frame, or Take IDs against the bundled example.
-- Treat the URL as review focus, not live playback state. Do not rewrite it on every runtime frame tick, during Auto Orbit, or during all-state playback.
-- When `frame` and `take` are absent, there is no active animation-Keyframe handoff. Do not infer a previously viewed frame.
-- When the user says “this,” “this frame,” or “another Take like this,” first inspect the current Previewer URL available through task context or browser tools. Resolve it against the current config and project files. Do not ask the user to repeat valid context that is already available.
-- If URL context is missing, stale, or ambiguous, ask one concise clarification rather than guessing.
-- Treat the selected Take as the current visual reference, not as permission to overwrite or promote it.
-- Create requested Takes additively under `design/takes/<candidate>/<state>/fNN/`, assign a non-colliding Take ID, expose the review asset in Previewer config, and preserve the source atlas, existing Takes, and adjacent frames. Return a refreshed URL pointing to the same Candidate, state, and frame with the new Take selected.
-- Never revise neighboring frames during a single-frame request. If continuity needs another option, create another Take for the requested frame unless the user explicitly broadens the scope.
-
-Installation remains an explicit conversational request handled by the agent through the validated packaging and installation workflow. Previewer actions and URL changes must never install, package, publish, or write outside the project.
-
-## Preview and QA
-
-Preview work before claiming completion.
-
-### Character QA
-
-- silhouette remains recognizable;
-- face and signature elements remain within the identity lock;
-- no accidental anatomy or costume symbolism has appeared;
-- no state looks like a different character.
-
-### Motion QA
-
-- state differences are visible at desktop scale;
-- motion has continuity, weight, anticipation, and settling;
-- loops do not pop at their seam;
-- moving left and right preserve approved physical details;
-- fixed-slot pose spacing feels intentional rather than uniformly bouncy;
-- expressive elements do not drift away from their intended attachment points.
-
-### Pack QA
-
-- atlas dimensions and frame cells are correct;
-- transparency is clean;
-- no frame is clipped;
-- state rows and direction cells map correctly;
-- used-cell counts match the current client contract;
-- motion was reviewed at the current fixed client cadence;
-- previews match the packaged assets;
-- installation is verified before reporting success.
-
-If an automated check passes but the visual result is wrong, the work is not finished.
-
-## `hatch-pet` boundary
-
-Use the official `$hatch-pet` skill as the final compiler and validator after creative approval.
-
-- Do not invoke it as a replacement for ideation, identity locking, or motion direction.
-- Provide it with the approved design and state plan.
-- Review its contact sheets, animation previews, and validation output.
-- Return to the studio workflow if packaging introduces a visual regression.
-
-## Privacy and network boundary
-
-- Treat personal inspiration as private unless the user explicitly says otherwise.
-- Do not commit personal photos or identifying metadata.
-- Do not upload material to external services without explicit permission.
-- Never request that an API key be pasted into repository files or chat.
-- The core workflow must not depend on a hosted service, login, or separate API key.
-- Redact local paths, usernames, and private anecdotes from public documentation and examples.
-
-## Rights and publishing
-
-Before publishing or accepting public example assets:
-
-- confirm the contributor owns the work or has a compatible license;
-- record the source and license;
-- avoid unlicensed branded characters and derivative fan packs;
-- preserve required attribution;
-- obtain explicit permission before submitting to a third-party catalog.
-
-Petdex and awesome-codex-pet may be mentioned as optional downstream destinations only. Do not imply affiliation, endorsement, or guaranteed acceptance.
-
-## Repository hygiene
-
-- Preserve user changes and unrelated work.
-- Keep public repository documentation in English.
-- Do not add secrets, personal inspiration, generated caches, or machine-specific paths.
-- Prefer deterministic and inspectable outputs.
-- Report actual verification status. A local write is not proof of successful packaging or installation.
-
-## Deterministic project tools
-
-Prefer the checked-in dependency-free CLI over one-off scripts:
+Prefer the checked-in dependency-free tool:
 
 ```bash
 python3 .agents/skills/pet-studio/scripts/studio.py doctor
 python3 .agents/skills/pet-studio/scripts/studio.py preview
 python3 .agents/skills/pet-studio/scripts/studio.py privacy-check
+python3 -m unittest discover -s tests -v
 ```
 
-Use `--help` for validate, export, and explicit-destination install options. Run the privacy gate before committing or exporting public material.
+Use `studio.py --help` for validation, Take registration, export, and explicit-destination installation.

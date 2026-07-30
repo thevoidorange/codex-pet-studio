@@ -12,6 +12,7 @@
       "SECURITY.md",
       ".agents/skills/pet-studio/**",
       ".github/workflows/**",
+      "docs/**",
       "previewer/**",
       "templates/**",
       "examples/neutral-demo/**",
