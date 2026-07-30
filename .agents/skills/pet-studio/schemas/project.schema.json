@@ -57,15 +57,15 @@
       "properties": {
         "pet": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
         },
         "previewer": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
         },
         "exports": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
         }
       },
       "additionalProperties": false
@@ -78,7 +78,7 @@
       "properties": {
         "privateTermsFile": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
         }
       },
       "additionalProperties": false
@@ -95,7 +95,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
           }
         }
       },

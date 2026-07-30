@@ -28,7 +28,7 @@
     },
     "spritesheetPath": {
       "type": "string",
-      "pattern": "^[^/\\\\].*\\.(png|webp)$"
+      "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+\\.(?:png|webp)$"
     }
   },
   "additionalProperties": true

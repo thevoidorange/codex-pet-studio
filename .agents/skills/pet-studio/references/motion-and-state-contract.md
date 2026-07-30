@@ -1,5 +1,15 @@
 # Motion and state contract
 
+## Contents
+
+- Shared mechanism model
+- Global motion language
+- Current v2 client playback snapshot
+- Designing motion without editable timing
+- State intentions
+- Keyframe planning
+- High-precision animation
+
 ## Shared mechanism model
 
 Animate states from the same approved elements. Each element may have:

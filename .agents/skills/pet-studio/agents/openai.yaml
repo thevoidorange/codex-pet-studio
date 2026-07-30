@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Pet Studio"
-  short_description: "Design, preview, QA, and package Codex pets"
+  short_description: "Co-design, review, and ship Codex pets"
   brand_color: "#2F3033"
-  default_prompt: "Use $pet-studio to help me design a Codex pet from my inspirations, one approval gate at a time."
+  default_prompt: "Use $pet-studio to inspect my current project, preserve existing approvals, and resume at the smallest unresolved creative or review decision."
 policy:
   allow_implicit_invocation: true

@@ -1,130 +1,199 @@
 # QA policy
 
-## Five independent questions
+## Contents
 
-Run QA as separate gates:
+- Independent gates
+- Creative and visual failures
+- Review Workbench QA
+- Motion and state QA
+- Pack and release QA
+- Repair discipline
+- Clean-room forward tests
 
-1. **Identity:** Is this unmistakably the approved character?
-2. **Semantics:** Does each state communicate the correct intention?
-3. **Motion:** Does the physical behavior feel coherent at actual speed?
-4. **Technical:** Does the atlas and manifest match the Codex v2 contract?
-5. **Privacy:** Is every publishable artifact safe to share?
+## Independent gates
 
-A pass in one category cannot compensate for a failure in another.
+Judge these independently:
 
-## Common creative failures
+1. **Identity** — Is this unmistakably the approved character?
+2. **Semantics** — Does every state communicate its intended behavior?
+3. **Motion** — Does fixed-slot playback have coherent weight and continuity?
+4. **Review integrity** — Does Previewer context identify the exact work under
+   discussion without mutating it?
+5. **Technical validity** — Does the atlas and manifest match the current Codex
+   v2 contract?
+6. **Privacy and rights** — Is every exported artifact safe and authorized?
+
+A pass in one category never compensates for a failure in another.
+
+## Creative and visual failures
 
 ### Identity drift
 
 Symptoms:
 
-- face proportions change across states
-- appendages acquire anatomy that was never approved
-- a fold becomes a separate object
-- materials or line language change between rows
+- face, proportions, materials, anchors, or asymmetry change across outputs;
+- an approved fold or opening becomes a separate object;
+- appendages acquire unapproved anatomy;
+- a precise edit redraws unrelated parts.
 
 Prevention:
 
-- attach the canonical reference and mechanism limits to every state task
-- compare state keyframes side by side before row production
-- repair the smallest failing row
+- attach the authoritative visual and current identity locks;
+- name the one allowed delta;
+- compare against the canonical form and nearby states;
+- stop after repeated drift and change generation strategy.
 
 ### State sameness
 
 Symptoms:
 
-- only the limb moves while face, body, and spatial focus remain fixed
-- waiting and idle differ only in speed
-- active states reuse the same silhouette
+- only pupils or one limb change;
+- face and focal location remain fixed across most states;
+- waiting and Idle differ only in amplitude or playback speed;
+- active states reuse one silhouette and rhythm.
 
 Prevention:
 
-- define intention, location, silhouette, and fixed-slot rhythm before drawing
-- use different approved ranges of the same mechanisms
-- compare state stills without labels
+- define intention, focal location, silhouette, mechanisms, and rhythm before
+  row production;
+- compare unlabeled representative stills;
+- require each state to explain its contrast from the nearest neighbor.
 
-### Excessive animation
+### Excessive or generic motion
 
 Symptoms:
 
-- every loop bounces
-- every feature moves at once
-- no rest frame
-- secondary motion leads without a cause
+- every loop bounces;
+- all elements move at once;
+- no visual hold or settled seam;
+- secondary motion has no physical cause.
 
 Prevention:
 
-- define the lead element
-- allocate a stillness budget
-- create restrained easing through pose spacing and material deformation
+- name the lead element and material response;
+- allocate stillness deliberately;
+- use fixed-slot pose spacing as easing;
+- reserve the strongest deformation for the state accent.
 
-### Human-like anatomy
+### Human-like or broken material logic
 
 Symptoms:
 
-- floating arms read as a standing person
-- limbs emerge far from the face or shared opening
-- hands become generic mitten shapes
+- detached limbs read as a standing person;
+- limbs emerge away from the approved shared opening;
+- cloth behaves like rubber or heavy mass snaps;
+- rigid parts melt without an approved mechanism.
 
 Prevention:
 
-- preserve approved emergence points
-- model appendages as material continuations when appropriate
-- judge the silhouette before interior detail
+- preserve anchors and attachment continuity;
+- animate material continuations rather than generic hands;
+- keep lag, fold, compression, and settle rules consistent.
 
-### Broken material logic
+## Review Workbench QA
 
-Symptoms:
+For every external Previewer config:
 
-- cloth behaves like rubber
-- a heavy mass snaps into place
-- rigid elements melt without an approved mechanism
+- resolve the real config path inside the current project;
+- reject remote, traversal, symlink-escaped, or fallback-only write targets;
+- validate Candidate and stable state IDs;
+- validate one-based URL frame and zero-based config `frameIndex`;
+- validate Take IDs, asset paths, and `192×208` dimensions;
+- confirm missing external config invalidates the whole review handoff;
+- confirm bundled example IDs are never used to satisfy failed project context.
 
-Prevention:
+For every new Take:
 
-- record material behavior in the motion bible
-- use consistent lag, fold, compression, and settle rules
+- source frame and selected reference are correct;
+- only one new standalone asset is created;
+- new Take ID does not collide;
+- source atlas, existing Takes, neighboring frames, and unrelated config remain
+  unchanged;
+- config update is atomic and preserves existing query parameters;
+- returned URL restores the exact Candidate, state, Keyframe, and auditioned
+  Take;
+- audition and Confirm do not approve, promote, package, install, or publish.
 
-## Common production failures
+For Previewer regressions:
 
-- wrong atlas dimensions
-- incorrect `spriteVersionNumber`
-- blank used cells
-- nontransparent unused cells
-- cropped or overlapping sprites
-- identity-changing scale jumps
-- reversed directional gait
-- ambiguous cardinal directions
-- visible loop reset
-- forbidden detached effects
-- filenames or JSON fields inconsistent with the manifest
+- runtime ticks, Auto Orbit, pointer following, and all-state playback do not
+  rewrite deliberate review focus;
+- language and compatible Candidate changes preserve supported state;
+- gaze review clears animation frame/Take context;
+- every supported locale is reviewed as native product copy, including
+  tooltips, accessibility labels, long controls, and narrow layouts;
+- pet assets retain their original color while the interface may remain
+  grayscale.
 
-Use `$hatch-pet` for the authoritative production checks. Use `studio.py validate` as a fast structural gate, not a substitute for full visual QA.
+## Motion and state QA
 
-## Review protocol
+1. Inspect representative Keyframes without labels.
+2. Inspect the contact sheet.
+3. Inspect every state at current fixed client cadence.
+4. Inspect first frame, accent, final settle, and loop seam.
+5. Compare state intention, focal location, silhouette, and rhythm.
+6. Inspect left/right cadence and approved asymmetry.
+7. Inspect all 16 gaze cells as one ordered loop.
+8. Review at 80, 144, and 224 px.
 
-1. Inspect the contact sheet.
-2. Inspect each state at the current fixed client cadence.
-3. Inspect first frame, accent frame, and loop seam.
-4. Compare unlabeled state stills for semantic distinction.
-5. Inspect the 16 direction cells as one ordered loop.
-6. Review at 80, 144, and 224 px.
-7. Record `pass`, `warning`, or `fail`.
+Require:
 
-Warnings remain visible in the release summary. A repaired visual row requires independent review or explicit user inspection before packaging.
+- stable identity and anchors;
+- readable state difference at desktop size;
+- physically caused anticipation, follow-through, and damping;
+- no unintended scale or baseline popping;
+- no visible loop reset;
+- unmistakable gaze cardinals and coherent adjacent directions.
 
-## Clean-room onboarding test
+Use `$hatch-pet` for authoritative row, direction, atlas, chroma, and visual QA.
 
-Before release, use a fresh Codex task with no private project context. Give it only the public repository and a realistic prompt:
+## Pack and release QA
 
-> Use these inspirations to design a Codex pet with me. Start by understanding and discussing them; do not generate the full pack at once.
+Require:
 
-The test passes when Codex:
+- correct v2 manifest and atlas dimensions;
+- correct row and used-cell mapping;
+- non-empty used cells and transparent unused cells;
+- clean transparency with no clipped or overlapping sprite;
+- packaged assets match approved Previewer evidence;
+- project validation passes;
+- privacy check passes;
+- export contains only allowlisted public files.
 
-- discovers the project skill
-- speaks the user's language
-- starts with interpretation rather than generation
-- treats inputs as private
-- explains the next approval gate
-- does not require an API key or hosted service
-- can start the Previewer and run deterministic checks
+Treat validation, export, installation, and publication as separate outcomes.
+For a package-only request, verify that no live Codex pets path was written.
+For installation, verify the explicit destination before reporting success.
+
+## Repair discipline
+
+After a failure:
+
+1. classify it as identity, semantics, motion, review context, geometry,
+   extraction, transparency, continuity, privacy, or release;
+2. preserve every passing artifact and decision;
+3. use deterministic correction for deterministic failures;
+4. regenerate only when the source visual is wrong;
+5. repair the smallest valid production unit;
+6. compare the repair against the previous result and regression locks.
+
+For a one-frame review request, the smallest valid unit is a new Take, not a
+neighboring frame. For production rows or gaze rows, follow the current
+`$hatch-pet` repair unit rather than patching an unsupported final cell.
+
+Record `pass`, `warning`, or `fail`. A repaired visual requires independent
+review or explicit user inspection before packaging.
+
+## Clean-room forward tests
+
+Before releasing a material Skill change, run fresh-context tests for:
+
+1. **New inspiration** — begins with private intake and interpretation, creates
+   no full pack, and waits for Gate 1 approval.
+2. **Focused Take request** — resolves a valid review URL, changes one frame,
+   preserves neighbors, and returns a focused URL without approval or install.
+3. **Existing pack, package only** — validates and exports the existing pack,
+   preserves private inputs, and performs no installation.
+
+Pass only when the agent discovers the project Skill, chooses the correct route,
+uses deterministic tools for fragile operations, and reports actual outcomes
+without needing hidden prior chat context.

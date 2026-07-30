@@ -4,17 +4,22 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fnmatch
 import hashlib
 import http.server
+import http.client
 import json
 import os
 import re
 import shutil
+import stat
 import struct
 import sys
+import tempfile
 import urllib.parse
 import zipfile
+import zlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -30,6 +35,7 @@ CELL_HEIGHT = 208
 EXPECTED_COLUMNS = 8
 EXPECTED_ROWS = 11
 MAX_SCAN_BYTES = 50 * 1024 * 1024
+MAX_PREVIEW_CONFIG_BYTES = 2 * 1024 * 1024
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 
 DEFAULT_EXPORT_INCLUDE = [
@@ -90,6 +96,26 @@ TEXT_SUFFIXES = {
 
 IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
+TAKE_STATE_FRAME_COUNTS = {
+    "idle": 6,
+    "running-right": 8,
+    "running-left": 8,
+    "waving": 4,
+    "jumping": 5,
+    "failed": 8,
+    "waiting": 6,
+    "running": 6,
+    "review": 6,
+}
+
+TAKE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,63}")
+TAKE_ASSET_URL_PATTERN = re.compile(
+    r"(?:\./)?"
+    r"(?!\.\.(?:/|$))[A-Za-z0-9._~-]+"
+    r"(?:/(?!\.\.(?:/|$))[A-Za-z0-9._~-]+)*"
+)
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
 
 class StudioError(Exception):
     def __init__(self, message: str, *hints: str):
@@ -113,6 +139,19 @@ class Finding:
         if self.line is not None:
             result["line"] = self.line
         return result
+
+
+@dataclass(frozen=True)
+class TakeReviewContext:
+    review_url: str
+    config_reference: str
+    config_url: str
+    config_path: Path
+    candidate_id: str
+    state_id: str
+    frame_number: int
+    frame_index: int
+    reference_take_id: str
 
 
 def emit_error(error: StudioError) -> None:
@@ -312,24 +351,740 @@ def read_webp_dimensions(data: bytes) -> tuple[int, int] | None:
     return None
 
 
-def read_image_dimensions(path: Path) -> tuple[str, int, int]:
+def read_regular_file_bytes(path: Path, label: str, limit: int) -> bytes:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
-        with path.open("rb") as handle:
-            data = handle.read(MAX_SCAN_BYTES + 1)
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb") as handle:
+            file_stat = os.fstat(handle.fileno())
+            if not stat.S_ISREG(file_stat.st_mode):
+                raise StudioError(f"{label} is not a regular file: {path}")
+            data = handle.read(limit + 1)
     except OSError as exc:
-        raise StudioError(f"Cannot read spritesheet {path}: {exc}") from exc
-    if len(data) > MAX_SCAN_BYTES:
-        raise StudioError(f"Spritesheet {path} exceeds the {MAX_SCAN_BYTES // (1024 * 1024)} MB limit.")
+        raise StudioError(f"Cannot read {label} {path}: {exc}") from exc
+    if len(data) > limit:
+        raise StudioError(
+            f"{label} {path} exceeds the "
+            f"{limit // (1024 * 1024)} MB limit."
+        )
+    return data
+
+
+def read_image_file(path: Path, label: str) -> tuple[str, int, int, bytes]:
+    data = read_regular_file_bytes(path, label, MAX_SCAN_BYTES)
     dimensions = read_png_dimensions(data)
     if dimensions:
-        return "PNG", dimensions[0], dimensions[1]
+        return "PNG", dimensions[0], dimensions[1], data
     dimensions = read_webp_dimensions(data)
     if dimensions:
-        return "WebP", dimensions[0], dimensions[1]
+        return "WebP", dimensions[0], dimensions[1], data
     raise StudioError(
         f"{path} is not a supported PNG or WebP image.",
         "Export the atlas as PNG or WebP without renaming another file type.",
     )
+
+
+def read_image_dimensions(path: Path) -> tuple[str, int, int]:
+    image_format, width, height, _ = read_image_file(path, "spritesheet")
+    return image_format, width, height
+
+
+def paeth_predictor(left: int, above: int, upper_left: int) -> int:
+    prediction = left + above - upper_left
+    distance_left = abs(prediction - left)
+    distance_above = abs(prediction - above)
+    distance_upper_left = abs(prediction - upper_left)
+    if distance_left <= distance_above and distance_left <= distance_upper_left:
+        return left
+    if distance_above <= distance_upper_left:
+        return above
+    return upper_left
+
+
+def validate_take_png(data: bytes, path: Path) -> None:
+    signature = b"\x89PNG\r\n\x1a\n"
+    if not data.startswith(signature):
+        raise StudioError(f"Take asset must be a PNG file: {path}")
+
+    offset = len(signature)
+    chunk_index = 0
+    ihdr: bytes | None = None
+    idat_parts: list[bytes] = []
+    saw_idat = False
+    ended_idat = False
+    saw_iend = False
+    while offset < len(data):
+        if len(data) - offset < 12:
+            raise StudioError(f"Take PNG has a truncated chunk header: {path}")
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        chunk_type = data[offset + 4 : offset + 8]
+        if len(chunk_type) != 4 or any(
+            not (65 <= byte <= 90 or 97 <= byte <= 122)
+            for byte in chunk_type
+        ):
+            raise StudioError(f"Take PNG contains an invalid chunk type: {path}")
+        chunk_end = offset + 12 + length
+        if chunk_end > len(data):
+            raise StudioError(f"Take PNG has a truncated {chunk_type!r} chunk: {path}")
+        payload = data[offset + 8 : offset + 8 + length]
+        expected_crc = struct.unpack(
+            ">I",
+            data[offset + 8 + length : chunk_end],
+        )[0]
+        actual_crc = zlib.crc32(chunk_type + payload) & 0xFFFFFFFF
+        if actual_crc != expected_crc:
+            raise StudioError(f"Take PNG has a bad {chunk_type!r} CRC: {path}")
+        if chunk_index == 0 and chunk_type != b"IHDR":
+            raise StudioError(f"Take PNG must start with IHDR: {path}")
+        if chunk_type == b"IHDR":
+            if chunk_index != 0 or ihdr is not None or length != 13:
+                raise StudioError(f"Take PNG has an invalid IHDR chunk: {path}")
+            ihdr = payload
+        elif chunk_type == b"IDAT":
+            if ihdr is None or ended_idat or saw_iend:
+                raise StudioError(f"Take PNG has invalid IDAT ordering: {path}")
+            saw_idat = True
+            idat_parts.append(payload)
+        elif chunk_type == b"IEND":
+            if length != 0 or not saw_idat or saw_iend:
+                raise StudioError(f"Take PNG has an invalid IEND chunk: {path}")
+            saw_iend = True
+            if chunk_end != len(data):
+                raise StudioError(f"Take PNG contains bytes after IEND: {path}")
+        else:
+            if saw_idat:
+                ended_idat = True
+            if chunk_type and 65 <= chunk_type[0] <= 90:
+                raise StudioError(
+                    f"Take PNG contains unsupported critical chunk {chunk_type!r}: {path}"
+                )
+        offset = chunk_end
+        chunk_index += 1
+        if saw_iend:
+            break
+
+    if ihdr is None or not saw_idat or not saw_iend:
+        raise StudioError(f"Take PNG is missing IHDR, IDAT, or IEND: {path}")
+    width, height, bit_depth, color_type, compression, filtering, interlace = struct.unpack(
+        ">IIBBBBB",
+        ihdr,
+    )
+    if (width, height) != (CELL_WIDTH, CELL_HEIGHT):
+        raise StudioError(
+            f"{path}: expected a standalone {CELL_WIDTH}x{CELL_HEIGHT} frame, "
+            f"got {width}x{height}."
+        )
+    if (
+        bit_depth != 8
+        or color_type != 6
+        or compression != 0
+        or filtering != 0
+        or interlace != 0
+    ):
+        raise StudioError(
+            f"Take PNG must be 8-bit, non-interlaced RGBA with standard "
+            f"compression and filtering: {path}"
+        )
+
+    bytes_per_pixel = 4
+    row_bytes = width * bytes_per_pixel
+    expected_raw_size = height * (row_bytes + 1)
+    compressed = b"".join(idat_parts)
+    decompressor = zlib.decompressobj()
+    try:
+        raw = decompressor.decompress(compressed, expected_raw_size + 1)
+        if len(raw) <= expected_raw_size:
+            raw += decompressor.flush(expected_raw_size + 1 - len(raw))
+    except zlib.error as exc:
+        raise StudioError(f"Take PNG has invalid compressed scanlines: {path}") from exc
+    if (
+        len(raw) != expected_raw_size
+        or not decompressor.eof
+        or decompressor.unconsumed_tail
+        or decompressor.unused_data
+    ):
+        raise StudioError(f"Take PNG has incomplete or excess scanline data: {path}")
+
+    previous = bytearray(row_bytes)
+    has_visible_pixel = False
+    has_transparent_pixel = False
+    raw_offset = 0
+    for row_index in range(height):
+        filter_type = raw[raw_offset]
+        raw_offset += 1
+        if filter_type > 4:
+            raise StudioError(
+                f"Take PNG row {row_index + 1} uses invalid filter {filter_type}: {path}"
+            )
+        encoded_row = raw[raw_offset : raw_offset + row_bytes]
+        raw_offset += row_bytes
+        decoded_row = bytearray(row_bytes)
+        for index, encoded_byte in enumerate(encoded_row):
+            left = decoded_row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+            above = previous[index]
+            upper_left = previous[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = above
+            elif filter_type == 3:
+                predictor = (left + above) // 2
+            else:
+                predictor = paeth_predictor(left, above, upper_left)
+            decoded_row[index] = (encoded_byte + predictor) & 0xFF
+        for alpha in decoded_row[3::4]:
+            has_visible_pixel = has_visible_pixel or alpha > 0
+            has_transparent_pixel = has_transparent_pixel or alpha < 255
+        previous = decoded_row
+
+    if not has_visible_pixel:
+        raise StudioError(f"Take PNG is fully transparent: {path}")
+    if not has_transparent_pixel:
+        raise StudioError(f"Take PNG is fully opaque: {path}")
+
+
+def read_take_png(path: Path) -> bytes:
+    data = read_regular_file_bytes(path, "Take asset", MAX_SCAN_BYTES)
+    validate_take_png(data, path)
+    return data
+
+
+def contained_path(path: Path, parent: Path, field: str) -> Path:
+    resolved_path = path.expanduser().resolve()
+    resolved_parent = parent.expanduser().resolve()
+    try:
+        resolved_path.relative_to(resolved_parent)
+    except ValueError as exc:
+        raise StudioError(f"{field} escapes {resolved_parent}.") from exc
+    return resolved_path
+
+
+def unique_review_parameter(
+    pairs: Sequence[tuple[str, str]],
+    name: str,
+    *,
+    required: bool = True,
+) -> str | None:
+    values = [value for key, value in pairs if key == name]
+    if len(values) > 1:
+        raise StudioError(
+            f"The review URL contains more than one {name!r} parameter.",
+            "Use one unambiguous focused Previewer URL.",
+        )
+    if not values:
+        if required:
+            raise StudioError(
+                f"The review URL is missing the {name!r} parameter.",
+                "Open the exact Candidate, state, and Keyframe in the Previewer first.",
+            )
+        return None
+    value = values[0]
+    if required and not value:
+        raise StudioError(f"The review URL has an empty {name!r} parameter.")
+    return value
+
+
+def url_origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int | None]:
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise StudioError("The review URL has an invalid port.") from exc
+    if port is None:
+        if parts.scheme.casefold() == "http":
+            port = 80
+        elif parts.scheme.casefold() == "https":
+            port = 443
+    return parts.scheme.casefold(), (parts.hostname or "").casefold(), port
+
+
+def resolve_take_review_context(root: Path, review_url: str) -> TakeReviewContext:
+    try:
+        parts = urllib.parse.urlsplit(review_url)
+    except ValueError as exc:
+        raise StudioError(f"Cannot parse the review URL: {exc}") from exc
+    scheme = parts.scheme.casefold()
+    if scheme not in {"http", "https", "file"}:
+        raise StudioError(
+            "The review URL must be a local http(s) or file URL.",
+            "Use the URL from the local Pet Studio Previewer.",
+        )
+    if parts.username or parts.password:
+        raise StudioError("The review URL must not contain credentials.")
+    if scheme in {"http", "https"}:
+        if (parts.hostname or "").casefold() not in LOOPBACK_HOSTS:
+            raise StudioError(
+                "The review URL must use a loopback host.",
+                "Start the project Previewer locally and use its focused URL.",
+            )
+        url_origin(parts)
+    else:
+        if parts.netloc not in {"", "localhost"}:
+            raise StudioError("The file review URL must not name a remote host.")
+        review_path = Path(urllib.parse.unquote(parts.path))
+        contained_path(review_path, root, "review URL")
+
+    pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    config_reference = unique_review_parameter(pairs, "config")
+    candidate_id = unique_review_parameter(pairs, "candidate")
+    state_id = unique_review_parameter(pairs, "state")
+    raw_frame = unique_review_parameter(pairs, "frame")
+    reference_take_id = unique_review_parameter(pairs, "take")
+    assert config_reference is not None
+    assert candidate_id is not None
+    assert state_id is not None
+    assert raw_frame is not None
+    assert reference_take_id is not None
+
+    if state_id not in TAKE_STATE_FRAME_COUNTS:
+        raise StudioError(
+            f"Unknown Codex Pet state {state_id!r}.",
+            "Use one of: " + ", ".join(TAKE_STATE_FRAME_COUNTS),
+        )
+    if not re.fullmatch(r"[1-9][0-9]*", raw_frame):
+        raise StudioError(
+            f"Review frame must be a positive one-based integer; got {raw_frame!r}."
+        )
+    frame_number = int(raw_frame)
+    frame_count = TAKE_STATE_FRAME_COUNTS[state_id]
+    if frame_number > frame_count:
+        raise StudioError(
+            f"State {state_id!r} has {frame_count} frames; frame {frame_number} is out of range."
+        )
+
+    resolved_config_url = urllib.parse.urljoin(review_url, config_reference)
+    try:
+        config_parts = urllib.parse.urlsplit(resolved_config_url)
+    except ValueError as exc:
+        raise StudioError(f"Cannot resolve the Previewer config URL: {exc}") from exc
+    if config_parts.query or config_parts.fragment:
+        raise StudioError("The Previewer config reference must not contain a query or fragment.")
+    if config_parts.username or config_parts.password:
+        raise StudioError("The Previewer config URL must not contain credentials.")
+
+    if scheme in {"http", "https"}:
+        if url_origin(config_parts) != url_origin(parts):
+            raise StudioError(
+                "The Previewer config must resolve on the same local origin as the review URL."
+            )
+        config_path = root / urllib.parse.unquote(config_parts.path).lstrip("/")
+    else:
+        if config_parts.scheme.casefold() != "file" or config_parts.netloc not in {
+            "",
+            "localhost",
+        }:
+            raise StudioError("The Previewer config must resolve to a local file.")
+        config_path = Path(urllib.parse.unquote(config_parts.path))
+
+    config_path = contained_path(config_path, root, "Previewer config")
+    contained_path(config_path, root / "build", "Previewer config")
+    if config_path.suffix.casefold() != ".json":
+        raise StudioError("The Previewer config must be a JSON file.")
+    if (
+        not config_path.is_file()
+        or config_path.is_symlink()
+    ):
+        raise StudioError(f"Previewer config is not a regular file: {config_path}")
+
+    return TakeReviewContext(
+        review_url=review_url,
+        config_reference=config_reference,
+        config_url=resolved_config_url,
+        config_path=config_path,
+        candidate_id=candidate_id,
+        state_id=state_id,
+        frame_number=frame_number,
+        frame_index=frame_number - 1,
+        reference_take_id=reference_take_id,
+    )
+
+
+def validate_take_asset_url(value: Any, field: str) -> None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or not TAKE_ASSET_URL_PATTERN.fullmatch(value)
+    ):
+        raise StudioError(f"{field} is not a Previewer-safe asset URL.")
+
+
+def validate_http_config_binding(
+    context: TakeReviewContext,
+    local_config_bytes: bytes,
+) -> None:
+    parts = urllib.parse.urlsplit(context.config_url)
+    if parts.scheme.casefold() not in {"http", "https"}:
+        return
+
+    connection_type = (
+        http.client.HTTPSConnection
+        if parts.scheme.casefold() == "https"
+        else http.client.HTTPConnection
+    )
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise StudioError("The Previewer config URL has an invalid port.") from exc
+    request_target = parts.path or "/"
+    connection = connection_type(parts.hostname, port, timeout=5)
+    try:
+        connection.request(
+            "GET",
+            request_target,
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "identity",
+                "Connection": "close",
+            },
+        )
+        response = connection.getresponse()
+        if 300 <= response.status < 400:
+            raise StudioError(
+                f"Previewer config URL redirected with HTTP {response.status}.",
+                "Use the final same-origin config URL directly.",
+            )
+        if response.status != 200:
+            raise StudioError(
+                f"Previewer config URL returned HTTP {response.status}."
+            )
+        content_length = response.getheader("Content-Length")
+        if content_length is not None:
+            try:
+                declared_length = int(content_length)
+            except ValueError as exc:
+                raise StudioError(
+                    "Previewer config response has an invalid Content-Length."
+                ) from exc
+            if declared_length < 0 or declared_length > MAX_PREVIEW_CONFIG_BYTES:
+                raise StudioError(
+                    "Previewer config response exceeds the 2 MB limit."
+                )
+        remote_config_bytes = response.read(MAX_PREVIEW_CONFIG_BYTES + 1)
+    except (OSError, http.client.HTTPException) as exc:
+        raise StudioError(
+            f"Cannot read the Previewer config URL: {exc}",
+            "Keep the local Previewer server running and retry.",
+        ) from exc
+    finally:
+        connection.close()
+
+    if len(remote_config_bytes) > MAX_PREVIEW_CONFIG_BYTES:
+        raise StudioError("Previewer config response exceeds the 2 MB limit.")
+    if remote_config_bytes != local_config_bytes:
+        raise StudioError(
+            "The Previewer config does not match this local project checkout.",
+            "Open the focused review URL from this project and retry.",
+        )
+
+
+def validate_take_atlas_slot(value: Any, field: str) -> None:
+    if not isinstance(value, dict):
+        raise StudioError(f"{field} must be an object.")
+    row = value.get("row")
+    column = value.get("column")
+    if (
+        isinstance(row, bool)
+        or not isinstance(row, int)
+        or row < 0
+        or row >= EXPECTED_ROWS
+        or isinstance(column, bool)
+        or not isinstance(column, int)
+        or column < 0
+        or column >= EXPECTED_COLUMNS
+    ):
+        raise StudioError(
+            f"{field} must name a zero-based cell inside the "
+            f"{EXPECTED_COLUMNS}x{EXPECTED_ROWS} atlas."
+        )
+
+
+def validate_preview_config(value: Any, path: Path) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise StudioError(f"{path} must contain one JSON object.")
+    if value.get("schemaVersion") != 1:
+        raise StudioError(
+            f"{path} has unsupported schemaVersion {value.get('schemaVersion')!r}."
+        )
+    pet = value.get("pet")
+    if not isinstance(pet, dict) or not isinstance(pet.get("name"), str) or not pet["name"].strip():
+        raise StudioError(f"{path}: pet.name must be a non-empty string.")
+    versions = value.get("versions")
+    if not isinstance(versions, list) or not versions:
+        raise StudioError(f"{path}: versions must be a non-empty array.")
+
+    version_ids: set[str] = set()
+    for version_index, version in enumerate(versions):
+        version_field = f"{path}: versions[{version_index}]"
+        if not isinstance(version, dict):
+            raise StudioError(f"{version_field} must be an object.")
+        version_id = version.get("id")
+        if not isinstance(version_id, str) or not version_id.strip():
+            raise StudioError(f"{version_field}.id must be a non-empty string.")
+        if version_id in version_ids:
+            raise StudioError(f"{path}: duplicate Candidate id {version_id!r}.")
+        version_ids.add(version_id)
+        atlas_url = version.get("atlasUrl")
+        if not isinstance(atlas_url, str) or not atlas_url.strip():
+            raise StudioError(f"{version_field}.atlasUrl must be a non-empty string.")
+
+        groups = version.get("frameTakes", [])
+        if not isinstance(groups, list):
+            raise StudioError(f"{version_field}.frameTakes must be an array.")
+        take_ids_by_frame: dict[tuple[str, int], set[str]] = {}
+        for group_index, group in enumerate(groups):
+            group_field = f"{version_field}.frameTakes[{group_index}]"
+            if not isinstance(group, dict):
+                raise StudioError(f"{group_field} must be an object.")
+            state_id = group.get("stateId")
+            if state_id not in TAKE_STATE_FRAME_COUNTS:
+                raise StudioError(f"{group_field}.stateId is not a stable Codex Pet state.")
+            frame_index = group.get("frameIndex")
+            if (
+                isinstance(frame_index, bool)
+                or not isinstance(frame_index, int)
+                or frame_index < 0
+                or frame_index >= TAKE_STATE_FRAME_COUNTS[state_id]
+            ):
+                raise StudioError(f"{group_field}.frameIndex is out of range for {state_id!r}.")
+            takes = group.get("takes")
+            if not isinstance(takes, list):
+                raise StudioError(f"{group_field}.takes must be an array.")
+            frame_key = (state_id, frame_index)
+            used_ids = take_ids_by_frame.setdefault(frame_key, set())
+            for take_index, take in enumerate(takes):
+                take_field = f"{group_field}.takes[{take_index}]"
+                if not isinstance(take, dict):
+                    raise StudioError(f"{take_field} must be an object.")
+                take_id = take.get("id")
+                if (
+                    not isinstance(take_id, str)
+                    or not take_id.strip()
+                    or take_id == "original"
+                ):
+                    raise StudioError(f"{take_field}.id must be a non-reserved string.")
+                if take_id in used_ids:
+                    raise StudioError(
+                        f"{path}: duplicate Take id {take_id!r} for "
+                        f"{version_id}/{state_id}/frame-{frame_index + 1}."
+                    )
+                used_ids.add(take_id)
+                has_asset = "assetUrl" in take
+                has_slot = "atlasSlot" in take
+                if has_asset == has_slot:
+                    raise StudioError(
+                        f"{take_field} must supply exactly one of assetUrl or atlasSlot."
+                    )
+                if has_asset:
+                    validate_take_asset_url(take["assetUrl"], f"{take_field}.assetUrl")
+                else:
+                    validate_take_atlas_slot(take["atlasSlot"], f"{take_field}.atlasSlot")
+                if "label" in take and (
+                    not isinstance(take["label"], str) or not take["label"].strip()
+                ):
+                    raise StudioError(f"{take_field}.label must be a non-empty string.")
+                if "labels" in take:
+                    labels = take["labels"]
+                    if not isinstance(labels, dict) or not all(
+                        isinstance(key, str)
+                        and key
+                        and isinstance(label, str)
+                        and label.strip()
+                        for key, label in labels.items()
+                    ):
+                        raise StudioError(f"{take_field}.labels must map locales to labels.")
+    return value
+
+
+def load_preview_config(path: Path) -> tuple[dict[str, Any], bytes]:
+    try:
+        raw_value = path.read_bytes()
+        value = json.loads(raw_value.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise StudioError(f"Cannot read Previewer config {path}: {exc}") from exc
+    return validate_preview_config(value, path), raw_value
+
+
+def safe_take_candidate_segment(candidate_id: str) -> str:
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", candidate_id):
+        return candidate_id
+    digest = hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
+    return f"candidate-{digest}"
+
+
+def next_take_id(existing_ids: set[str]) -> str:
+    numeric_ids = [
+        int(match.group(1))
+        for take_id in existing_ids
+        if (match := re.fullmatch(r"t([0-9]+)", take_id))
+    ]
+    number = max(numeric_ids, default=0) + 1
+    while f"t{number:03d}" in existing_ids:
+        number += 1
+    return f"t{number:03d}"
+
+
+def default_take_label(take_id: str) -> str:
+    match = re.fullmatch(r"t([0-9]+)", take_id)
+    if match:
+        return f"Take {int(match.group(1)):02d}"
+    return take_id
+
+
+def review_url_with_take(review_url: str, take_id: str) -> str:
+    parts = urllib.parse.urlsplit(review_url)
+    raw_parts = parts.query.split("&") if parts.query else []
+    encoded_take = urllib.parse.quote_plus(take_id)
+    updated: list[str] = []
+    replaced = False
+    for raw_part in raw_parts:
+        raw_key = raw_part.split("=", 1)[0]
+        if urllib.parse.unquote_plus(raw_key) == "take":
+            if not replaced:
+                updated.append(f"take={encoded_take}")
+                replaced = True
+            continue
+        updated.append(raw_part)
+    if not replaced:
+        updated.append(f"take={encoded_take}")
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, "&".join(updated), parts.fragment)
+    )
+
+
+def process_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+@contextlib.contextmanager
+def exclusive_take_config_lock(config_path: Path) -> Iterator[None]:
+    lock_path = config_path.parent / f".{config_path.name}.take.lock"
+    descriptor: int | None = None
+    lock_stat: os.stat_result | None = None
+    for attempt in range(2):
+        try:
+            descriptor = os.open(
+                lock_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+            break
+        except FileExistsError as exc:
+            try:
+                raw_pid = lock_path.read_text(encoding="ascii").strip()
+                owner_pid = int(raw_pid)
+            except (OSError, UnicodeError, ValueError):
+                owner_pid = -1
+            if attempt == 0 and owner_pid > 0 and not process_is_running(owner_pid):
+                try:
+                    lock_path.unlink()
+                except OSError:
+                    pass
+                continue
+            raise StudioError(
+                f"Another Take registration is using {config_path}.",
+                "Wait for it to finish, then retry. No files were updated.",
+            ) from exc
+    if descriptor is None:
+        raise StudioError(f"Cannot acquire Take registration lock for {config_path}.")
+    lock_stat = os.fstat(descriptor)
+    try:
+        os.write(descriptor, f"{os.getpid()}\n".encode("ascii"))
+        os.fsync(descriptor)
+        yield
+    finally:
+        os.close(descriptor)
+        try:
+            current_stat = lock_path.stat()
+            if lock_stat is not None and (
+                current_stat.st_dev,
+                current_stat.st_ino,
+            ) == (lock_stat.st_dev, lock_stat.st_ino):
+                lock_path.unlink()
+        except OSError:
+            pass
+
+
+def atomic_register_take(
+    config_path: Path,
+    config_value: dict[str, Any],
+    asset_path: Path,
+    asset_bytes: bytes,
+    *,
+    expected_config_bytes: bytes | None = None,
+) -> None:
+    asset_path.parent.mkdir(parents=True, exist_ok=True)
+    asset_temporary: Path | None = None
+    config_temporary: Path | None = None
+    asset_promoted = False
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{asset_path.name}.tmp-",
+            dir=asset_path.parent,
+            delete=False,
+        ) as handle:
+            asset_temporary = Path(handle.name)
+            handle.write(asset_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(asset_temporary, 0o644)
+
+        encoded_config = (
+            json.dumps(config_value, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        decoded_config = json.loads(encoded_config.decode("utf-8"))
+        validate_preview_config(decoded_config, config_path)
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{config_path.name}.tmp-",
+            dir=config_path.parent,
+            delete=False,
+        ) as handle:
+            config_temporary = Path(handle.name)
+            handle.write(encoded_config)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(config_temporary, config_path.stat().st_mode & 0o777)
+
+        if (
+            expected_config_bytes is not None
+            and config_path.read_bytes() != expected_config_bytes
+        ):
+            raise StudioError(
+                f"Previewer config changed during Take registration: {config_path}",
+                "Reload the focused review URL and retry; no files were updated.",
+            )
+        try:
+            os.link(asset_temporary, asset_path)
+        except FileExistsError as exc:
+            raise StudioError(
+                f"Generated Take asset already exists: {asset_path}",
+                "Use another Take id; existing review assets are never overwritten.",
+            ) from exc
+        asset_promoted = True
+        asset_temporary.unlink()
+        asset_temporary = None
+        os.replace(config_temporary, config_path)
+        config_temporary = None
+    except Exception:
+        if asset_promoted and asset_path.exists():
+            asset_path.unlink()
+        raise
+    finally:
+        for temporary in (asset_temporary, config_temporary):
+            if temporary is not None and temporary.exists():
+                temporary.unlink()
 
 
 def validate_pet_dir(pet_dir: Path) -> dict[str, Any]:
@@ -981,6 +1736,171 @@ def command_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_take_add(args: argparse.Namespace) -> int:
+    root = resolve_root(args.root)
+    load_config(root)
+    context = resolve_take_review_context(root, args.review_url)
+    if args.check:
+        return command_take_add_with_context(args, root, context)
+    local_config_bytes = read_regular_file_bytes(
+        context.config_path,
+        "Previewer config",
+        MAX_PREVIEW_CONFIG_BYTES,
+    )
+    validate_http_config_binding(context, local_config_bytes)
+    with exclusive_take_config_lock(context.config_path):
+        return command_take_add_with_context(args, root, context)
+
+
+def command_take_add_with_context(
+    args: argparse.Namespace,
+    root: Path,
+    context: TakeReviewContext,
+) -> int:
+    preview_config, original_config_bytes = load_preview_config(context.config_path)
+    validate_http_config_binding(context, original_config_bytes)
+
+    versions = preview_config["versions"]
+    candidate = next(
+        (version for version in versions if version["id"] == context.candidate_id),
+        None,
+    )
+    if candidate is None:
+        raise StudioError(
+            f"Candidate {context.candidate_id!r} is not present in {context.config_path}."
+        )
+
+    frame_groups = candidate.get("frameTakes")
+    if frame_groups is None:
+        frame_groups = []
+        candidate["frameTakes"] = frame_groups
+    matching_groups = [
+        group
+        for group in frame_groups
+        if group["stateId"] == context.state_id
+        and group["frameIndex"] == context.frame_index
+    ]
+    existing_ids = {
+        take["id"]
+        for group in matching_groups
+        for take in group["takes"]
+    }
+    if (
+        context.reference_take_id != "original"
+        and context.reference_take_id not in existing_ids
+    ):
+        raise StudioError(
+            f"Focused Take {context.reference_take_id!r} is not loaded for "
+            f"{context.candidate_id}/{context.state_id}/frame-{context.frame_number}."
+        )
+
+    take_id = args.take_id or next_take_id(existing_ids)
+    if take_id == "original" or not TAKE_ID_PATTERN.fullmatch(take_id):
+        raise StudioError(
+            "Take id must be 1–64 URL-safe ASCII letters, digits, dots, "
+            "underscores, tildes, or hyphens, and cannot be 'original'."
+        )
+    if take_id in existing_ids:
+        raise StudioError(
+            f"Take id {take_id!r} already exists for "
+            f"{context.candidate_id}/{context.state_id}/frame-{context.frame_number}."
+        )
+    label = args.label.strip() if args.label else default_take_label(take_id)
+    if not label:
+        raise StudioError("Take label must not be empty.")
+
+    raw_asset_path = Path(args.asset).expanduser()
+    if raw_asset_path.is_symlink():
+        raise StudioError(f"Take asset must not be a symlink: {raw_asset_path}")
+    asset_source = raw_asset_path.resolve()
+    if not asset_source.is_file():
+        raise StudioError(f"Take asset is not a regular file: {asset_source}")
+    asset_bytes = read_take_png(asset_source)
+    extension = "png"
+    candidate_segment = safe_take_candidate_segment(context.candidate_id)
+    build_root = root / "build"
+    generated_relative = (
+        PurePosixPath("takes")
+        / candidate_segment
+        / context.state_id
+        / f"f{context.frame_number:02d}"
+        / f"{take_id}.{extension}"
+    )
+    asset_destination = context.config_path.parent.joinpath(*generated_relative.parts)
+    asset_destination = contained_path(
+        asset_destination,
+        build_root,
+        "generated Take asset",
+    )
+    if asset_destination.exists() or asset_destination.is_symlink():
+        raise StudioError(
+            f"Generated Take asset already exists: {asset_destination}",
+            "Use another Take id; existing review assets are never overwritten.",
+        )
+    asset_url = os.path.relpath(
+        asset_destination,
+        start=context.config_path.parent,
+    ).replace(os.sep, "/")
+    if not asset_url.startswith("."):
+        asset_url = f"./{asset_url}"
+    validate_take_asset_url(asset_url, "generated Take assetUrl")
+
+    if matching_groups:
+        target_group = matching_groups[0]
+    else:
+        target_group = {
+            "stateId": context.state_id,
+            "frameIndex": context.frame_index,
+            "takes": [],
+        }
+        frame_groups.append(target_group)
+    target_group["takes"].append(
+        {
+            "id": take_id,
+            "label": label,
+            "assetUrl": asset_url,
+        }
+    )
+    validate_preview_config(preview_config, context.config_path)
+    focused_url = review_url_with_take(context.review_url, take_id)
+    result = {
+        "ok": True,
+        "checkOnly": bool(args.check),
+        "candidateId": context.candidate_id,
+        "stateId": context.state_id,
+        "frame": context.frame_number,
+        "frameIndex": context.frame_index,
+        "takeId": take_id,
+        "label": label,
+        "asset": str(asset_destination),
+        "assetUrl": asset_url,
+        "config": str(context.config_path),
+        "reviewUrl": focused_url,
+    }
+
+    if not args.check:
+        atomic_register_take(
+            context.config_path,
+            preview_config,
+            asset_destination,
+            asset_bytes,
+            expected_config_bytes=original_config_bytes,
+        )
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        action = "validated" if args.check else "registered"
+        print(
+            f"OK: {action} {take_id} for "
+            f"{context.candidate_id}/{context.state_id}/frame-{context.frame_number}"
+        )
+        print(f"  config: {context.config_path}")
+        print(f"  asset: {asset_destination}")
+        print(f"  review: {focused_url}")
+    return 0
+
+
 def command_install(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
     config = load_config(root)
@@ -1110,6 +2030,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_parser.add_argument("--force", action="store_true", help="replace an existing output")
     export_parser.set_defaults(func=command_export)
+
+    take_parser = subparsers.add_parser(
+        "take",
+        help="manage standalone Keyframe Takes for an external Previewer config",
+    )
+    take_subparsers = take_parser.add_subparsers(dest="take_command", required=True)
+    take_add_parser = take_subparsers.add_parser(
+        "add",
+        help="atomically register one 192x208 Take from a focused review URL",
+    )
+    add_root_argument(take_add_parser)
+    take_add_parser.add_argument(
+        "--review-url",
+        required=True,
+        help="focused local Previewer URL with config, candidate, state, and frame",
+    )
+    take_add_parser.add_argument(
+        "--asset",
+        required=True,
+        help="standalone 192x208 8-bit RGBA PNG frame to copy into the generated build",
+    )
+    take_add_parser.add_argument(
+        "--id",
+        dest="take_id",
+        help="new Take id (default: next monotonic tNNN id for this Keyframe)",
+    )
+    take_add_parser.add_argument("--label", help="visible Take label")
+    take_add_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate and report the transaction without writing files",
+    )
+    take_add_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit machine-readable JSON",
+    )
+    take_add_parser.set_defaults(func=command_take_add)
 
     install_parser = subparsers.add_parser(
         "install",

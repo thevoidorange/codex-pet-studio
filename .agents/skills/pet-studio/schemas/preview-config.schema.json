@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/pet-studio/preview-config.schema.json",
+  "title": "Codex Pet Studio Previewer Configuration",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "pet",
+    "versions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "pet": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": true
+    },
+    "versions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "id",
+        "atlasUrl"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "atlasUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "frameTakes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frameTakeGroup"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "frameTakeGroup": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/idleFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/runningRightFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/runningLeftFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/wavingFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/jumpingFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/failedFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/waitingFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/runningFrameTakes"
+        },
+        {
+          "$ref": "#/$defs/reviewFrameTakes"
+        }
+      ]
+    },
+    "frameTakeGroupBase": {
+      "type": "object",
+      "required": [
+        "stateId",
+        "frameIndex",
+        "takes"
+      ],
+      "properties": {
+        "takes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/take"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "idleFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "idle"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        }
+      ]
+    },
+    "runningRightFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "running-right"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 7
+            }
+          }
+        }
+      ]
+    },
+    "runningLeftFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "running-left"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 7
+            }
+          }
+        }
+      ]
+    },
+    "wavingFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "waving"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          }
+        }
+      ]
+    },
+    "jumpingFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "jumping"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4
+            }
+          }
+        }
+      ]
+    },
+    "failedFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "failed"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 7
+            }
+          }
+        }
+      ]
+    },
+    "waitingFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "waiting"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        }
+      ]
+    },
+    "runningFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "running"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        }
+      ]
+    },
+    "reviewFrameTakes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameTakeGroupBase"
+        },
+        {
+          "properties": {
+            "stateId": {
+              "const": "review"
+            },
+            "frameIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        }
+      ]
+    },
+    "take": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "not": {
+            "const": "original"
+          }
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "assetUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?:\\./)?(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+(?:/(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+)*$"
+        },
+        "atlasSlot": {
+          "$ref": "#/$defs/atlasSlot"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "assetUrl"
+          ],
+          "not": {
+            "required": [
+              "atlasSlot"
+            ]
+          }
+        },
+        {
+          "required": [
+            "atlasSlot"
+          ],
+          "not": {
+            "required": [
+              "assetUrl"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "atlasSlot": {
+      "type": "object",
+      "required": [
+        "row",
+        "column"
+      ],
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

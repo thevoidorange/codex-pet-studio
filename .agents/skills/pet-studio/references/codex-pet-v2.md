@@ -1,78 +1,89 @@
-# Codex pet v2 summary
+# Codex pet v2 production boundary
 
-This file is a concise planning reference. The installed `$hatch-pet` skill is authoritative for production and may evolve.
+This is a planning boundary, not a replacement for the installed `$hatch-pet`
+skill. Re-read the installed skill before every production or repair run.
 
-## Package
+## Project staging package
+
+Stage the validated result under `build/pet`:
 
 ```text
-<pet-id>/
+build/pet/
 ├── pet.json
 └── spritesheet.webp
 ```
 
-Example manifest:
+Minimum manifest:
 
 ```json
 {
   "id": "example-pet",
   "displayName": "Example Pet",
-  "description": "A concise public description.",
+  "description": "A concise description.",
   "spriteVersionNumber": 2,
   "spritesheetPath": "spritesheet.webp"
 }
 ```
 
-## Atlas
+The v2 atlas uses 8 columns × 11 rows of 192×208 cells, for a final
+1536×2288 PNG or WebP. Used cells contain one complete readable sprite; unused
+cells are fully transparent.
 
-- 8 columns × 11 rows
-- 192 × 208 pixels per cell
-- 1536 × 2288 pixels total
-- PNG or WebP
-- used cells contain one complete readable sprite
-- unused cells are fully transparent
-
-## Current client row snapshot
-
-| Row | State | Used cells | Current client base durations |
-| ---: | --- | ---: | --- |
-| 0 | idle | 6 | 280, 110, 110, 140, 140, 320 ms |
-| 1 | running-right | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| 2 | running-left | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| 3 | waving | 4 | 140, 140, 140, 280 ms |
-| 4 | jumping | 5 | 140, 140, 140, 140, 280 ms |
-| 5 | failed | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
-| 6 | waiting | 6 | 150, 150, 150, 150, 150, 260 ms |
-| 7 | running | 6 | 120, 120, 120, 120, 120, 220 ms |
-| 8 | review | 6 | 150, 150, 150, 150, 150, 280 ms |
-| 9 | look directions 000°–157.5° | 8 | fixed 22.5° direction steps |
-| 10 | look directions 180°–337.5° | 8 | fixed 22.5° direction steps |
-
-All sixteen look cells are used in fixed 22.5-degree clockwise steps. Neutral/front gaze uses idle at runtime.
-
-The current client plays each non-Idle action for three loops and then returns to Idle. Idle uses six times the row-0 base durations. These durations and loop rules are client-owned: they are not stored in `pet.json`, cannot be customized by the package, and may change in a future client. Pet display size is likewise a client setting, currently 80–224 px, rather than package metadata.
-
-Treat this table as a verified current-client planning snapshot. Re-read the installed `$hatch-pet` skill before production.
+Read
+[motion-and-state-contract.md](motion-and-state-contract.md)
+for the dated row, frame-count, duration, and look-direction planning snapshot.
+The client owns those values; the package cannot customize them.
 
 ## Responsibility boundary
 
 Pet Studio owns:
 
-- creative collaboration
-- decision gates
-- identity and mechanism lock
-- state choreography
-- motion bible
-- versioned review
-- public-project privacy
+- inspiration and privacy intake;
+- creative decisions and durable approvals;
+- identity, mechanism, state, and motion locks;
+- Candidate and Take review;
+- production grounding and explicit scope;
+- project staging, public export, and installation authorization.
 
 `$hatch-pet` owns:
 
-- production image jobs
-- row geometry
-- deterministic atlas assembly
-- direction registration and semantic QA
-- contact sheets and motion previews
-- v2 validation
-- package staging
+- production visual jobs and supported repair units;
+- row geometry and deterministic atlas assembly;
+- look-direction registration and semantic QA;
+- contact sheets and motion previews;
+- chroma, v2 validation, and final production evidence.
 
-Do not locally synthesize missing production rows to avoid a failed generation or skipped approval.
+Do not synthesize missing production rows or unsupported final cells to bypass
+the compiler contract.
+
+## Preserve approved visuals
+
+Pass every explicitly approved Keyframe or Take to production as a named
+grounding asset. Preserve its identity, feature relationships, and requested
+details.
+
+If the current compiler requires coherent row generation and cannot guarantee
+bit-identical preservation:
+
+1. keep the exact approved asset;
+2. explain the row-level constraint before generation;
+3. use the asset as authoritative grounding;
+4. compare the produced row against it;
+5. return to user review when a material visual detail changes.
+
+Never silently replace an approved visual with a similar regeneration.
+
+## Package, export, install, and publish
+
+Treat these as separate operations:
+
+1. **Produce** — create and validate atlas evidence.
+2. **Stage** — write the manifest and atlas under `build/pet`.
+3. **Export** — create an allowlisted share artifact.
+4. **Install** — copy a validated stage to an explicit Codex pet destination.
+5. **Publish** — send an authorized artifact to an external destination.
+
+Do not let production write to a live Codex pets directory when the user asked
+only to validate, package, or export. If the installed compiler instructions
+include a live copy step, stop before it and stage the validated files in the
+project. Run installation only after an explicit conversational request.

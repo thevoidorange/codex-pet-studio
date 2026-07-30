@@ -1,219 +1,196 @@
 ---
 name: pet-studio
-description: Co-design a Codex desktop pet from personal inspirations through staged visual decisions, motion mechanics, state animation, Previewer review context, QA, and Codex v2 packaging. Use when a user wants to create, refine, compare, request frame Takes, validate, export, or install a Codex pet without jumping directly from references to a finished sprite atlas.
+description: Co-design, review, refine, repair, validate, package, export, or explicitly install a Codex desktop pet from inspiration or an existing project. Use for staged creative decisions, identity and mechanism locks, fixed-slot state motion, Previewer Candidate/Keyframe/Take review, exact one-frame alternatives, existing-pack maintenance, and Codex v2 production without losing prior approvals or private inputs.
 ---
 
 # Pet Studio
 
-Turn inspiration into a production-ready Codex pet through a paced creative partnership. Preserve the user's taste and the character's behavioral truth while making every approved decision reproducible, previewable, and technically valid.
-
-## Non-negotiable behavior
-
-- Speak and write project-facing decision notes in the user's language unless the user requests another language.
-- Keep repository filenames, IDs, schema keys, code, comments, and reusable templates in English.
-- Author each supported UI locale independently from the same product facts and
-  interaction behavior. Do not translate one locale sentence by sentence into
-  another. Review every locale in the rendered Previewer, including tooltips,
-  status changes, accessibility labels, long copy, and narrow layouts.
-- Treat reference files as private inputs by default. Never commit, publish, or copy them into a public example.
-- Do not generate a complete pet pack at the beginning. Move through approval gates and ask for visual alignment at the smallest useful scope.
-- Preserve the latest approved work before exploring a new direction. Create a new version instead of silently overwriting it.
-- Separate creative approval from technical validity. Passing atlas validation does not mean the character feels right; liking a still does not mean the pack is valid.
-- Use the installed `$hatch-pet` skill as the production compiler after the creative gates are approved. Do not duplicate or bypass its atlas, direction, QA, packaging, or installation contract.
-
-## Start from the user's actual request
-
-If the user provides only inspiration, begin by observing and discussing it. Do not generate images yet.
-
-If the user already has an approved character, inspect the existing project state and resume at the first unfinished gate. Do not restart ideation.
-
-If the user asks only to preview, validate, export, or install an existing pack, use the matching deterministic tool path and avoid reopening creative decisions.
-
-Read [workflow.md](references/workflow.md) for the complete routing rules and required artifacts.
-
-## The eight gates
-
-1. **Inspiration understanding** — identify what the user responds to, what belongs to the subject, and what must not be copied literally.
-2. **Creative genome** — lock a short list of identity rules, personality evidence, aesthetic constraints, and explicit anti-goals.
-3. **Default form** — approve one neutral silhouette at normal desktop-pet size before designing states.
-4. **Variable mechanics** — define the few elements that can move, deform, appear, disappear, or change layer.
-5. **State choreography** — design each runtime state as a distinct intention, spatial composition, and motion arc.
-6. **Motion language and preview** — approve fixed-slot pose spacing, material easing, weight, continuity, and versioned playback in the Previewer.
-7. **Production and QA** — hand the approved design to `$hatch-pet`, then run semantic, visual, technical, privacy, and packaging gates.
-8. **Release** — export, install, or publish only the selected, allowlisted, reviewed result.
-
-Never combine gates merely to save time when the next gate depends on an unresolved visual choice. It is fine to combine adjacent gates when the user explicitly approves the shared decision.
-
-Read [design-gates.md](references/design-gates.md) before proposing visual rounds.
-
-## Work in small visual questions
-
-Generate a board only when it answers one concrete question. Good examples:
-
-- Which default silhouette best preserves the creative genome?
-- How far may the face travel without changing identity?
-- Which fold mechanism reads as clothing rather than a cut or a separate object?
-- How should a short limb emerge from the same opening as the face?
-- Which waiting pose feels polite rather than generic?
-
-For each board:
-
-1. State the single decision being tested.
-2. Hold all already-approved features constant.
-3. Vary only the necessary mechanism.
-4. Label options with stable neutral IDs.
-5. Show them at or near normal pet size when readability matters.
-6. Record the user's selection, rejection reasons, and immutable details.
-
-Use `$imagegen` for image generation or editing. Attach only the references needed for the current decision. Do not ask image generation to redesign approved anatomy, proportions, or mechanics unless the user requests that change.
-
-## Define mechanisms before states
-
-Create a compact mechanism inventory. For each variable element, record:
-
-- anchor or emergence point
-- allowed translation, rotation, deformation, visibility, and layer changes
-- range limits
-- relationship to neighboring elements
-- forbidden readings
-- rest behavior
-
-Keep the inventory small. A pet with three well-defined mechanisms is easier to animate consistently than one with twelve vague ones.
-
-Then assemble states from those shared mechanisms. Do not independently redesign the pet inside every state.
-
-Read [motion-and-state-contract.md](references/motion-and-state-contract.md) before building state keyframes or production rows.
-
-## Design for immutable client time slots
-
-The current v2 client, not the pet package, owns playback timing. `pet.json` has no fields for frame duration, action-loop count, Idle slowdown, or display size. Under the current client snapshot:
-
-- standard rows use fixed frame counts and fixed duration arrays;
-- every non-Idle action plays three loops, then returns to Idle;
-- Idle uses six times its listed base durations;
-- display size is a client setting from 80 to 224 px.
-
-Treat this as a current-client snapshot that can change. Re-read the installed `$hatch-pet` skill before production and prefer its newer contract if it differs.
-
-Do not invent a timing editor or promise that Previewer JSON changes runtime cadence. Control perceived easing through pose spacing and material deformation:
-
-- keep neighboring poses close during a visual hold;
-- spend short transition slots on clear directional change;
-- place the strongest deformation at the accent;
-- use the final long slot for a clean settle or loop seam;
-- let secondary material lag by one slot only when that lag remains readable.
-
-Review at 80, 144, and 224 px so the same fixed sequence works across the client size range.
-
-Use both Previewer playback views for different questions:
-
-- **Runtime Simulation** verifies the real state lifecycle: three action loops, then Idle at one-sixth speed.
-- **Endless Loop** uses the exact same fixed per-frame durations but repeats the selected row indefinitely, making loop seams, pose spacing, weight transfer, and material follow-through easier to inspect.
-
-Neither mode plays an exported GIF. Both render the source atlas directly so GIF palette and edge artifacts cannot be mistaken for sprite defects.
-
-## Preserve personality through behavior
-
-Translate personality evidence into observable behavior, not decorative symbols. A state must communicate:
-
-- **intention** — what the pet wants now
-- **approach** — how it asks, investigates, works, recovers, or celebrates
-- **space** — where the face/body/mechanism moves within the silhouette
-- **weight** — what leads, lags, settles, or overshoots
-- **return** — how the pet gets back to a reusable loop or rest pose
-
-Favor a few meaningful physical details over excessive bounce. Secondary motion should follow the main action with plausible lag and damping.
-
-## Version rather than overwrite
-
-Use monotonically increasing version IDs such as `v001`, `v002`, and `v003`. A version represents a coherent reviewable proposal, not every saved file.
-
-Before a material revision:
-
-- preserve the current approved or candidate version
-- write what changes and what stays locked
-- keep stable state and element IDs
-- compare the new version in the Previewer
-
-The Previewer language and version selectors must not reset the current state, frame, mode, or playback when the selected version supports them.
-
-Use single-frame Takes only for a narrow visual choice inside one Candidate.
-Manage private working assets under
-`design/takes/<candidate>/<state>/fNN/`, expose only the review Takes needed by
-Previewer config, and keep Take audition temporary. Never treat a Take click as
-approval or writeback. Previewer Confirm may record the current Take as the
-choice for that exact Candidate, state, and Keyframe in the current review
-session; it does not modify source files, approve QA, or promote a Candidate. If
-the new frame has a continuity problem, generate another Take for that requested
-frame; do not silently revise either adjacent frame.
-
-## Resolve Previewer review context
-
-The Previewer reviews work; the Codex conversation requests and produces it. Do not add an **Install in Codex** button, **Request New Take** field, upload flow, or embedded agent prompt to the Previewer.
-
-When the user refers to “this” or asks for another Take:
-
-1. Read the current Previewer URL when it is available through task context or browser tools.
-2. Resolve `candidate`, `state`, one-based `frame`, and `take` against the loaded config and project files. Preserve any existing `config` query parameter.
-3. Treat `take=original` as the source atlas frame. Treat any other valid Take ID as the current visual reference, not as an approval or overwrite target.
-4. If an explicit `config` URL cannot be loaded, invalidate the entire handoff. Never resolve colliding IDs against the bundled example. If `frame` and `take` are absent, do not infer a previously viewed animation frame.
-5. If the context is valid, continue without asking the user to restate it. If it is unavailable or invalid, ask one concise question.
-6. Create a new additive Take for that exact frame. Never overwrite an existing Take, source frame, or neighboring frame.
-7. Update the generated Previewer assets and config, validate them, and return a refreshed URL pointing to the same Candidate, state, and frame with the new Take selected.
-
-A one-frame continuity concern produces another Take for the requested frame. Do not silently repair adjacent frames. Candidate promotion, QA approval, packaging, installation, and publication remain separate explicit decisions. Installation happens only when the user asks for it in conversation; the Previewer never performs it.
-
-## Use deterministic project tools
-
-Run commands from the repository root:
-
-```bash
-python3 .agents/skills/pet-studio/scripts/studio.py init
-python3 .agents/skills/pet-studio/scripts/studio.py doctor
-python3 .agents/skills/pet-studio/scripts/studio.py preview
-python3 .agents/skills/pet-studio/scripts/studio.py validate --pet-dir <pack-directory>
-python3 .agents/skills/pet-studio/scripts/studio.py privacy-check
-```
-
-`init` is idempotent: in a cloned template it preserves `pet-studio.json` and creates only the missing local private workspace. In a blank directory it also creates the public project configuration.
-
-Use `--help` for the exact optional arguments supported by the checked-in version. Prefer these scripts over one-off replacements so that the same checks run for every contributor.
-
-## Production handoff
-
-Invoke `$hatch-pet` only when all of these are true:
-
-- the default form is explicitly approved
-- variable mechanics and their limits are recorded
-- all nine standard state intentions are defined
-- representative keyframes and their mapping to the fixed row slots are approved
-- the user has selected the version to produce
-- reference privacy and publication scope are clear
-
-If `$hatch-pet` is not available, continue only through the creative and Previewer gates. Ask Codex to enable or install the official skill before production; do not improvise a replacement production pipeline.
-
-Pass `$hatch-pet` the approved canonical reference, state choreography, motion bible, locked identity rules, anti-goals, and version ID. Its v2 contract is summarized in [codex-pet-v2.md](references/codex-pet-v2.md), but its installed instructions are authoritative.
-
-## QA and delivery
-
-Do not claim completion until all applicable gates pass:
-
-- identity and design-lock review
-- state-semantic review
-- motion and loop review
-- direction review
-- atlas/package validation
-- privacy check
-- normal-size Previewer review
-
-Read [qa.md](references/qa.md) and [privacy.md](references/privacy.md). Report failures and warnings separately. Do not convert a warning into a pass by omission.
-
-Deliver:
-
-- the selected version and decision summary
-- a Previewer path or URL
-- validated pack files when production is complete
-- remaining warnings
-- the exact next useful step
-
-Do not install or publish unless the user asks for it or the current request clearly includes installation or publication.
+Build a distinctive Codex pet through reversible creative decisions and
+deterministic production. Treat the Previewer as a co-design review workbench
+and the Codex conversation as the editing surface.
+
+## Operating contract
+
+- Prefer current project files and a validated Previewer config over chat
+  summaries. Use a validated review URL as the current focus, never as approval.
+- Collaborate in the user's language. Keep filenames, IDs, schema keys, code,
+  and reusable project artifacts in English.
+- Treat personal references as private local inputs unless the user explicitly
+  approves publication.
+- Separate creative approval, review selection, technical validation,
+  packaging, installation, and publication. One never implies another.
+- Preserve approved work before exploration. Add a Candidate or Take instead
+  of silently overwriting the only accepted result.
+- For new designs, resolve the smallest useful visual question before broad
+  state production. Do not use image volume as a substitute for a decision.
+- Use `$imagegen` for visual generation and editing. Use the installed
+  `$hatch-pet` skill as the authoritative production compiler and validator.
+- Never install or publish unless the user explicitly requests that action.
+
+## Re-enter and route
+
+Before acting, inspect `pet-studio.json`, current `design/` decisions, available
+Candidates, `build/`, unresolved QA, and any valid Previewer URL in task
+context. Preserve current work and resume through the shortest truthful route:
+
+| User situation | Route |
+| --- | --- |
+| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, populate only the inspiration brief, then follow the creative workflow. Do not generate until the user approves the Gate 1 reading. |
+| Existing approved character or partial project | State what is locked and open, then resume at the first unresolved creative decision. Do not restart ideation. |
+| Feedback on one Previewer Keyframe or Take | Resolve the exact review context and use the single-frame Take workflow. Do not reopen unrelated gates. |
+| Existing pack maintenance | Validate provenance and scope, preserve passing rows, and repair only the affected production unit. Return to a creative gate only when identity, state meaning, or motion language changes. |
+| Preview, validate, export, or explicit install | Use the deterministic project command for that operation without reopening creative decisions. |
+
+Read [creative-workflow.md](references/creative-workflow.md) for inspiration,
+identity, default-form, mechanism, state, and motion decisions.
+
+## Use one decision loop
+
+For each creative round:
+
+1. State the one uncertainty being resolved.
+2. Name what is locked, what may change, and the relevant anti-goals.
+3. Produce the smallest comparison that can answer the question.
+4. Review at realistic desktop size when readability matters.
+5. Record the selection, rejection reasons, remaining open variables, and next
+   dependent decision.
+
+Do not treat “better,” “interesting,” a Previewer click, or silence as approval.
+The user may combine adjacent gates, but unresolved dependencies remain open.
+
+Before generating or editing visuals, read
+[visual-iteration.md](references/visual-iteration.md). Before planning states
+or animation rows, read
+[motion-and-state-contract.md](references/motion-and-state-contract.md).
+
+## Keep the domain model explicit
+
+- **Candidate** — one coherent, reviewable proposal across the relevant
+  character and state set. Use sortable IDs such as `v001`.
+- **Keyframe** — one fixed runtime slot inside one state row.
+- **Take** — one additive visual alternative for one exact Candidate, state,
+  and Keyframe.
+- **Audition** — temporary Take viewing. It changes no project decision.
+- **Confirm** — session-only Previewer selection for that Keyframe. It changes
+  no source asset, config, Candidate, QA result, or approval state.
+- **Approval** — an explicit conversational decision such as “use this” or
+  “this is final.” Record the exact asset and the locked details in the current
+  private design decision artifact.
+- **Promotion** — moving an approved, fully reviewed Candidate into production
+  or release. A single approved Take never promotes a Candidate by itself.
+
+Treat an explicitly approved Take as authoritative visual evidence. Pass the
+exact asset into production grounding. Do not silently redraw it. If the
+current compiler requires row-level synthesis and cannot preserve exact pixels,
+keep the approved asset, explain the constraint before production, and obtain
+direction rather than substituting a similar result.
+
+## Handle one-frame review requests deterministically
+
+The Previewer reviews work; it does not author or mutate it. Do not add a
+**Request New Take** field, embedded prompt, upload, save, **Install in Codex**,
+packaging, promotion, or QA action.
+
+When the user refers to “this,” “this frame,” or asks for another Take:
+
+1. Read and validate the current `config`, `candidate`, `state`, one-based
+   `frame`, and `take` values.
+2. Resolve the external config to a canonical local file under the current
+   project root. If it is missing, remote, fallback-only, or unsafe to map, ask
+   one concise project/path question instead of guessing.
+3. Materialize the selected source as one `192×208` frame. Use it as the
+   primary visual reference; use neighboring frames only as read-only
+   continuity evidence.
+4. Apply only the requested delta and every current identity/mechanism lock.
+   For a bare “another Take,” make a restrained same-brief variation unless the
+   intended difference is genuinely ambiguous.
+5. Generate exactly one standalone frame. Do not change the source atlas,
+   current Take, adjacent frames, or unrelated config.
+6. Register it atomically with
+   `python3 .agents/skills/pet-studio/scripts/studio.py take add --help`.
+7. Validate the refreshed config and asset, then return the focused URL with
+   the new Take auditioned, not approved.
+
+Read [review-workbench.md](references/review-workbench.md) before executing this
+route. A continuity concern creates another Take for the requested frame unless
+the user explicitly broadens the scope.
+
+## Design inside the client contract
+
+The pet package cannot customize frame durations, loop counts, Idle slowdown,
+or display size. Treat the installed `$hatch-pet` instructions as
+authoritative and the checked-in motion reference as a dated planning
+snapshot.
+
+Create state difference through intention, focal location, silhouette,
+mechanism use, weight, and fixed-slot pose spacing. Subtle motion is valid;
+nearly identical composition across states is not. Favor caused follow-through,
+material continuity, visual holds, and settled seams over universal bounce.
+
+Review source-atlas playback through both Previewer modes:
+
+- **Runtime Simulation** checks the real action lifecycle and return to Idle.
+- **Endless Loop** repeats the same fixed cadence for seam and continuity
+  inspection.
+
+Neither mode is an exported GIF or a timing editor. Review at 80, 144, and
+224 px.
+
+## Produce, maintain, and release
+
+For a new design, hand off to `$hatch-pet` only after the default form,
+mechanisms, state intentions, representative Keyframes, fixed-slot motion plan,
+selected Candidate, and privacy scope are approved.
+
+For existing-pack maintenance, validate first and use only the affected row or
+production unit. Do not require unrelated creative gates when identity and
+semantics are unchanged.
+
+Pass production:
+
+- the canonical identity reference and anti-goals;
+- mechanism limits and material rules;
+- state choreography and motion plan;
+- every explicitly approved Keyframe or Take as a named grounding asset;
+- the exact Candidate ID and privacy classification.
+
+Stage validated output under `build/pet`. If the installed `$hatch-pet`
+workflow would write directly to a live Codex pets directory, stop before that
+copy step and stage the validated manifest and atlas in the project instead.
+Run project validation and privacy checks before export. Run
+`studio.py install` only after an explicit installation request and to an
+explicit destination.
+
+Read [codex-pet-v2.md](references/codex-pet-v2.md) for the production boundary.
+The installed `$hatch-pet` skill wins when its newer technical contract differs.
+
+## Validate and hand off honestly
+
+Read [qa.md](references/qa.md) for creative, Previewer, motion, pack, and
+clean-room checks. Read [privacy.md](references/privacy.md) before export,
+publication, or any work involving personal references.
+
+Report `pass`, `warning`, and `fail` separately. Do not claim that a generated
+file is a finished pet, that a package is installed, or that a Candidate is
+approved without evidence for that exact outcome.
+
+Deliver the current Candidate and decision summary, a focused Previewer URL,
+validated pack or export paths when applicable, visible warnings, and the next
+smallest useful step.
+
+## Resource routing
+
+- Creative definition or resumed design:
+  [creative-workflow.md](references/creative-workflow.md)
+- Visual generation, editing, identity drift, or convergence:
+  [visual-iteration.md](references/visual-iteration.md)
+- Candidate, Keyframe, Take, Confirm, or review URL:
+  [review-workbench.md](references/review-workbench.md)
+- State meaning, fixed slots, timing, or motion:
+  [motion-and-state-contract.md](references/motion-and-state-contract.md)
+- Acceptance, repair, Previewer integrity, or release:
+  [qa.md](references/qa.md)
+- Personal inputs, export, or publishing:
+  [privacy.md](references/privacy.md)
+- Atlas, manifest, compiler, staging, or installation boundary:
+  [codex-pet-v2.md](references/codex-pet-v2.md)
