@@ -74,6 +74,43 @@ class SkillBundleTests(unittest.TestCase):
         self.assertIn("current project", metadata)
         self.assertIn("resume", metadata)
 
+    def test_new_inspiration_route_is_image_first_and_not_questionnaire_first(
+        self,
+    ) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        creative = (SKILL / "references" / "creative-workflow.md").read_text(
+            encoding="utf-8"
+        )
+        visual = (SKILL / "references" / "visual-iteration.md").read_text(
+            encoding="utf-8"
+        )
+        qa = (SKILL / "references" / "qa.md").read_text(encoding="utf-8")
+        combined = "\n".join((SKILL_MD.read_text(encoding="utf-8"), agents))
+        normalized = " ".join(combined.lower().split())
+
+        self.assertIn("Recommended: GPT‑5.6 Sol, Medium+", readme)
+        self.assertIn("multimodal alignment", normalized)
+        self.assertIn("first static character study", normalized)
+        self.assertIn("at most one genuinely blocking question", normalized)
+        self.assertIn(
+            "stop before the next dependent creative layer",
+            normalized,
+        )
+        self.assertIn("same creative round", creative)
+        self.assertIn("not a final\npresentation step", visual)
+        self.assertIn("neutral identity and default form", visual)
+        self.assertIn("Stop after each visual checkpoint", visual)
+        self.assertIn("before any full\n   questionnaire or pack", qa)
+        self.assertNotIn(
+            "Do not generate until the user approves the Gate 1 reading",
+            combined,
+        )
+        self.assertNotIn(
+            "wait for explicit alignment before image generation",
+            creative,
+        )
+
     def test_checked_in_path_schemas_reject_escape_paths(self) -> None:
         project_schema = json.loads(
             (SKILL / "schemas" / "project.schema.json").read_text(encoding="utf-8")

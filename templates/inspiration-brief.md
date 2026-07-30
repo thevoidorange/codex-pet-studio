@@ -45,7 +45,15 @@ Do not copy private paths into a public version of this document.
 
 ## Open questions
 
-List only questions that materially affect the next visual decision.
+List at most one question that truly blocks the next visual decision. Leave
+non-blocking unknowns as provisional assumptions to test in the image.
+
+## Next visual checkpoint
+
+- One uncertainty this image will test:
+- Smallest useful static study:
+- Provisional assumptions made visible:
+- What this study must not attempt yet:
 
 ## Phase decision
 

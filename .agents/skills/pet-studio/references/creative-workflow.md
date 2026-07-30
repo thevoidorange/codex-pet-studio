@@ -37,6 +37,16 @@ sketches, descriptions, and references as private by default. Populate only
 `design/inspiration-brief.md`; activate later templates only when their gate
 begins.
 
+Do not fill the entire inspiration template as a questionnaire before making
+anything visible or read its empty fields back to the user as questions. Fill
+only what is already known, label assumptions as provisional, ask at most one
+question that truly blocks a meaningful image, and move to the first static
+character study.
+
+Every visual checkpoint is a handoff. Stop after showing it so the user can
+correct or select before the next dependent layer. Combine exact adjacent
+layers only when the user explicitly asks.
+
 ## Decision records and approval
 
 End each gate with a compact record in the user's language:
@@ -84,9 +94,14 @@ Separate the source into:
 4. **Literal detail** — source-specific content that should not automatically
    be copied.
 
-Offer one concise working reading and wait for explicit alignment before image
-generation or Gate 2. Ask only when one ambiguity would materially change the
-direction.
+Offer one concise working reading, then use it to make the smallest useful
+static character study in the same creative round whenever enough direction is
+available. Do not require explicit approval of a prose-only reading before
+image generation. The study is exploratory evidence, not Gate 1 approval.
+
+Ask at most one question before that image, and only when the missing answer
+would materially change every viable direction. Otherwise expose the
+assumption through the visual so the user can correct something concrete.
 
 ## Gate 2: creative genome
 
@@ -101,6 +116,14 @@ Record:
 Each rule must exclude a plausible wrong result. Replace adjectives such as
 “friendly” with behavior such as “approaches, pauses, asks, and returns after
 being ignored.”
+
+The Creative Genome begins as a provisional interpretation and is refined from
+the user's response to the first static study. Do not insist on finishing or
+approving the entire genome before visual exploration.
+
+Do not present the full genome inventory as a user-facing confirmation exercise
+before the first visual. Derive only the minimum provisional rules needed for
+that study, then complete the record from visual feedback.
 
 ## Gate 3: default form
 
@@ -121,6 +144,15 @@ Judge in this order:
 Use three to six stable, neutrally labeled options. Record why rejected
 silhouettes failed. Do not polish surface detail to rescue weak structure.
 
+If Gate 1 already produced a promising static study, preserve it as the
+authoritative starting point and refine narrowly. Do not restart with unrelated
+directions merely because Gate 3 has begun.
+
+The first static study tests neutral identity and default form only: silhouette,
+proportion, face or focal placement, and broad material reading. Do not add
+relationship poses, emotions, mechanism ranges, state acting, or motion unless
+the user explicitly made one of those the first visual question.
+
 ## Gate 4: variable mechanics
 
 Populate the private `design/mechanism-board.md` that `init` scaffolded from
@@ -139,12 +171,25 @@ Use separate range, attachment, and occlusion boards only when one combined
 board cannot answer the current question. A mechanism is approved when the
 user understands what can change while the character remains itself.
 
+Mechanism rules require a visual mechanism board. A prose inventory alone is
+not sufficient evidence that anchors, ranges, occlusion, and material
+continuity read correctly.
+
 ## Gate 5: state choreography
 
 Define target-neutral Behavior Intents first. Then map them into every required
 state of the selected Delivery Target. For the current `codex-pet-v2` target,
 this means the nine standard runtime action states plus its direction mechanics.
 Start with state briefs and representative Keyframes, not atlas rows.
+
+Do not settle relationship stance, emotional baseline, or behavior rules only
+in prose. Show a small set of representative static Keyframes so the user can
+judge whether the character actually feels specific before motion production.
+
+Relationship or interaction posture and the core emotional baseline may be
+explored immediately after default form, before completing every mechanism
+range. Reconcile the approved acting with the shared mechanism model before
+state production.
 
 For each Behavior Intent, record what the character wants, notices, or does.
 For each mapped target state, record:
@@ -188,6 +233,9 @@ sampling plan that maps beats onto its fixed or configurable slots. For the
 current Codex target, review the first frame, accent, final settle, seam,
 runtime cadence, and minimum/representative/maximum target-size views. Approve
 the felt motion, not only enlarged Keyframes.
+
+Use a visual beat board or short Previewer sequence to align the motion
+language. A written timing plan is preparation, not motion approval.
 
 ## Gate 7: production readiness
 

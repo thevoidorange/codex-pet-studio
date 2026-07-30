@@ -14,6 +14,8 @@ look, compare, and point at exact frames.
 Beyond access to Codex, the recommended flow requires no terminal, separate Pet
 Studio backend or account, or separate OpenAI API key.
 
+**Recommended: GPT‑5.6 Sol, Medium+**
+
 ## Start in two steps
 
 ### 1. Give this repository to Codex
@@ -23,8 +25,10 @@ Start a blank Codex task and paste:
 > I want to use this GitHub project to design my own Codex pet:
 > https://github.com/thevoidorange/codex-pet-studio. I do not use Git or the
 > terminal. Please set up the project for me and guide me one creative decision
-> at a time. Start by asking for my inspiration, and do not generate the full
-> pet yet.
+> at a time. Start from my inspiration, reflect the essentials briefly, then
+> make the smallest useful static character study as soon as you have enough
+> direction. Use images rather than a long questionnaire to align each major
+> decision. Do not generate the full pet yet.
 
 Codex should prepare a private local workspace and explain any environment
 limitation instead of handing setup work back to a nontechnical user.
@@ -46,7 +50,8 @@ public repository, exports, and publication by default.
 
 Codex does not begin by producing a complete animation pack.
 
-First, it reflects back:
+It asks only what is needed to make the first useful visual decision. It then
+briefly reflects back:
 
 - what it can directly observe;
 - what it thinks matters about the character;
@@ -54,10 +59,18 @@ First, it reflects back:
 - which generic or unwanted directions to avoid;
 - the one decision worth making next.
 
-After you correct or approve that reading, Codex proposes a small visual
-comparison for the next question. The process moves from character essence to
-default form, variable mechanisms, state acting, motion, and finally
+As soon as there is enough direction, Codex makes a small static character
+study. The first image is exploratory: it gives you something concrete to
+correct and does not imply approval. Codex does not wait for a complete written
+brief, run a questionnaire to the end, or combine the whole character, behavior
+system, and animation pack into one all-in-one reveal.
+
+The process then uses focused images to align default form, relationship and
+emotional stance, variable mechanisms, state acting, and motion before
 production. Steps may combine or loop; approved work is not silently replaced.
+After each visual checkpoint, Codex stops for your correction or selection
+before moving into the next dependent layer unless you explicitly ask to
+combine them.
 
 ## How to work with Codex
 
@@ -113,6 +126,10 @@ The studio resolves six practical questions:
 Each round should show the smallest artifact that resolves the current
 uncertainty. Rejected options remain useful evidence. An approved Candidate is
 preserved before material changes continue.
+
+Multimodal alignment is the core method: a prose brief may frame the question,
+but it does not replace a visual checkpoint when the decision concerns form,
+mechanism, acting, emotion, or motion.
 
 ## What “finished” means
 

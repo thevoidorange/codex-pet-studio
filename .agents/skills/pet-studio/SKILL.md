@@ -26,6 +26,16 @@ and the Codex conversation as the editing surface.
   character.
 - For new designs, resolve the smallest useful visual question before broad
   state production. Do not use image volume as a substitute for a decision.
+- Make multimodal alignment the default creative loop. Once there is enough
+  inspiration for a meaningful direction, deliver the first static character
+  study in the next substantive response. Do not require approval of a
+  prose-only brief first.
+- Ask at most one genuinely blocking question before the first visual.
+  Otherwise make restrained, visible assumptions and let the user correct the
+  image.
+- Use focused visuals to align each later layer: default form, relationship or
+  emotional stance, variable mechanisms, state acting, and motion.
+  Never defer all imagery until an all-in-one multimodal delivery.
 - Use `$imagegen` for visual generation and editing. For the current
   `codex-pet-v2` target, use the installed `$hatch-pet` skill as the
   authoritative production compiler and validator.
@@ -41,7 +51,7 @@ supports `codex-pet-v2` only:
 
 | User situation | Route |
 | --- | --- |
-| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, populate only the inspiration brief, then follow the creative workflow. Do not generate until the user approves the Gate 1 reading. |
+| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, record a concise provisional reading, then produce the smallest useful static character study as soon as there is enough direction. Do not wait for a complete questionnaire or prose-only Gate 1 approval, and do not generate a full pet. |
 | Existing approved character or partial project | State what is locked and open, then resume at the first unresolved creative decision. Do not restart ideation. |
 | Feedback on one Previewer Keyframe or Take | Resolve the exact review context and use the single-frame Take workflow. Do not reopen unrelated gates. |
 | Existing pack maintenance | Validate provenance and scope, preserve passing rows, and repair only the affected production unit. Return to a creative gate only when identity, state meaning, or motion language changes. |
@@ -56,13 +66,21 @@ For each creative round:
 
 1. State the one uncertainty being resolved.
 2. Name what is locked, what may change, and the relevant anti-goals.
-3. Produce the smallest comparison that can answer the question.
+3. Produce the smallest visual comparison that can answer the question. If
+   form, mechanism, acting, emotion, or motion is being decided, prose alone is
+   not a completed round.
 4. Review at realistic desktop size when readability matters.
 5. Record the selection, rejection reasons, remaining open variables, and next
    dependent decision.
 
 Do not treat “better,” “interesting,” a Previewer click, or silence as approval.
 The user may combine adjacent gates, but unresolved dependencies remain open.
+The first exploratory image is a working hypothesis, not an approved Identity
+Lock.
+
+After delivering a visual checkpoint, stop before the next dependent creative
+layer and ask for correction or selection. Continue only after explicit review,
+unless the user explicitly asked to combine those exact adjacent layers.
 
 Before generating or editing visuals, read
 [visual-iteration.md](references/visual-iteration.md). Before planning states

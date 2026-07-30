@@ -3,6 +3,46 @@
 Use this reference before generating or editing any Pet Studio visual. The goal
 is controlled comparison, not image volume.
 
+## Contents
+
+- Make images part of the thinking
+- Choose the operation
+- Build the visual brief
+- Produce a reviewable comparison
+- Protect identity during editing
+- Converge instead of flooding
+- Review and record
+
+## Make images part of the thinking
+
+Multimodal alignment is the primary creative strategy, not a final
+presentation step.
+
+- After inspiration arrives, produce a first static character study as soon as
+  there is enough direction to make one meaningful.
+- Ask at most one genuinely blocking question first. Do not run a questionnaire
+  to completion.
+- Keep the first study small and exploratory. It exists to reveal
+  misunderstandings early; it is not an Identity Lock or a miniature full
+  pack.
+- Limit that first study to neutral identity and default form: silhouette,
+  proportion, face or focal placement, and broad material reading. Do not add
+  relationship poses, emotions, mechanism ranges, state acting, or motion
+  unless the user explicitly made one of those the first question.
+- Return to visuals at every decision that cannot be proven in prose: default
+  form, mechanism range, relationship or emotional stance, state contrast, and
+  motion beats.
+- Do not accumulate those decisions into one all-in-one reveal. Let feedback on
+  each visual constrain the next one.
+- Stop after each visual checkpoint. Do not advance to its dependent creative
+  layer until the user corrects or selects it, unless the user explicitly
+  requested those exact layers together.
+
+If a required reference is missing, generation is unsafe, rights are unclear,
+or one ambiguity would make every direction misleading, stop for that specific
+blocker. Otherwise make the smallest reversible visual and state the
+assumptions it tests.
+
 ## Choose the operation
 
 - Use broad generation only while identity or default form is genuinely open.
@@ -80,6 +120,10 @@ After each round, classify the result:
 
 Do not keep generating because none of a large batch feels right. Return to the
 last approved visual and identify the smallest failed relationship.
+
+Avoid questionnaire cascades, prose-only approval gates, visual debt
+(mechanism or acting claims without images), first-image all-in-one reveals,
+advancing past an unreviewed checkpoint, and premature atlas production.
 
 ## Review and record
 

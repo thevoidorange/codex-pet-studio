@@ -2,9 +2,8 @@
 
 ## Mission and workflow authority
 
-Help the user turn personal inspiration into a distinctive, validated Codex pet
-through focused review and reversible decisions. This is a durable co-design
-workspace, not a one-shot generator.
+Turn personal inspiration into a distinctive, validated Codex pet through
+focused review and reversible decisions, not one-shot generation.
 
 Keep three authority scopes separate:
 
@@ -16,8 +15,7 @@ Keep three authority scopes separate:
   When it disagrees with the checked-in target, stop and reconcile the
   contract intentionally instead of silently choosing one.
 
-Read [the product model](docs/product-model.md) for roles and target boundaries.
-Codex Pet v2 is the only supported Delivery Target.
+Read [the product model](docs/product-model.md) for roles and target boundaries. Codex Pet v2 is the only supported Delivery Target.
 
 ## Re-enter before acting
 
@@ -28,9 +26,10 @@ Do not mistake a new Codex task for a new project. Before changing files:
 3. summarize `Locked`, `Open`, `Current Focus`, and `Next`;
 4. resume by the shortest truthful route.
 
-For a true cold start, run idempotent initialization and readiness checks,
-classify inspiration as private, populate only the inspiration brief, and stop
-for alignment before visual generation.
+For a true cold start, initialize, check readiness, classify inspiration as
+private, briefly reflect a working interpretation, and move directly to the
+smallest useful static character study. Ask at most one blocking question; do
+not require prose-only approval or a completed questionnaire first.
 
 ## Route by user intent
 
@@ -44,9 +43,17 @@ Use `$pet-studio` and its references to route work:
   without restarting ideation;
 - repository maintenance: work directly without manufacturing creative gates.
 
-Creative gates apply only to new or reopened creative decisions. Adjacent
-gates may be combined when the user wants, but unresolved dependencies remain
-open.
+Creative gates apply only to new or reopened decisions. They may combine, but
+unresolved dependencies remain open.
+
+## Image-first alignment
+
+Multimodal alignment is the core creative method. Use a focused visual
+checkpoint for the first character reading, default form, relationship or
+emotional stance, mechanisms, state acting, and motion. Do not defer these
+questions to an all-in-one reveal. Exploratory visuals are not approval. After
+each visual checkpoint, stop before the next dependent layer unless the user
+explicitly asked to combine those exact layers.
 
 ## Review and approval boundary
 
@@ -106,8 +113,7 @@ regression.
 Report `generated`, `reviewed`, `approved`, `validated`, `packaged`,
 `exported`, `installed`, and `published` as distinct outcomes. Claim only the
 statuses verified for the exact artifact.
-
-Installation and publication always require explicit user requests.
+Never install or publish without an explicit user request.
 
 ## Standard project commands
 

@@ -191,12 +191,21 @@ review or explicit user inspection before packaging.
 
 Before releasing a material Skill change, run fresh-context tests for:
 
-1. **New inspiration** — begins with private intake and interpretation, creates
-   no full pack, and waits for Gate 1 approval.
+1. **New inspiration** — begins with private intake and a concise provisional
+   interpretation, asks no more than one genuinely blocking question, and
+   produces a bounded first static character study before any full
+   questionnaire or pack. The study tests neutral form only, remains
+   unapproved, and the agent stops for visual review.
 2. **Focused Take request** — resolves a valid review URL, changes one frame,
    preserves neighbors, and returns a focused URL without approval or install.
 3. **Existing pack, package only** — validates and exports the existing pack,
    preserves private inputs, and performs no installation.
+4. **Post-selection acting** — after a default form is selected, produces one
+   focused relationship, emotional, or behavior Keyframe comparison and stops
+   before broader mechanism, state, or motion production.
+5. **True blocker** — when a required source is missing or every visual
+   direction would be misleading, asks one specific question instead of
+   fabricating evidence or starting a questionnaire cascade.
 
 Pass only when the agent discovers the project Skill, chooses the correct route,
 uses deterministic tools for fragile operations, and reports actual outcomes
