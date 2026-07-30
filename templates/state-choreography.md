@@ -1,58 +1,85 @@
 # State Choreography
 
-## State set
+## Behavior Intent library
 
-Use stable English IDs. Add localized Previewer labels separately.
+Define what the character wants, notices, or does before assigning runtime
+state IDs.
 
-| State ID | User-facing meaning | Behavioral intention | Screen region | Energy |
-| --- | --- | --- | --- | --- |
-| `idle` |  |  |  |  |
-
-## Differentiation matrix
-
-| State ID | Character position | Face position | Active mechanisms | Silhouette change | Fixed-slot rhythm strategy |
+| Behavior Intent ID | User-facing meaning | Intention | Focal region | Energy | Distinctive acting |
 | --- | --- | --- | --- | --- | --- |
-| `idle` |  |  |  |  |  |
+|  |  |  |  |  |  |
 
-If two rows are nearly identical, explain why the distinction will still read at desktop scale or redesign one of them.
+## Behavior Intent card
 
-## State card
-
-### `state-id`
+### `intent-id`
 
 - Intention:
-- Trigger context:
-- Entry from:
-- Exit to:
-- Anticipation:
+- Context:
+- Starting read:
+- Notice or anticipation:
 - Main action:
-- Settle:
-- Loop:
-- Key pose A:
-- Key pose B:
-- Key pose C:
-- Position and facing:
-- Eye behavior:
-- Mechanisms used:
-- What makes this state unique:
+- Accent:
+- Follow-through:
+- Settle, hold, return, or continue:
+- Active mechanisms:
+- What makes this intent unique:
 - What must remain quiet:
-- Required fixed frame count:
-- Slot-by-slot beat map:
-- Visual hold / near-repeat plan:
-- Final-slot settle:
 
-Duplicate the card for each state under review.
+Duplicate this card for each approved Behavior Intent.
+
+## Delivery Target mapping
+
+- Delivery Target ID:
+- Contract source:
+- Mapping checked on:
+
+| Target state ID | Behavior Intent | Target trigger or lifecycle | Required slots | Target mechanics |
+| --- | --- | --- | ---: | --- |
+|  |  |  |  |  |
+
+Every required target state must have a deliberate semantic mapping. Do not
+pretend a target runtime ID is a universal behavior category.
+
+## Target differentiation matrix
+
+| Target state ID | Character position | Focal position | Active mechanisms | Silhouette change | Target-sampled rhythm |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
+
+If two states remain nearly identical, explain why the target still needs both
+and how the distinction reads at runtime size, or redesign one mapping.
+
+## Target state card
+
+### `target-state-id`
+
+- Mapped Behavior Intent:
+- Target trigger context:
+- Entry from:
+- Exit or return to:
+- Position and facing:
+- Mechanisms used:
+- Required slot count:
+- Slot-by-slot beat map:
+- Visual hold or near-repeat plan:
+- Accent slot:
+- Final-slot settle or seam:
+- What makes this target state unique:
+
+Duplicate this card for each required target state under review.
 
 ## Transition review
 
-- Abrupt transitions that require a bridge:
+- Abrupt transitions that require another target sample:
 - States that may share an entry:
 - States that must not share a loop:
-- Left/right behavior:
+- Directional behavior:
+- Target lifecycle concerns:
 
 ## Phase decision
 
-- Status: `draft | review | approved`
-- Approved state IDs:
-- States requiring another key-pose review:
-- Decision notes:
+- Status: `open | candidate | approved | superseded | blocked`
+- Approved Behavior Intents:
+- Approved target mappings:
+- Mappings requiring another Keyframe review:
+- Decision evidence:

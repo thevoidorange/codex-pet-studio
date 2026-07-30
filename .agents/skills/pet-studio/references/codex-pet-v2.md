@@ -1,9 +1,168 @@
-# Codex pet v2 production boundary
+# Codex Pet v2 Delivery Target
 
-This is a planning boundary, not a replacement for the installed `$hatch-pet`
-skill. Re-read the installed skill before every production or repair run.
+Delivery Target ID: `codex-pet-v2`
 
-## Project staging package
+## Contents
+
+- Authority and provenance
+- Runtime sampling contract
+- Runtime lifecycle and Previewer modes
+- Behavior Intent mapping
+- Fixed-slot acting strategy
+- Look directions
+- Staging package
+- Responsibility boundary
+- Preserve approved visuals
+- Target QA
+- Package, export, install, and publish
+
+## Authority and provenance
+
+This file is a dated planning snapshot, not a replacement for the installed
+`$hatch-pet` skill. Re-read the installed skill before every production or
+repair run. When its newer technical instructions differ, follow them for the
+current task and report the discrepancy.
+
+The runtime snapshot below was verified against Codex Desktop `26.721.41059`
+(build `5848`) on 2026-07-28. Treat the version and date as provenance, not a
+promise that later clients remain identical.
+
+Read [delivery-targets.md](delivery-targets.md) for the Studio Core / Delivery
+Target boundary and
+[motion-and-state-contract.md](motion-and-state-contract.md)
+for target-neutral Motion Language.
+
+## Runtime sampling contract
+
+The v2 pack uses 192×208 cells in an 8-column × 11-row atlas. The final atlas
+is 1536×2288.
+
+| Row | Stable state ID | Used cells | Current client base durations |
+| ---: | --- | ---: | --- |
+| 0 | `idle` | 6 | 280, 110, 110, 140, 140, 320 ms |
+| 1 | `running-right` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 2 | `running-left` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
+| 3 | `waving` | 4 | 140, 140, 140, 280 ms |
+| 4 | `jumping` | 5 | 140, 140, 140, 140, 280 ms |
+| 5 | `failed` | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
+| 6 | `waiting` | 6 | 150, 150, 150, 150, 150, 260 ms |
+| 7 | `running` | 6 | 120, 120, 120, 120, 120, 220 ms |
+| 8 | `review` | 6 | 150, 150, 150, 150, 150, 280 ms |
+| 9 | `look-directions-a` | 8 | 000° through 157.5° clockwise |
+| 10 | `look-directions-b` | 8 | 180° through 337.5° clockwise |
+
+The package carries no per-frame duration, action-loop, Idle-multiplier, or
+display-size field. Display size is a client setting from 80 to 224 px.
+
+Do not add controls or project settings for values that the package cannot
+carry. Motion easing comes from the differences drawn into the immutable
+slots.
+
+## Runtime lifecycle and Previewer modes
+
+For the current client:
+
+- each non-Idle action plays three complete loops, then returns to Idle;
+- Idle plays with each row-0 base duration multiplied by six.
+
+The Previewer exposes two readings of the same source atlas and cadence:
+
+- **Runtime Simulation** plays the current action lifecycle, then returns to
+  Idle at the client slowdown;
+- **Endless Loop** repeats the selected row indefinitely with the same
+  per-frame durations.
+
+Use Runtime Simulation to review lifecycle and return behavior. Use Endless
+Loop to inspect physical continuity and the seam. Neither mode is an exported
+GIF or a timing editor.
+
+## Behavior Intent mapping
+
+The stable IDs below belong to this Delivery Target. Record the project's
+target-neutral Behavior Intent separately.
+
+### `idle`
+
+Map to quiet presence and the lowest visual noise. Because the client slows the
+row by six, keep most drawings close. Let one restrained breath, blink, fold,
+or curiosity beat occupy the shorter middle slots. Make the final slot the
+cleanest rest and seam. The first slot must work as a reduced-motion still.
+
+### `running-right` and `running-left`
+
+Map to screen-directional locomotion. Use the repeated transition slots for a
+clear traveling mass cycle and the longer final slot to plant weight. Preserve
+the face and identity while approved cloth, appendages, or props follow by a
+logical beat. Mirror only when asymmetric identity and handedness remain
+correct.
+
+### `waving`
+
+Map to greeting or a polite request for attention: notice, extend,
+acknowledge, return. Four slots leave no room for filler. The gesture does not
+need to be a literal hand wave when another approved mechanism is more
+characteristic.
+
+### `jumping`
+
+Map the five slots to anticipation, launch, peak, descent, and settled landing.
+The silhouette must visibly unload or leave its baseline. Do not make the
+motion generically springy when the approved material suggests another
+response.
+
+### `failed`
+
+Map to recognition and deflation rather than eight equal shakes. Hold the read
+through close initial drawings, concentrate recoil or collapse in the middle,
+and use the final slot for a dignified settled disappointment.
+
+### `waiting`
+
+Map to expectant attention toward the user. Use a restrained
+ask/check/hesitate sequence and end in patient stillness. Differentiate it from
+Idle through intention, placement, silhouette, or repeated checking, not only
+larger breathing.
+
+### `running`
+
+Map to active processing or task work, not directional locomotion. A compact
+purposeful cycle may show curiosity, inspection, manipulation, pacing, or
+internal mechanism activity. The final slot confirms or resets the task beat.
+
+### `review`
+
+Map to focused inspection of completed output. Move attention through distinct
+checkpoints, then use the final slot for a conclusion or measured settle.
+
+## Fixed-slot acting strategy
+
+- **Visual hold** — keep the main mass and focal feature nearly unchanged
+  across adjacent slots; move only a blink, edge settle, or micro-shift.
+- **Short transition** — make one clear directional difference between
+  neighboring slots instead of distributing weak movement everywhere.
+- **Anticipation** — compress or counter-move before the accent while keeping
+  the anchor and center of mass legible.
+- **Accent** — reserve the largest silhouette or deformation difference for
+  the state-defining pose.
+- **Follow-through** — let approved cloth, appendages, or props lag one logical
+  slot behind the lead mass.
+- **Final settle** — use the longer final slot for a stable landing,
+  acknowledgment, conclusion, or clean seam.
+
+Repeated or near-repeated drawings are valid and often necessary. Review the
+first slot, accent, final settle, seam, and complete current cadence at 80, 144,
+and 224 px.
+
+## Look directions
+
+Use one cohesive clockwise 16-pose loop. Direction may be expressed through
+eyes, face, head, body surface, fold, appendage, or another approved aiming
+feature. Cardinals must be unmistakable and adjacent directions coherent.
+
+Do not rotate the entire sprite merely to fake gaze unless whole-object
+rotation is part of the approved mechanism system.
+
+## Staging package
 
 Stage the validated result under `build/pet`:
 
@@ -25,29 +184,23 @@ Minimum manifest:
 }
 ```
 
-The v2 atlas uses 8 columns × 11 rows of 192×208 cells, for a final
-1536×2288 PNG or WebP. Used cells contain one complete readable sprite; unused
-cells are fully transparent.
-
-Read
-[motion-and-state-contract.md](motion-and-state-contract.md)
-for the dated row, frame-count, duration, and look-direction planning snapshot.
-The client owns those values; the package cannot customize them.
+Used cells contain one complete readable sprite. Unused cells are fully
+transparent.
 
 ## Responsibility boundary
 
 Pet Studio owns:
 
 - inspiration and privacy intake;
-- creative decisions and durable approvals;
-- identity, mechanism, state, and motion locks;
+- target-neutral creative decisions and durable approvals;
+- Identity Lock, mechanism, Behavior Intent, and Motion Language;
 - Candidate and Take review;
-- production grounding and explicit scope;
+- Codex Pet v2 state mapping and production grounding;
 - project staging, public export, and installation authorization.
 
 `$hatch-pet` owns:
 
-- production visual jobs and supported repair units;
+- supported production visual jobs and repair units;
 - row geometry and deterministic atlas assembly;
 - look-direction registration and semantic QA;
 - contact sheets and motion previews;
@@ -73,6 +226,24 @@ bit-identical preservation:
 
 Never silently replace an approved visual with a similar regeneration.
 
+## Target QA
+
+Require:
+
+- correct manifest and atlas dimensions;
+- correct row, used-cell, and direction mapping;
+- non-empty used cells and transparent unused cells;
+- clean transparency with no clipping or overlap;
+- exact fixed cadence in Previewer review;
+- stable identity at 80, 144, and 224 px;
+- readable state contrast and physically caused follow-through;
+- no visible loop reset or return-to-Idle pop;
+- packaged assets matching approved Previewer evidence;
+- passing project validation and privacy checks.
+
+Use `$hatch-pet` for authoritative row, direction, atlas, chroma, and visual
+QA.
+
 ## Package, export, install, and publish
 
 Treat these as separate operations:
@@ -84,6 +255,6 @@ Treat these as separate operations:
 5. **Publish** — send an authorized artifact to an external destination.
 
 Do not let production write to a live Codex pets directory when the user asked
-only to validate, package, or export. If the installed compiler instructions
+only to validate, package, or export. If installed compiler instructions
 include a live copy step, stop before it and stage the validated files in the
 project. Run installation only after an explicit conversational request.

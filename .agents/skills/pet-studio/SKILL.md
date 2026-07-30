@@ -21,17 +21,23 @@ and the Codex conversation as the editing surface.
   packaging, installation, and publication. One never implies another.
 - Preserve approved work before exploration. Add a Candidate or Take instead
   of silently overwriting the only accepted result.
+- Keep Studio Core creative truth separate from Delivery Target sampling.
+  Platform constraints may shape runtime frames without redefining the approved
+  character.
 - For new designs, resolve the smallest useful visual question before broad
   state production. Do not use image volume as a substitute for a decision.
-- Use `$imagegen` for visual generation and editing. Use the installed
-  `$hatch-pet` skill as the authoritative production compiler and validator.
+- Use `$imagegen` for visual generation and editing. For the current
+  `codex-pet-v2` target, use the installed `$hatch-pet` skill as the
+  authoritative production compiler and validator.
 - Never install or publish unless the user explicitly requests that action.
 
 ## Re-enter and route
 
-Before acting, inspect `pet-studio.json`, current `design/` decisions, available
-Candidates, `build/`, unresolved QA, and any valid Previewer URL in task
-context. Preserve current work and resume through the shortest truthful route:
+Before acting, inspect `pet-studio.json`, the selected Delivery Target, current
+`design/` decisions, available Candidates, `build/`, unresolved QA, and any
+valid Previewer URL in task context. Preserve current work and resume through
+the shortest truthful route. If no target is recorded, the current repository
+supports `codex-pet-v2` only:
 
 | User situation | Route |
 | --- | --- |
@@ -60,14 +66,16 @@ The user may combine adjacent gates, but unresolved dependencies remain open.
 
 Before generating or editing visuals, read
 [visual-iteration.md](references/visual-iteration.md). Before planning states
-or animation rows, read
+or animation rows, read [delivery-targets.md](references/delivery-targets.md)
+and
 [motion-and-state-contract.md](references/motion-and-state-contract.md).
 
 ## Keep the domain model explicit
 
 - **Candidate** — one coherent, reviewable proposal across the relevant
   character and state set. Use sortable IDs such as `v001`.
-- **Keyframe** — one fixed runtime slot inside one state row.
+- **Keyframe** — one named visual time sample. In the current target's
+  Candidate, it maps to one fixed runtime slot inside one state row.
 - **Take** — one additive visual alternative for one exact Candidate, state,
   and Keyframe.
 - **Audition** — temporary Take viewing. It changes no project decision.
@@ -115,12 +123,17 @@ Read [review-workbench.md](references/review-workbench.md) before executing this
 route. A continuity concern creates another Take for the requested frame unless
 the user explicitly broadens the scope.
 
-## Design inside the client contract
+## Design inside the selected Delivery Target
 
-The pet package cannot customize frame durations, loop counts, Idle slowdown,
-or display size. Treat the installed `$hatch-pet` instructions as
-authoritative and the checked-in motion reference as a dated planning
-snapshot.
+Define Behavior Intents and Motion Language in target-neutral terms, then map
+them into the selected target's states, mechanics, frame slots, cadence, and
+lifecycle. Preserve canonical identity and motion truth separately from the
+sampled target build.
+
+For the current `codex-pet-v2` target, the pet package cannot customize frame
+durations, loop counts, Idle slowdown, or display size. Treat the installed
+`$hatch-pet` instructions as authoritative and the checked-in Codex target
+reference as a dated planning snapshot.
 
 Create state difference through intention, focal location, silhouette,
 mechanism use, weight, and fixed-slot pose spacing. Subtle motion is valid;
@@ -138,9 +151,13 @@ Neither mode is an exported GIF or a timing editor. Review at 80, 144, and
 
 ## Produce, maintain, and release
 
+The production path below is for the currently supported `codex-pet-v2`
+Delivery Target.
+
 For a new design, hand off to `$hatch-pet` only after the default form,
 mechanisms, state intentions, representative Keyframes, fixed-slot motion plan,
-selected Candidate, and privacy scope are approved.
+selected Candidate, Delivery Target, behavior-to-runtime mapping, and privacy
+scope are approved.
 
 For existing-pack maintenance, validate first and use only the affected row or
 production unit. Do not require unrelated creative gates when identity and
@@ -150,9 +167,10 @@ Pass production:
 
 - the canonical identity reference and anti-goals;
 - mechanism limits and material rules;
-- state choreography and motion plan;
+- Behavior Intents, target state mapping, and Motion Language;
+- target-specific slot choreography and production plan;
 - every explicitly approved Keyframe or Take as a named grounding asset;
-- the exact Candidate ID and privacy classification.
+- the exact Candidate ID, Delivery Target ID, and privacy classification.
 
 Stage validated output under `build/pet`. If the installed `$hatch-pet`
 workflow would write directly to a live Codex pets directory, stop before that
@@ -186,11 +204,14 @@ smallest useful step.
   [visual-iteration.md](references/visual-iteration.md)
 - Candidate, Keyframe, Take, Confirm, or review URL:
   [review-workbench.md](references/review-workbench.md)
-- State meaning, fixed slots, timing, or motion:
+- Behavior Intent, Motion Language, or target-neutral precision:
   [motion-and-state-contract.md](references/motion-and-state-contract.md)
+- Studio Core, target selection, behavior mapping, or future retargeting:
+  [delivery-targets.md](references/delivery-targets.md)
 - Acceptance, repair, Previewer integrity, or release:
   [qa.md](references/qa.md)
 - Personal inputs, export, or publishing:
   [privacy.md](references/privacy.md)
-- Atlas, manifest, compiler, staging, or installation boundary:
+- Codex fixed slots, timing, lifecycle, display sizes, atlas, compiler, or
+  installation:
   [codex-pet-v2.md](references/codex-pet-v2.md)

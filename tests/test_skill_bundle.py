@@ -91,6 +91,54 @@ class SkillBundleTests(unittest.TestCase):
         self.assertIsNone(re.fullmatch(sprite_pattern, "../spritesheet.webp"))
         self.assertIsNotNone(re.fullmatch(sprite_pattern, "spritesheet.webp"))
 
+    def test_product_model_and_agent_router_share_one_target_boundary(self) -> None:
+        product_model = (ROOT / "docs" / "product-model.md").read_text(
+            encoding="utf-8"
+        )
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        project = json.loads((ROOT / "pet-studio.json").read_text(encoding="utf-8"))
+
+        for content in (product_model, agents, readme):
+            normalized = " ".join(content.split())
+            self.assertIn("Codex Pet v2", normalized)
+            self.assertIn("only supported Delivery Target", normalized)
+        self.assertIn("Studio Core", product_model)
+        self.assertIn("Behavior Driver", product_model)
+        self.assertIn("docs/**", project["export"]["include"])
+        self.assertLessEqual(len(agents.splitlines()), 130)
+
+    def test_motion_language_is_separate_from_codex_target_sampling(self) -> None:
+        skill = SKILL_MD.read_text(encoding="utf-8")
+        targets = (SKILL / "references" / "delivery-targets.md").read_text(
+            encoding="utf-8"
+        )
+        motion = (SKILL / "references" / "motion-and-state-contract.md").read_text(
+            encoding="utf-8"
+        )
+        codex_target = (SKILL / "references" / "codex-pet-v2.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("delivery-targets.md", skill)
+        self.assertIn("Studio Core", targets)
+        self.assertIn("Motion Language is Studio Core truth", motion)
+        self.assertNotIn("1536×2288", motion)
+        self.assertNotIn("280, 110, 110", motion)
+        self.assertIn("1536×2288", codex_target)
+        self.assertIn("280, 110, 110", codex_target)
+
+    def test_public_templates_use_candidate_and_target_language(self) -> None:
+        templates = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((ROOT / "templates").glob("*.md"))
+        )
+        self.assertNotIn("Status: `draft | review | approved`", templates)
+        self.assertNotIn("Version ID:", templates)
+        self.assertNotIn("Package target:", templates)
+        self.assertIn("Delivery Target", templates)
+        self.assertIn("Behavior Intent", templates)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,10 +3,10 @@
 ## Build under review
 
 - Project:
-- Version:
+- Candidate:
 - Date:
 - Reviewer:
-- Package target:
+- Delivery Target:
 
 ## Character QA
 
@@ -24,12 +24,12 @@ Notes:
 - [ ] Each state has a distinct behavioral intention.
 - [ ] Entry, action, settle, and loop are physically continuous.
 - [ ] Loop seams do not pop.
-- [ ] Pose spacing and material deformation read correctly at the current fixed client cadence.
-- [ ] Long holds, short transitions, and final settles use the required slots intentionally.
+- [ ] Pose spacing and material deformation read correctly at the selected target cadence.
+- [ ] Holds, transitions, accents, and settles use the target samples intentionally.
 - [ ] Secondary motion follows rather than leads accidentally.
-- [ ] Left/right movement preserves approved details.
+- [ ] Directional or asymmetric motion preserves approved details.
 - [ ] Playback is not uniformly bouncy or mechanically eased.
-- [ ] Motion remains readable at 80, 144, and 224 px.
+- [ ] Motion remains readable at the target's minimum, representative, and maximum sizes.
 
 Notes:
 
@@ -38,10 +38,10 @@ Notes:
 - [ ] Atlas and cell dimensions are correct.
 - [ ] Transparency is clean.
 - [ ] No frame is clipped.
-- [ ] State rows are mapped correctly.
-- [ ] Direction cells are mapped correctly.
-- [ ] Used-cell counts match the current client contract.
-- [ ] The package contains no unsupported custom timing fields.
+- [ ] Runtime states and sampling units are mapped correctly.
+- [ ] Direction or input mechanics match the target contract.
+- [ ] Required sample counts match the target contract.
+- [ ] The package contains no unsupported fields.
 - [ ] Contact sheets and animated previews match packaged assets.
 - [ ] Installation was verified.
 
@@ -49,7 +49,7 @@ Notes:
 
 ## Regression review
 
-| Approved detail | Reference version | Current result | Pass |
+| Approved detail | Reference Candidate or Take | Current result | Pass |
 | --- | --- | --- | --- |
 |  |  |  |  |
 

@@ -109,7 +109,8 @@ question.
 
 Judge in this order:
 
-1. silhouette at 80–224 px;
+1. silhouette at the selected target's minimum, representative, and maximum
+   display sizes;
 2. mass, center of gravity, and visual weight;
 3. relationship between primary forms;
 4. focal or face placement;
@@ -140,12 +141,15 @@ user understands what can change while the character remains itself.
 
 ## Gate 5: state choreography
 
-Design the nine standard runtime states as different intentions, not cosmetic
-variants. Start with state briefs and representative Keyframes, not atlas rows.
+Define target-neutral Behavior Intents first. Then map them into every required
+state of the selected Delivery Target. For the current `codex-pet-v2` target,
+this means the nine standard runtime action states plus its direction mechanics.
+Start with state briefs and representative Keyframes, not atlas rows.
 
-For each state record:
+For each Behavior Intent, record what the character wants, notices, or does.
+For each mapped target state, record:
 
-- purpose and trigger context;
+- mapped Behavior Intent and target trigger context;
 - starting composition and focal location;
 - active mechanisms and silhouette;
 - anticipation, action, accent, settle, and seam;
@@ -159,14 +163,18 @@ Evaluate state contrast on four axes:
 | Intention | Does this state want or do something different? |
 | Location | Does the focal feature occupy a meaningfully different region? |
 | Silhouette | Is it distinguishable without interior detail? |
-| Rhythm | Does fixed-slot pose spacing create a different motion character? |
+| Rhythm | Does motion remain distinct under the target's sampling constraints? |
 
 Subtle motion is acceptable. Reusing nearly identical composition across most
 states is not.
 
+Keep the Behavior Intent record reusable. A future Delivery Target may use
+different state IDs, frame slots, or triggers without changing the approved
+acting idea.
+
 ## Gate 6: motion language
 
-Define once:
+Define the target-neutral Motion Language once:
 
 - lead element and follow hierarchy;
 - perceived material and pose-spacing character;
@@ -175,10 +183,11 @@ Define once:
 - settle order and loop philosophy;
 - reduced-motion first-frame behavior.
 
-Map state beats onto the fixed client slots only after the state intentions
-work as stills. Review the first frame, accent, final settle, seam, normal
-cadence, and 80/144/224 px views. Approve the felt motion, not only enlarged
-Keyframes.
+Only after the state intentions work as stills, create a separate target
+sampling plan that maps beats onto its fixed or configurable slots. For the
+current Codex target, review the first frame, accent, final settle, seam,
+runtime cadence, and 80/144/224 px views. Approve the felt motion, not only
+enlarged Keyframes.
 
 ## Gate 7: production readiness
 
@@ -188,7 +197,8 @@ Hand off:
 - creative genome and anti-goals;
 - mechanism inventory;
 - state choreography;
-- motion bible;
+- target-neutral Motion Language;
+- selected Delivery Target and target sampling plan;
 - explicitly approved Keyframes and Takes;
 - selected Candidate ID;
 - privacy classification.
@@ -203,6 +213,7 @@ to the relevant creative decision.
 Require:
 
 - the intended Candidate passed all applicable QA;
+- the selected Delivery Target passed its runtime and package QA;
 - export contents are allowlisted;
 - privacy, rights, and attribution are complete;
 - package, installation, and publication targets are distinguished;
@@ -218,7 +229,8 @@ claims.
   variable mechanics.
 - Existing rows, package only: validate contract and privacy, then stage and
   export without reopening creative gates.
-- Repair one production state: preserve passing rows, diagnose the affected
-  row, and repair that row.
+- Repair one production state: preserve passing output and repair the smallest
+  unit supported by the selected target. For Codex Pet v2, this is usually one
+  row.
 - Review one Keyframe: use the Take workflow instead of this creative sequence.
 - Change identity: create a new Candidate and return to default-form lock.

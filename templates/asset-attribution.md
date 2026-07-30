@@ -5,7 +5,7 @@ Complete this record before publishing a pet or public example.
 ## Project
 
 - Project name:
-- Version:
+- Candidate or release:
 - Publisher:
 - Publication destination:
 

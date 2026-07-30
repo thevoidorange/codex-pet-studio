@@ -3,6 +3,11 @@
 Use this reference for Previewer Candidate, state, Keyframe, Take, URL, and
 single-frame revision work.
 
+The current Take registration and fixed-frame inspection path is the
+`codex-pet-v2` review adapter. Future targets require their own validated frame
+geometry and review mapping before this workflow can write target-specific
+Takes.
+
 ## Contents
 
 - Product boundary

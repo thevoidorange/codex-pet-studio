@@ -16,11 +16,12 @@ Judge these independently:
 
 1. **Identity** — Is this unmistakably the approved character?
 2. **Semantics** — Does every state communicate its intended behavior?
-3. **Motion** — Does fixed-slot playback have coherent weight and continuity?
+3. **Motion** — Does target-sampled playback have coherent weight and
+   continuity?
 4. **Review integrity** — Does Previewer context identify the exact work under
    discussion without mutating it?
-5. **Technical validity** — Does the atlas and manifest match the current Codex
-   v2 contract?
+5. **Target validity** — Does the sampled output, atlas, and manifest match the
+   selected Delivery Target contract?
 6. **Privacy and rights** — Is every exported artifact safe and authorized?
 
 A pass in one category never compensates for a failure in another.
@@ -72,7 +73,7 @@ Prevention:
 
 - name the lead element and material response;
 - allocate stillness deliberately;
-- use fixed-slot pose spacing as easing;
+- use target sampling and pose spacing as perceived easing;
 - reserve the strongest deformation for the state accent.
 
 ### Human-like or broken material logic
@@ -92,7 +93,7 @@ Prevention:
 
 ## Review Workbench QA
 
-For every external Previewer config:
+For every external Previewer config in the current `codex-pet-v2` adapter:
 
 - resolve the real config path inside the current project;
 - reject remote, traversal, symlink-escaped, or fallback-only write targets;
@@ -125,16 +126,16 @@ For Previewer regressions:
 - pet assets retain their original color while the interface may remain
   grayscale.
 
-## Motion and state QA
+## Motion and target-state QA
 
 1. Inspect representative Keyframes without labels.
 2. Inspect the contact sheet.
-3. Inspect every state at current fixed client cadence.
+3. Inspect every state at the selected target's real cadence.
 4. Inspect first frame, accent, final settle, and loop seam.
 5. Compare state intention, focal location, silhouette, and rhythm.
-6. Inspect left/right cadence and approved asymmetry.
-7. Inspect all 16 gaze cells as one ordered loop.
-8. Review at 80, 144, and 224 px.
+6. Inspect every directional or asymmetric mechanic required by the target.
+7. Inspect target look or input samples as one coherent ordered system.
+8. Review at the target's minimum, representative, and maximum display sizes.
 
 Require:
 
@@ -143,13 +144,16 @@ Require:
 - physically caused anticipation, follow-through, and damping;
 - no unintended scale or baseline popping;
 - no visible loop reset;
-- unmistakable gaze cardinals and coherent adjacent directions.
+- unmistakable cardinals and coherent adjacent directions when the target
+  includes gaze.
 
-Use `$hatch-pet` for authoritative row, direction, atlas, chroma, and visual QA.
+For `codex-pet-v2`, use `$hatch-pet` for authoritative row, direction, atlas,
+chroma, and visual QA. Another Delivery Target requires its own authoritative
+compiler and QA contract before it can be considered supported.
 
 ## Pack and release QA
 
-Require:
+For the current `codex-pet-v2` target, require:
 
 - correct v2 manifest and atlas dimensions;
 - correct row and used-cell mapping;

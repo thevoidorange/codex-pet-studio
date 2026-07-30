@@ -38,21 +38,22 @@ These must survive every state and regeneration.
 | --- | --- | --- | --- |
 |  |  |  |  |
 
-## Desktop-scale test
+## Runtime-scale test
 
-- Client display range: 80–224 px
+- Selected Delivery Target:
+- Target display range:
 - Smallest intended display size within that range:
 - What must remain readable:
 - What may disappear:
 
 ## Approved reference
 
-- Version ID:
+- Candidate ID:
 - Preview or contact-sheet reference:
 - Approval notes:
 
 ## Phase decision
 
-- Status: `draft | review | approved`
+- Status: `open | candidate | approved | superseded | blocked`
 - Approved by:
 - Decision notes:

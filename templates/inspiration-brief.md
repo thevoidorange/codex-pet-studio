@@ -4,7 +4,7 @@
 
 - Working title:
 - Date:
-- Current version:
+- Current Candidate:
 - Preferred collaboration language:
 
 ## Source material
@@ -49,6 +49,6 @@ List only questions that materially affect the next visual decision.
 
 ## Phase decision
 
-- Status: `draft | review | approved`
+- Status: `open | candidate | approved | superseded | blocked`
 - Approved by:
 - Decision notes:

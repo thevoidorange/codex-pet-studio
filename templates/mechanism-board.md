@@ -46,7 +46,7 @@ Duplicate this card only for mechanisms that need independent approval.
 
 ## Phase decision
 
-- Status: `draft | review | approved`
+- Status: `open | candidate | approved | superseded | blocked`
 - Approved mechanisms:
 - Rejected mechanisms:
 - Decision notes:

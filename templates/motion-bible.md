@@ -1,72 +1,79 @@
 # Motion Bible
 
-## Motion character
+## Canonical Motion Language
+
+This section is Studio Core truth. Keep it independent from one runtime.
 
 - Three motion adjectives:
 - Perceived material:
-- Weight:
-- Elasticity:
+- Weight and center of mass:
 - Friction:
+- Elasticity:
 - Default emotional temperature:
 
-## Current client snapshot
+## Lead, follow, and settle
 
-Record the `$hatch-pet` version or client snapshot checked before production. The current v2 snapshot uses fixed row counts and durations, plays each non-Idle action three loops, then returns to Idle at six times its base durations. The package cannot override those values. Client display size is 80–224 px.
+- Lead element:
+- Follow elements and logical delay:
+- Settle order:
+- Secondary-motion cause:
+- What must remain anchored:
+- What may move independently:
 
-- Contract checked on:
-- Source checked:
-- Differences from the repository snapshot:
+## Deformation and stillness
 
-## Global fixed-slot rules
-
-- Visual hold strategy:
-- Pose-spacing / perceived easing:
-- Material deformation:
-- Overshoot policy:
-- Final-slot settle:
-- Loop seam rule:
+- Compression and extension rules:
+- Overshoot limit:
+- Damping:
+- Stillness budget:
+- Visual-hold strategy:
+- Loop or continuation philosophy:
 - Maximum acceptable bounce:
 
-## Physical continuity
+## Behavior Intent motion cards
 
-- Primary center of mass:
-- Anchored regions:
-- Flexible regions:
-- Follow-through order:
-- Compression and extension rules:
-- How left/right motion affects the character:
+### Behavior Intent
 
-## Fixed state slots
+- Intention:
+- Starting read:
+- Semantic beats:
+- Lead action:
+- Strongest silhouette:
+- Follow-through:
+- What remains quiet:
+- Settle, hold, return, or continue:
 
-Do not edit these durations in the project. Map the acting onto them.
+Duplicate this card only for approved Behavior Intents that need distinct
+motion treatment.
 
-| State ID | Fixed cells | Current base durations |
-| --- | ---: | --- |
-| `idle` | 6 | 280, 110, 110, 140, 140, 320 ms; client plays at 6× |
-| `running-right` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| `running-left` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| `waving` | 4 | 140, 140, 140, 280 ms |
-| `jumping` | 5 | 140, 140, 140, 140, 280 ms |
-| `failed` | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
-| `waiting` | 6 | 150, 150, 150, 150, 150, 260 ms |
-| `running` | 6 | 120, 120, 120, 120, 120, 220 ms |
-| `review` | 6 | 150, 150, 150, 150, 150, 280 ms |
+## Delivery Target sampling
 
-## Slot choreography
+This section records one target mapping. Do not redefine canonical Motion
+Language to fit the target.
 
-Use every required cell, but do not invent movement merely to fill it. Near-repeated drawings create holds; larger pose gaps create faster perceived transitions.
+- Delivery Target ID:
+- Contract checked on:
+- Authoritative source checked:
+- Target display range:
+- Fixed or configurable cadence:
+- Differences from the repository snapshot:
 
-| State ID | Slot-by-slot beats | Visual holds / near-repeats | Accent slot | Final settle and seam |
-| --- | --- | --- | --- | --- |
-| `idle` |  |  |  |  |
+## Target state sampling
 
-## Secondary motion
+Copy required state IDs, slots, and cadence from the selected target contract.
+Do not invent package settings that the target cannot carry.
 
-- Element:
-- Slot delay after primary motion:
-- Arc:
-- Damping:
-- Settle:
+| Target state ID | Behavior Intent | Required slots | Slot-by-slot beats | Visual holds | Accent | Final settle or seam |
+| --- | --- | ---: | --- | --- | --- | --- |
+|  |  |  |  |  |  |  |
+
+## Target-specific mechanics
+
+- Direction, gaze, pointer, or sensor behavior:
+- Input or lifecycle constraints:
+- Reduced-motion first sample:
+- Minimum-size readability:
+- Maximum-size physical detail:
 
 ## Motion no-go list
 
@@ -74,10 +81,13 @@ Use every required cell, but do not invent movement merely to fill it. Near-repe
 - Unwanted stiffness:
 - Unwanted speed:
 - Unwanted symmetry:
+- Unsupported target behavior:
 - Other:
 
 ## Phase decision
 
-- Status: `draft | review | approved`
-- Approved by:
-- Decision notes:
+- Status: `open | candidate | approved | superseded | blocked`
+- Approved Motion Language:
+- Approved Delivery Target mapping:
+- Decision evidence:
+- Open target-sensitive questions:
