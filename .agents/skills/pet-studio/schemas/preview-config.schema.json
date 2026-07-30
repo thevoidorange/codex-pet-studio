@@ -12,6 +12,24 @@
     "schemaVersion": {
       "const": 1
     },
+    "deliveryTarget": {
+      "type": "object",
+      "required": [
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
     "pet": {
       "type": "object",
       "required": [
@@ -63,37 +81,6 @@
       "additionalProperties": true
     },
     "frameTakeGroup": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/idleFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/runningRightFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/runningLeftFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/wavingFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/jumpingFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/failedFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/waitingFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/runningFrameTakes"
-        },
-        {
-          "$ref": "#/$defs/reviewFrameTakes"
-        }
-      ]
-    },
-    "frameTakeGroupBase": {
       "type": "object",
       "required": [
         "stateId",
@@ -101,6 +88,15 @@
         "takes"
       ],
       "properties": {
+        "stateId": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "frameIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
         "takes": {
           "type": "array",
           "items": {
@@ -109,177 +105,6 @@
         }
       },
       "additionalProperties": true
-    },
-    "idleFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "idle"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 5
-            }
-          }
-        }
-      ]
-    },
-    "runningRightFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "running-right"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 7
-            }
-          }
-        }
-      ]
-    },
-    "runningLeftFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "running-left"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 7
-            }
-          }
-        }
-      ]
-    },
-    "wavingFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "waving"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 3
-            }
-          }
-        }
-      ]
-    },
-    "jumpingFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "jumping"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4
-            }
-          }
-        }
-      ]
-    },
-    "failedFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "failed"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 7
-            }
-          }
-        }
-      ]
-    },
-    "waitingFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "waiting"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 5
-            }
-          }
-        }
-      ]
-    },
-    "runningFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "running"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 5
-            }
-          }
-        }
-      ]
-    },
-    "reviewFrameTakes": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/frameTakeGroupBase"
-        },
-        {
-          "properties": {
-            "stateId": {
-              "const": "review"
-            },
-            "frameIndex": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 5
-            }
-          }
-        }
-      ]
     },
     "take": {
       "type": "object",
@@ -350,13 +175,11 @@
       "properties": {
         "row": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 10
+          "minimum": 0
         },
         "column": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 7
+          "minimum": 0
         }
       },
       "additionalProperties": true

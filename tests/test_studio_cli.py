@@ -29,7 +29,15 @@ PREVIEW_SCHEMA = (
     / "schemas"
     / "preview-config.schema.json"
 )
-PREVIEW_DATA = REPO_ROOT / "previewer" / "preview-data.js"
+DELIVERY_TARGET = REPO_ROOT / "delivery-targets" / "codex-pet-v2.json"
+PET_SCHEMA = (
+    REPO_ROOT
+    / ".agents"
+    / "skills"
+    / "pet-studio"
+    / "schemas"
+    / "pet-v2.schema.json"
+)
 
 
 def png_chunk(kind: bytes, payload: bytes) -> bytes:
@@ -205,6 +213,20 @@ class StudioCliTests(unittest.TestCase):
 
     def initialize(self, root: Path) -> None:
         self.run_cli("init", "--root", str(root), "--name", "Example Pet")
+        target = root / "delivery-targets" / "codex-pet-v2.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(DELIVERY_TARGET.read_bytes())
+        pet_schema = (
+            root
+            / ".agents"
+            / "skills"
+            / "pet-studio"
+            / "schemas"
+            / "pet-v2.schema.json"
+        )
+        pet_schema.parent.mkdir(parents=True, exist_ok=True)
+        pet_schema.write_bytes(PET_SCHEMA.read_bytes())
+        self.run_cli("target", "sync", "--root", str(root))
 
     def write_pet(self, root: Path, image: bytes, suffix: str = "png", version: int = 2) -> Path:
         pet_dir = root / "build" / "pet"
@@ -276,7 +298,7 @@ class StudioCliTests(unittest.TestCase):
             self.assertTrue((root / "pet-studio.json").is_file())
             self.assertTrue((root / ".pet-studio-private.json").is_file())
             self.assertTrue((root / "design" / "takes").is_dir())
-            (root / "previewer").mkdir()
+            (root / "previewer").mkdir(exist_ok=True)
             (root / "previewer" / "index.html").write_text("<!doctype html>", encoding="utf-8")
             doctor = self.run_cli("doctor", "--root", str(root), "--json")
             payload = json.loads(doctor.stdout)
@@ -302,6 +324,13 @@ class StudioCliTests(unittest.TestCase):
         schema = json.loads(PREVIEW_SCHEMA.read_text(encoding="utf-8"))
         self.assertEqual(schema["properties"]["schemaVersion"]["const"], 1)
         self.assertIn("frameTakeGroup", schema["$defs"])
+        target_ref = schema["properties"]["deliveryTarget"]
+        self.assertEqual(["id", "revision"], target_ref["required"])
+        frame_group = schema["$defs"]["frameTakeGroup"]
+        self.assertNotIn("oneOf", frame_group)
+        self.assertNotIn("maximum", frame_group["properties"]["frameIndex"])
+        self.assertNotIn("maximum", schema["$defs"]["atlasSlot"]["properties"]["row"])
+        self.assertNotIn("maximum", schema["$defs"]["atlasSlot"]["properties"]["column"])
         asset_pattern = schema["$defs"]["take"]["properties"]["assetUrl"]["pattern"]
         self.assertIsNotNone(re.fullmatch(asset_pattern, "./takes/t001.png"))
         for unsafe in (
@@ -316,18 +345,135 @@ class StudioCliTests(unittest.TestCase):
             with self.subTest(unsafe=unsafe):
                 self.assertIsNone(re.fullmatch(asset_pattern, unsafe))
 
-    def test_take_state_frame_counts_match_previewer_contract(self) -> None:
+    def test_take_state_frame_counts_come_from_the_delivery_target(self) -> None:
         studio = load_studio_module()
-        preview_data = PREVIEW_DATA.read_text(encoding="utf-8")
-        for state_id, expected_count in studio.TAKE_STATE_FRAME_COUNTS.items():
-            state_tail = preview_data.split(f'id: "{state_id}"', 1)[1]
-            duration_text = state_tail.split("durations: [", 1)[1].split("]", 1)[0]
-            durations = [value.strip() for value in duration_text.split(",") if value.strip()]
-            self.assertEqual(
-                len(durations),
-                expected_count,
-                f"{state_id} must match the fixed Previewer contract",
+        target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+        self.assertEqual(
+            {
+                state["id"]: len(state["durationsMs"])
+                for state in target["states"]
+            },
+            studio.target_state_frame_counts(target),
+        )
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn("TAKE_STATE_FRAME_COUNTS", source)
+
+    def test_preview_config_target_reference_is_optional_but_fail_closed_when_present(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            config_path, preview_config = self.write_preview_config(root)
+            source = root / "design" / "take.png"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(make_png(192, 208))
+            review_url = (
+                "file://"
+                + str(root / "previewer" / "index.html")
+                + "?config=../build/review/preview.json"
+                + "&candidate=v002&state=idle&frame=2&take=original"
             )
+
+            legacy = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                review_url,
+                "--asset",
+                str(source),
+                "--check",
+                "--json",
+            )
+            self.assertTrue(json.loads(legacy.stdout)["checkOnly"])
+
+            preview_config["deliveryTarget"] = {
+                "id": "unknown-target",
+                "revision": 1,
+            }
+            config_path.write_text(
+                json.dumps(preview_config, indent=2),
+                encoding="utf-8",
+            )
+            unknown = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                review_url,
+                "--asset",
+                str(source),
+                "--check",
+                expected=1,
+            )
+            self.assertIn("deliveryTarget.id", unknown.stderr)
+            self.assertIn("does not match", unknown.stderr)
+
+            target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+            preview_config["deliveryTarget"] = {
+                "id": target["id"],
+                "revision": target["revision"] + 1,
+            }
+            config_path.write_text(
+                json.dumps(preview_config, indent=2),
+                encoding="utf-8",
+            )
+            stale = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                review_url,
+                "--asset",
+                str(source),
+                "--check",
+                expected=1,
+            )
+            self.assertIn("deliveryTarget.revision", stale.stderr)
+            self.assertIn("does not match", stale.stderr)
+
+            preview_config["deliveryTarget"] = {"id": target["id"]}
+            config_path.write_text(
+                json.dumps(preview_config, indent=2),
+                encoding="utf-8",
+            )
+            missing_revision = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                review_url,
+                "--asset",
+                str(source),
+                "--check",
+                expected=1,
+            )
+            self.assertIn("deliveryTarget.revision", missing_revision.stderr)
+
+    def test_target_check_reports_the_selected_canonical_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            result = self.run_cli(
+                "target",
+                "check",
+                "--root",
+                str(root),
+                "--json",
+            )
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["ok"])
+            self.assertEqual("codex-pet-v2", payload["targetId"])
+            self.assertEqual(1, payload["revision"])
+            self.assertEqual(9, payload["stateCount"])
+            self.assertEqual(16, payload["lookDirectionCount"])
+            self.assertEqual(1536, payload["atlasWidthPx"])
+            self.assertEqual(2288, payload["atlasHeightPx"])
 
     def test_take_command_validates_the_exact_asset_bytes_it_registers(self) -> None:
         studio = load_studio_module()
@@ -340,10 +486,12 @@ class StudioCliTests(unittest.TestCase):
     def test_take_png_requires_decodable_rgba_with_visible_transparency(self) -> None:
         studio = load_studio_module()
         path = Path("candidate.png")
+        target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
         for filter_type in range(5):
             studio.validate_take_png(
                 make_png(192, 208, filter_type=filter_type),
                 path,
+                target,
             )
         valid = make_png(192, 208)
 
@@ -368,7 +516,7 @@ class StudioCliTests(unittest.TestCase):
         for label, image in invalid_cases.items():
             with self.subTest(label=label):
                 with self.assertRaises(studio.StudioError):
-                    studio.validate_take_png(image, path)
+                    studio.validate_take_png(image, path, target)
 
     def test_take_asset_url_rejects_absolute_and_traversal_forms(self) -> None:
         studio = load_studio_module()
@@ -458,9 +606,9 @@ class StudioCliTests(unittest.TestCase):
                 / "scripts"
                 / "studio.py"
             )
-            skill_script.parent.mkdir(parents=True)
+            skill_script.parent.mkdir(parents=True, exist_ok=True)
             skill_script.write_text("# fixture\n", encoding="utf-8")
-            (root / "previewer").mkdir()
+            (root / "previewer").mkdir(exist_ok=True)
             (root / "previewer" / "index.html").write_text("<!doctype html>", encoding="utf-8")
             (root / "inputs" / "private-note.txt").write_text("not exported", encoding="utf-8")
             output_a = root / "first.zip"
@@ -480,6 +628,18 @@ class StudioCliTests(unittest.TestCase):
                 self.assertIn("export-manifest.json", names)
                 self.assertNotIn("inputs/private-note.txt", names)
                 self.assertNotIn(".pet-studio-private.json", names)
+
+            adapter = root / "previewer" / "target-data.js"
+            adapter.write_text("// stale adapter\n", encoding="utf-8")
+            stale_export = self.run_cli(
+                "export",
+                "--root",
+                str(root),
+                "--output",
+                str(root / "stale.zip"),
+                expected=1,
+            )
+            self.assertIn("target adapter is stale", stale_export.stderr)
 
     def test_take_add_registers_standalone_frame_and_preserves_review_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -908,6 +1068,7 @@ class StudioCliTests(unittest.TestCase):
                         updated_config,
                         asset_path,
                         make_png(192, 208),
+                        json.loads(DELIVERY_TARGET.read_text(encoding="utf-8")),
                     )
             self.assertEqual(config_path.read_bytes(), original_bytes)
             self.assertFalse(asset_path.exists())

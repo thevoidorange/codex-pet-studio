@@ -1,0 +1,266 @@
+{
+  "$schema": "../.agents/skills/pet-studio/schemas/delivery-target.schema.json",
+  "schemaVersion": 1,
+  "revision": 1,
+  "id": "codex-pet-v2",
+  "displayName": "Codex Pet v2",
+  "verifiedAgainst": {
+    "authority": "installed-hatch-pet",
+    "product": "Codex Desktop",
+    "version": "26.721.41059",
+    "build": "5848",
+    "date": "2026-07-28"
+  },
+  "package": {
+    "manifestFile": "pet.json",
+    "manifestSchema": ".agents/skills/pet-studio/schemas/pet-v2.schema.json",
+    "spriteVersionNumber": 2,
+    "spritesheetFormats": [
+      "png",
+      "webp"
+    ]
+  },
+  "atlas": {
+    "columns": 8,
+    "rows": 11,
+    "cellWidthPx": 192,
+    "cellHeightPx": 208
+  },
+  "runtime": {
+    "owner": "codex-client",
+    "idleStateId": "idle",
+    "idleDurationMultiplier": 6,
+    "actionLoops": 3,
+    "actionReturnStateId": "idle"
+  },
+  "states": [
+    {
+      "id": "idle",
+      "row": 0,
+      "firstColumn": 0,
+      "durationsMs": [
+        280,
+        110,
+        110,
+        140,
+        140,
+        320
+      ]
+    },
+    {
+      "id": "running-right",
+      "row": 1,
+      "firstColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ]
+    },
+    {
+      "id": "running-left",
+      "row": 2,
+      "firstColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ]
+    },
+    {
+      "id": "waving",
+      "row": 3,
+      "firstColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        280
+      ]
+    },
+    {
+      "id": "jumping",
+      "row": 4,
+      "firstColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        140,
+        280
+      ]
+    },
+    {
+      "id": "failed",
+      "row": 5,
+      "firstColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        240
+      ]
+    },
+    {
+      "id": "waiting",
+      "row": 6,
+      "firstColumn": 0,
+      "durationsMs": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        260
+      ]
+    },
+    {
+      "id": "running",
+      "row": 7,
+      "firstColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ]
+    },
+    {
+      "id": "review",
+      "row": 8,
+      "firstColumn": 0,
+      "durationsMs": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        280
+      ]
+    }
+  ],
+  "lookDirections": {
+    "coordinateSystem": "screen-clockwise-from-up",
+    "clockwise": true,
+    "neutralStateId": "idle",
+    "slots": [
+      {
+        "degree": 0,
+        "key": "up",
+        "row": 9,
+        "column": 0
+      },
+      {
+        "degree": 22.5,
+        "key": "upRight",
+        "row": 9,
+        "column": 1
+      },
+      {
+        "degree": 45,
+        "key": "upRight",
+        "row": 9,
+        "column": 2
+      },
+      {
+        "degree": 67.5,
+        "key": "upRight",
+        "row": 9,
+        "column": 3
+      },
+      {
+        "degree": 90,
+        "key": "right",
+        "row": 9,
+        "column": 4
+      },
+      {
+        "degree": 112.5,
+        "key": "downRight",
+        "row": 9,
+        "column": 5
+      },
+      {
+        "degree": 135,
+        "key": "downRight",
+        "row": 9,
+        "column": 6
+      },
+      {
+        "degree": 157.5,
+        "key": "downRight",
+        "row": 9,
+        "column": 7
+      },
+      {
+        "degree": 180,
+        "key": "down",
+        "row": 10,
+        "column": 0
+      },
+      {
+        "degree": 202.5,
+        "key": "downLeft",
+        "row": 10,
+        "column": 1
+      },
+      {
+        "degree": 225,
+        "key": "downLeft",
+        "row": 10,
+        "column": 2
+      },
+      {
+        "degree": 247.5,
+        "key": "downLeft",
+        "row": 10,
+        "column": 3
+      },
+      {
+        "degree": 270,
+        "key": "left",
+        "row": 10,
+        "column": 4
+      },
+      {
+        "degree": 292.5,
+        "key": "upLeft",
+        "row": 10,
+        "column": 5
+      },
+      {
+        "degree": 315,
+        "key": "upLeft",
+        "row": 10,
+        "column": 6
+      },
+      {
+        "degree": 337.5,
+        "key": "upLeft",
+        "row": 10,
+        "column": 7
+      }
+    ]
+  },
+  "display": {
+    "owner": "codex-client-setting",
+    "minimumPx": 80,
+    "maximumPx": 224
+  }
+}

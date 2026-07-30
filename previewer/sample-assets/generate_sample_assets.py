@@ -5,50 +5,39 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import math
 import struct
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from PIL import Image, ImageDraw
 
 
-FRAME_WIDTH = 192
-FRAME_HEIGHT = 208
-ATLAS_COLUMNS = 8
-ATLAS_ROWS = 11
 SUPERSAMPLE = 4
 
-STATES = (
-    ("idle", 0, (280, 110, 110, 140, 140, 320)),
-    ("running-right", 1, (120, 120, 120, 120, 120, 120, 120, 220)),
-    ("running-left", 2, (120, 120, 120, 120, 120, 120, 120, 220)),
-    ("waving", 3, (140, 140, 140, 280)),
-    ("jumping", 4, (140, 140, 140, 140, 280)),
-    ("failed", 5, (140, 140, 140, 140, 140, 140, 140, 240)),
-    ("waiting", 6, (150, 150, 150, 150, 150, 260)),
-    ("running", 7, (120, 120, 120, 120, 120, 220)),
-    ("review", 8, (150, 150, 150, 150, 150, 280)),
-)
 
-DIRECTIONS = (
-    (0, 9, 0),
-    (22.5, 9, 1),
-    (45, 9, 2),
-    (67.5, 9, 3),
-    (90, 9, 4),
-    (112.5, 9, 5),
-    (135, 9, 6),
-    (157.5, 9, 7),
-    (180, 10, 0),
-    (202.5, 10, 1),
-    (225, 10, 2),
-    (247.5, 10, 3),
-    (270, 10, 4),
-    (292.5, 10, 5),
-    (315, 10, 6),
-    (337.5, 10, 7),
-)
+def default_target_path() -> Path:
+    return (
+        Path(__file__).resolve().parents[2]
+        / "delivery-targets"
+        / "codex-pet-v2.json"
+    )
+
+
+def load_target(path: Path) -> dict[str, Any]:
+    target = json.loads(path.read_text(encoding="utf-8"))
+    atlas = target["atlas"]
+    states = target["states"]
+    directions = target["lookDirections"]["slots"]
+    if not states or not directions:
+        raise ValueError("Delivery Target must define states and look directions")
+    if any(
+        state["firstColumn"] + len(state["durationsMs"]) > atlas["columns"]
+        for state in states
+    ):
+        raise ValueError("Delivery Target state frames do not fit the atlas")
+    return target
 
 
 def cubic(
@@ -175,13 +164,15 @@ def motion_values(
 
 def render_frame(
     *,
+    frame_width: int,
+    frame_height: int,
     state_id: str,
     durations: tuple[int, ...],
     column: int,
     direction: float | None = None,
 ) -> Image.Image:
-    width = FRAME_WIDTH * SUPERSAMPLE
-    height = FRAME_HEIGHT * SUPERSAMPLE
+    width = frame_width * SUPERSAMPLE
+    height = frame_height * SUPERSAMPLE
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     duration_count = max(2, len(durations))
@@ -195,8 +186,8 @@ def render_frame(
         eye_shift_y,
     ) = motion_values(state_id, phase, direction)
 
-    center_x = FRAME_WIDTH / 2 + offset_x
-    center_y = FRAME_HEIGHT / 2 + 12 + offset_y
+    center_x = frame_width / 2 + offset_x
+    center_y = frame_height / 2 + 12 + offset_y
 
     def transform(point: tuple[float, float]) -> tuple[float, float]:
         return (
@@ -236,7 +227,7 @@ def render_frame(
         fill="#8a8a8a",
     )
     return image.resize(
-        (FRAME_WIDTH, FRAME_HEIGHT),
+        (frame_width, frame_height),
         Image.Resampling.LANCZOS,
     )
 
@@ -335,31 +326,53 @@ def save_gif(
     path.write_bytes(output)
 
 
-def generate_version(output_root: Path, version_id: str) -> None:
+def generate_version(
+    output_root: Path,
+    version_id: str,
+    target: dict[str, Any],
+) -> None:
+    atlas_contract = target["atlas"]
+    frame_width = atlas_contract["cellWidthPx"]
+    frame_height = atlas_contract["cellHeightPx"]
+    atlas_columns = atlas_contract["columns"]
+    atlas_rows = atlas_contract["rows"]
+    states = target["states"]
+    directions = target["lookDirections"]["slots"]
+    idle_state_id = target["runtime"]["idleStateId"]
+    idle_state = next(
+        state for state in states if state["id"] == idle_state_id
+    )
+    idle_durations = tuple(idle_state["durationsMs"])
+
     version_root = output_root / version_id
     gif_root = version_root / "gifs"
     gif_root.mkdir(parents=True, exist_ok=True)
     atlas = Image.new(
         "RGBA",
-        (FRAME_WIDTH * ATLAS_COLUMNS, FRAME_HEIGHT * ATLAS_ROWS),
+        (frame_width * atlas_columns, frame_height * atlas_rows),
         (0, 0, 0, 0),
     )
-    idle_durations = STATES[0][2]
 
-    for state_id, row, durations in STATES:
+    for state in states:
+        state_id = state["id"]
+        row = state["row"]
+        first_column = state["firstColumn"]
+        durations = tuple(state["durationsMs"])
         frames = []
-        for column in range(ATLAS_COLUMNS):
+        for frame_index in range(len(durations)):
+            column = first_column + frame_index
             frame = render_frame(
+                frame_width=frame_width,
+                frame_height=frame_height,
                 state_id=state_id,
                 durations=durations,
-                column=column,
+                column=frame_index,
             )
             atlas.alpha_composite(
                 frame,
-                (column * FRAME_WIDTH, row * FRAME_HEIGHT),
+                (column * frame_width, row * frame_height),
             )
-            if column < len(durations):
-                frames.append(frame)
+            frames.append(frame)
 
         gif_frames = to_gif_frames(frames)
         save_gif(
@@ -368,16 +381,21 @@ def generate_version(output_root: Path, version_id: str) -> None:
             durations,
         )
 
-    for degree, row, column in DIRECTIONS:
+    for direction in directions:
+        degree = direction["degree"]
+        row = direction["row"]
+        column = direction["column"]
         frame = render_frame(
-            state_id="idle",
+            frame_width=frame_width,
+            frame_height=frame_height,
+            state_id=idle_state_id,
             durations=idle_durations,
             column=column,
             direction=degree,
         )
         atlas.alpha_composite(
             frame,
-            (column * FRAME_WIDTH, row * FRAME_HEIGHT),
+            (column * frame_width, row * frame_height),
         )
 
     atlas.save(
@@ -395,8 +413,14 @@ def main() -> int:
         type=Path,
         default=Path(__file__).resolve().parent,
     )
+    parser.add_argument(
+        "--target",
+        type=Path,
+        default=default_target_path(),
+        help="canonical Delivery Target contract",
+    )
     args = parser.parse_args()
-    generate_version(args.output_root, "v002")
+    generate_version(args.output_root, "v002", load_target(args.target))
     return 0
 
 

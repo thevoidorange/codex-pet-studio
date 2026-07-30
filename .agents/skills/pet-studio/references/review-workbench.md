@@ -110,9 +110,9 @@ Reject zero, negative, non-integer, or out-of-range URL frames.
 ## Create an additive Take
 
 1. Resolve the exact Candidate, state, Keyframe, and selected source.
-2. Extract or load only that one `192×208` source frame.
+2. Extract or load only that one target-cell-sized source frame.
 3. Read identity locks and the user's requested delta.
-4. Generate one standalone `192×208` transparent asset under the private
+4. Generate one standalone target-cell-sized transparent asset under the private
    `design/takes/<candidate>/<state>/fNN/` working directory.
 5. Keep source atlas, existing Takes, neighboring frames, and unrelated config
    semantically unchanged.

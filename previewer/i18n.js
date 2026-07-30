@@ -19,20 +19,20 @@ window.PET_PREVIEW_I18N = {
         stateListAria: "Animation state list",
         previewModeAria: "Preview modes",
         animationStates: "State Animations",
-        lookDirections: "16 Gaze Directions",
+        lookDirections: "Gaze Directions",
         playbackAria: "Playback mode",
         runtimeTiming: "Runtime Simulation",
         runtimeTimingTitle:
-          "Simulate Codex desktop playback with fixed frame timing, three action loops, and Idle at one-sixth speed.",
+          "Simulate Codex desktop playback using the Delivery Target’s frame timing, action loops, and Idle cadence.",
         endlessLoop: "Endless Loop",
         endlessLoopTitle:
           "Loop the current state indefinitely using the same fixed frame timing as Codex desktop playback.",
         endlessModeHelp:
           "Loops the current state indefinitely using the same fixed frame timing as Codex desktop playback.",
         runtimeIdleModeHelp:
-          "Matches Codex desktop Idle playback: each frame uses six times its base duration.",
+          "Matches the Delivery Target’s Codex desktop Idle cadence.",
         runtimeModeHelp:
-          "Matches Codex desktop playback: fixed frame timing, {loops} action loops, then Idle at one-sixth speed.",
+          "Matches Codex desktop playback: target-defined frame timing, {loops} action loops, then Idle.",
         frameInspectionEndlessHelp:
           "Playback is paused on this frame. Previous and Next move one frame at a time; Play resumes Endless Loop from here.",
         frameInspectionRuntimeHelp:
@@ -44,7 +44,7 @@ window.PET_PREVIEW_I18N = {
         previewSize: "Size",
         previewSizeAria: "Preview display size",
         previewSizeTitle:
-          "Preview the pet at any Codex desktop display size from 80 to 224 px. The source asset and export size remain unchanged.",
+          "Preview the pet across the Delivery Target’s supported Codex desktop display range. The source asset and export size remain unchanged.",
         transportAria: "Frame playback controls",
         previousFrame: "Previous Frame",
         pause: "Pause",
@@ -56,7 +56,7 @@ window.PET_PREVIEW_I18N = {
         autoOrbit: "Auto Orbit",
         pointerFollow: "Pointer Follow",
         pointerHint:
-          "Move the pointer around the pet to preview all 16 gaze directions.",
+          "Move the pointer around the pet to preview every gaze direction.",
         directionListAria: "Gaze direction list",
         backgroundAria: "Preview background",
         background: "Background",
@@ -95,16 +95,16 @@ window.PET_PREVIEW_I18N = {
           "Frame {frame} / {count} · {take}",
         endlessLoopReadout: "Endless Loop · Frame {frame} / {count}",
         runtimeReturnedIdle: "Back to Idle · Frame {frame} / {count}",
-        runtimeSlowIdle: "Idle at 1/6 Speed · Frame {frame} / {count}",
+        runtimeSlowIdle: "Idle Cadence · Frame {frame} / {count}",
         runtimeLoopReadout: "Loop {loop} / {loops} · Frame {frame} / {count}",
-        runtimeBackToIdle: "Runtime Simulation · Back to Idle at 1/6 Speed",
-        runtimeIdle: "Runtime Simulation · Idle at 1/6 Speed",
+        runtimeBackToIdle: "Runtime Simulation · Back to Idle",
+        runtimeIdle: "Runtime Simulation · Idle",
         runtimeAction: "Runtime Simulation · Action ({loops} Loops)",
         frameInspectionLabel: "Frame Inspection",
         lookFrame: "Gaze Direction",
-        runtimeIdleNote: " · Idle at 1/6 speed",
+        runtimeIdleNote: " · target-defined Idle cadence",
         runtimeActionNote:
-          " · plays {loops} loops, then returns to Idle at one-sixth speed",
+          " · plays {loops} loops, then returns to Idle",
         endlessLoopNote: " · loops indefinitely at the fixed frame timing",
         duration: "{frames} frames · {seconds} s per loop{runtimeNote}",
         lookTag: "GAZE BEHAVIOR",
@@ -115,12 +115,12 @@ window.PET_PREVIEW_I18N = {
           "The pet tracks the pointer through small facial and silhouette shifts instead of rotating its whole body.",
         lookTrigger:
           "The pointer moves outside the pet’s central dead zone.",
-        lookDuration: "16 directions · 22.5° increments",
+        lookDuration: "{count} directions · {step}° increments",
         finalLookFrame: "Gaze Direction Preview",
         assetAlt: "{pet}: {state}",
         sourceFooter: "Sample data · customize in preview-data.js",
         shortcutFooter:
-          "Shortcuts: ←/→ switch frames, or browse takes when a take has focus · Space plays or pauses · 1–9 select states",
+          "Shortcuts: ←/→ switch frames, or browse takes when a take has focus · Space plays or pauses · Number keys select states",
         currentVersion: "Current",
         baselineVersion: "Baseline",
         exampleVersion: "Example",
@@ -419,20 +419,20 @@ window.PET_PREVIEW_I18N = {
         stateListAria: "动画状态列表",
         previewModeAria: "预览分区",
         animationStates: "动作状态",
-        lookDirections: "16 个视线方向",
+        lookDirections: "视线方向",
         playbackAria: "播放方式",
         runtimeTiming: "运行模拟",
         runtimeTimingTitle:
-          "一比一复现当前 Codex 桌面端节奏：固定逐帧时长、动作播放三圈，再进入 6 倍 Idle",
+          "按当前交付目标定义的逐帧时长、动作循环与 Idle 节奏，模拟 Codex 桌面端播放。",
         endlessLoop: "无限循环",
         endlessLoopTitle:
           "使用与桌面端相同的固定逐帧时长，无限重复当前状态",
         endlessModeHelp:
           "使用与运行模拟完全相同的固定逐帧时长，无限重复当前状态。",
         runtimeIdleModeHelp:
-          "与当前 Codex 桌面端 Idle 一致：每一帧使用基础时长的 6 倍。",
+          "按当前交付目标定义的 Idle 节奏模拟 Codex 桌面端播放。",
         runtimeModeHelp:
-          "与当前 Codex 桌面端一致：固定逐帧时长，动作播放 {loops} 圈，再进入 6 倍 Idle。",
+          "按 Codex 桌面端节奏播放：逐帧时长固定，动作播放 {loops} 圈后回到 Idle。",
         frameInspectionEndlessHelp:
           "逐帧检查停在图集帧上。左右键每次严格移动一帧；点击播放会从这一帧回到无限循环。",
         frameInspectionRuntimeHelp:
@@ -444,7 +444,7 @@ window.PET_PREVIEW_I18N = {
         previewSize: "大小",
         previewSizeAria: "预览显示大小",
         previewSizeTitle:
-          "预览桌面端 80–224 px 的显示设置，不修改原素材或导出尺寸。",
+          "在当前交付目标支持的桌面显示范围内预览，不修改原素材或导出尺寸。",
         transportAria: "逐帧播放控制",
         previousFrame: "上一帧",
         pause: "暂停",
@@ -503,8 +503,8 @@ window.PET_PREVIEW_I18N = {
         runtimeAction: "运行模拟 · 动作 {loops} 圈",
         frameInspectionLabel: "逐帧检查",
         lookFrame: "视线帧",
-        runtimeIdleNote: " · 固定 Idle 节奏 × 6",
-        runtimeActionNote: " · 播放 {loops} 圈后进入 Idle × 6",
+        runtimeIdleNote: " · 使用目标定义的 Idle 节奏",
+        runtimeActionNote: " · 播放 {loops} 圈后回到 Idle",
         endlessLoopNote: " · 按固定节奏无限重复",
         duration: "{frames} 帧 · {seconds} 秒 / 圈{runtimeNote}",
         lookTag: "LOOK MECHANICS",
@@ -513,12 +513,12 @@ window.PET_PREVIEW_I18N = {
           "主体保持锚定，注意力主要通过眼睛、脸的位置，以及局部轮廓的轻微形变来表达。",
         lookIntent: "它在跟随你，但不会把整个身体机械地旋转。",
         lookTrigger: "鼠标位于桌面宠物周围，并离开中心死区时。",
-        lookDuration: "16 个方向 · 每 22.5° 一帧",
+        lookDuration: "{count} 个方向 · 每 {step}° 一帧",
         finalLookFrame: "最终视线方向帧",
         assetAlt: "{pet}：{state}",
         sourceFooter: "通用示例数据 · 可通过 preview-data.js 替换",
         shortcutFooter:
-          "快捷键：← → 切帧（焦点在 Take 时浏览 Takes），空格播放 / 暂停，1–9 切换状态",
+          "快捷键：← → 切帧（焦点在 Take 时浏览 Takes），空格播放 / 暂停，数字键切换状态",
         currentVersion: "当前",
         baselineVersion: "基线",
         exampleVersion: "示例",

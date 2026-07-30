@@ -1,15 +1,9 @@
-// Project-facing preview data. The state rows and durations below mirror the
-// pinned client contract and are intentionally read-only in the Previewer.
+// Project-facing data for the bundled neutral Example. Delivery Target facts
+// are generated separately in target-data.js from the canonical contract.
 window.PET_PREVIEW_CONFIG = {
   schemaVersion: 1,
   pet: {
     name: "Sample Pet",
-  },
-  sprite: {
-    columns: 8,
-    rows: 11,
-    frameWidth: 192,
-    frameHeight: 208,
   },
   versions: [
     {
@@ -52,71 +46,6 @@ window.PET_PREVIEW_CONFIG = {
         },
       ],
     },
-  ],
-  states: [
-    {
-      id: "idle",
-      row: 0,
-      durations: [280, 110, 110, 140, 140, 320],
-    },
-    {
-      id: "running-right",
-      row: 1,
-      durations: [120, 120, 120, 120, 120, 120, 120, 220],
-    },
-    {
-      id: "running-left",
-      row: 2,
-      durations: [120, 120, 120, 120, 120, 120, 120, 220],
-    },
-    {
-      id: "waving",
-      row: 3,
-      durations: [140, 140, 140, 280],
-    },
-    {
-      id: "jumping",
-      row: 4,
-      durations: [140, 140, 140, 140, 280],
-    },
-    {
-      id: "failed",
-      row: 5,
-      durations: [140, 140, 140, 140, 140, 140, 140, 240],
-    },
-    {
-      id: "waiting",
-      row: 6,
-      durations: [150, 150, 150, 150, 150, 260],
-    },
-    {
-      id: "running",
-      row: 7,
-      durations: [120, 120, 120, 120, 120, 220],
-    },
-    {
-      id: "review",
-      row: 8,
-      durations: [150, 150, 150, 150, 150, 280],
-    },
-  ],
-  directions: [
-    { degree: 0, key: "up", row: 9, column: 0 },
-    { degree: 22.5, key: "upRight", row: 9, column: 1 },
-    { degree: 45, key: "upRight", row: 9, column: 2 },
-    { degree: 67.5, key: "upRight", row: 9, column: 3 },
-    { degree: 90, key: "right", row: 9, column: 4 },
-    { degree: 112.5, key: "downRight", row: 9, column: 5 },
-    { degree: 135, key: "downRight", row: 9, column: 6 },
-    { degree: 157.5, key: "downRight", row: 9, column: 7 },
-    { degree: 180, key: "down", row: 10, column: 0 },
-    { degree: 202.5, key: "downLeft", row: 10, column: 1 },
-    { degree: 225, key: "downLeft", row: 10, column: 2 },
-    { degree: 247.5, key: "downLeft", row: 10, column: 3 },
-    { degree: 270, key: "left", row: 10, column: 4 },
-    { degree: 292.5, key: "upLeft", row: 10, column: 5 },
-    { degree: 315, key: "upLeft", row: 10, column: 6 },
-    { degree: 337.5, key: "upLeft", row: 10, column: 7 },
   ],
   mechanics: [
     {

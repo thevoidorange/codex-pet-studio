@@ -18,14 +18,28 @@ Delivery Target ID: `codex-pet-v2`
 
 ## Authority and provenance
 
-This file is a dated planning snapshot, not a replacement for the installed
-`$hatch-pet` skill. Re-read the installed skill before every production or
-repair run. When its newer technical instructions differ, follow them for the
-current task and report the discrepancy.
+The exact checked-in runtime facts live in the machine-readable
+[Codex Pet v2 Delivery Target contract](../../../../delivery-targets/codex-pet-v2.json).
+It owns the atlas geometry, states, slot durations, runtime lifecycle, look
+directions, package requirements, and display range used by project tooling
+and the Previewer. This file explains how to design inside those facts; it is
+not a second technical contract.
 
-The runtime snapshot below was verified against Codex Desktop `26.721.41059`
-(build `5848`) on 2026-07-28. Treat the version and date as provenance, not a
-promise that later clients remain identical.
+The contract records the Codex Desktop build and date it was verified against.
+Treat that provenance as a snapshot, not a promise that later clients remain
+identical. Re-read the installed `$hatch-pet` skill before every production or
+repair run. If it conflicts with the checked-in contract, stop, report the
+discrepancy, and revise the contract intentionally before continuing.
+
+Run:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py target check
+```
+
+This validates both the canonical JSON and the generated static adapter used
+by `file://` Previewer sessions. After an intentional contract revision, run
+`studio.py target sync`, review both files, and commit them together.
 
 Read [delivery-targets.md](delivery-targets.md) for the Studio Core / Delivery
 Target boundary and
@@ -34,25 +48,10 @@ for target-neutral Motion Language.
 
 ## Runtime sampling contract
 
-The v2 pack uses 192×208 cells in an 8-column × 11-row atlas. The final atlas
-is 1536×2288.
-
-| Row | Stable state ID | Used cells | Current client base durations |
-| ---: | --- | ---: | --- |
-| 0 | `idle` | 6 | 280, 110, 110, 140, 140, 320 ms |
-| 1 | `running-right` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| 2 | `running-left` | 8 | 120, 120, 120, 120, 120, 120, 120, 220 ms |
-| 3 | `waving` | 4 | 140, 140, 140, 280 ms |
-| 4 | `jumping` | 5 | 140, 140, 140, 140, 280 ms |
-| 5 | `failed` | 8 | 140, 140, 140, 140, 140, 140, 140, 240 ms |
-| 6 | `waiting` | 6 | 150, 150, 150, 150, 150, 260 ms |
-| 7 | `running` | 6 | 120, 120, 120, 120, 120, 220 ms |
-| 8 | `review` | 6 | 150, 150, 150, 150, 150, 280 ms |
-| 9 | `look-directions-a` | 8 | 000° through 157.5° clockwise |
-| 10 | `look-directions-b` | 8 | 180° through 337.5° clockwise |
-
-The package carries no per-frame duration, action-loop, Idle-multiplier, or
-display-size field. Display size is a client setting from 80 to 224 px.
+Read the contract rather than copying its dimensions, row lengths, timings, or
+display limits into another file. Every consumer derives these values from the
+selected target. The package itself carries no per-frame duration,
+action-loop, Idle-multiplier, or display-size field.
 
 Do not add controls or project settings for values that the package cannot
 carry. Motion easing comes from the differences drawn into the immutable
@@ -60,10 +59,9 @@ slots.
 
 ## Runtime lifecycle and Previewer modes
 
-For the current client:
-
-- each non-Idle action plays three complete loops, then returns to Idle;
-- Idle plays with each row-0 base duration multiplied by six.
+The runtime lifecycle is client-owned and declared read-only in the Delivery
+Target contract. It identifies the Idle state, the Idle duration multiplier,
+the number of action loops, and the state returned to after an action.
 
 The Previewer exposes two readings of the same source atlas and cadence:
 
@@ -150,8 +148,8 @@ checkpoints, then use the final slot for a conclusion or measured settle.
   acknowledgment, conclusion, or clean seam.
 
 Repeated or near-repeated drawings are valid and often necessary. Review the
-first slot, accent, final settle, seam, and complete current cadence at 80, 144,
-and 224 px.
+first slot, accent, final settle, seam, and complete current cadence at the
+target's minimum, representative, and maximum display sizes.
 
 ## Look directions
 
@@ -235,7 +233,8 @@ Require:
 - non-empty used cells and transparent unused cells;
 - clean transparency with no clipping or overlap;
 - exact fixed cadence in Previewer review;
-- stable identity at 80, 144, and 224 px;
+- stable identity at the target's minimum, representative, and maximum display
+  sizes;
 - readable state contrast and physically caused follow-through;
 - no visible loop reset or return-to-Idle pop;
 - packaged assets matching approved Previewer evidence;

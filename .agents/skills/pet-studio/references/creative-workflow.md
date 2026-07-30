@@ -186,8 +186,8 @@ Define the target-neutral Motion Language once:
 Only after the state intentions work as stills, create a separate target
 sampling plan that maps beats onto its fixed or configurable slots. For the
 current Codex target, review the first frame, accent, final settle, seam,
-runtime cadence, and 80/144/224 px views. Approve the felt motion, not only
-enlarged Keyframes.
+runtime cadence, and minimum/representative/maximum target-size views. Approve
+the felt motion, not only enlarged Keyframes.
 
 ## Gate 7: production readiness
 

@@ -99,7 +99,7 @@ For every external Previewer config in the current `codex-pet-v2` adapter:
 - reject remote, traversal, symlink-escaped, or fallback-only write targets;
 - validate Candidate and stable state IDs;
 - validate one-based URL frame and zero-based config `frameIndex`;
-- validate Take IDs, asset paths, and `192×208` dimensions;
+- validate Take IDs, asset paths, and selected-target cell dimensions;
 - confirm missing external config invalidates the whole review handoff;
 - confirm bundled example IDs are never used to satisfy failed project context.
 

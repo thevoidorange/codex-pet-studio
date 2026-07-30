@@ -56,6 +56,12 @@ A target-specific contract owns:
 Target-derived Keyframes, sampled rows, atlases, previews, and packages are
 build evidence. Keep them distinct from canonical source art.
 
+Each supported target has one canonical machine-readable contract. Project
+code, schemas, tests, sample generators, and Previewer adapters must derive
+target facts from it rather than keeping independent constants. Human
+references may explain acting and responsibility boundaries, but must link to
+the contract for exact values.
+
 ## Choose and record a target
 
 Before state-slot planning or production:
@@ -69,6 +75,10 @@ Before state-slot planning or production:
 
 If no target is recorded in the current repository, use `codex-pet-v2`; it is
 the only supported target today. Do not invent a target selector.
+
+For repository checks, run `studio.py target check`. When intentionally
+changing a contract, increment its revision, run `studio.py target sync`, and
+review the canonical JSON and generated Previewer adapter together.
 
 ## Map behavior into runtime states
 
@@ -145,8 +155,10 @@ Name the smallest platform-sensitive decisions that require review.
 
 Use target ID `codex-pet-v2`.
 
-Read [codex-pet-v2.md](codex-pet-v2.md) for the dated client sampling, staging,
-and compiler boundary. Read
+Read the machine-readable
+[Codex Pet v2 contract](../../../../delivery-targets/codex-pet-v2.json) for
+exact target facts and [codex-pet-v2.md](codex-pet-v2.md) for their acting,
+staging, and compiler boundary. Read
 [motion-and-state-contract.md](motion-and-state-contract.md)
 for target-neutral Motion Language. Re-read the installed `$hatch-pet` skill
 before production; it is the current technical authority when newer

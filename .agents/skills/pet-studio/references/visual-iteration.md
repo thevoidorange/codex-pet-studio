@@ -56,10 +56,10 @@ alone is not evidence that the lock survived.
 
 For a single-frame Take:
 
-- materialize exactly one `192×208` source frame;
+- materialize exactly one source frame at the selected target's cell size;
 - preserve transparent canvas geometry;
 - use adjacent frames only to understand continuity;
-- produce exactly one standalone `192×208` result;
+- produce exactly one standalone result at that same target cell size;
 - never paste the new result into the atlas during audition;
 - never revise a neighbor to make the new Take appear continuous.
 

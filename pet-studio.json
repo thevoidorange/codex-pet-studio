@@ -1,5 +1,9 @@
 {
   "$schema": ".agents/skills/pet-studio/schemas/project.schema.json",
+  "deliveryTarget": {
+    "contract": "delivery-targets/codex-pet-v2.json",
+    "id": "codex-pet-v2"
+  },
   "export": {
     "include": [
       "pet-studio.json",
@@ -12,6 +16,7 @@
       "SECURITY.md",
       ".agents/skills/pet-studio/**",
       ".github/workflows/**",
+      "delivery-targets/**",
       "docs/**",
       "previewer/**",
       "templates/**",

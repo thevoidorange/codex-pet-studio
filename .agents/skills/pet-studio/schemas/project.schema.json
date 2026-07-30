@@ -47,6 +47,24 @@
       },
       "additionalProperties": true
     },
+    "deliveryTarget": {
+      "type": "object",
+      "required": [
+        "id",
+        "contract"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "contract": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z]:[\\\\/])(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
+        }
+      },
+      "additionalProperties": false
+    },
     "paths": {
       "type": "object",
       "required": [

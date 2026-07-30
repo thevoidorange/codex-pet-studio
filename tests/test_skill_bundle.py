@@ -119,14 +119,31 @@ class SkillBundleTests(unittest.TestCase):
         codex_target = (SKILL / "references" / "codex-pet-v2.md").read_text(
             encoding="utf-8"
         )
+        studio = (SKILL / "scripts" / "studio.py").read_text(encoding="utf-8")
+        target_contract = json.loads(
+            (ROOT / "delivery-targets" / "codex-pet-v2.json").read_text(
+                encoding="utf-8"
+            )
+        )
 
         self.assertIn("delivery-targets.md", skill)
         self.assertIn("Studio Core", targets)
         self.assertIn("Motion Language is Studio Core truth", motion)
         self.assertNotIn("1536×2288", motion)
         self.assertNotIn("280, 110, 110", motion)
-        self.assertIn("1536×2288", codex_target)
-        self.assertIn("280, 110, 110", codex_target)
+        self.assertIn("codex-pet-v2.json", codex_target)
+        self.assertNotIn("1536×2288", codex_target)
+        self.assertNotIn("280, 110, 110", codex_target)
+        self.assertNotIn("192x208", studio)
+        atlas = target_contract["atlas"]
+        self.assertEqual(
+            1536,
+            atlas["columns"] * atlas["cellWidthPx"],
+        )
+        self.assertEqual(
+            [280, 110, 110, 140, 140, 320],
+            target_contract["states"][0]["durationsMs"],
+        )
 
     def test_public_templates_use_candidate_and_target_language(self) -> None:
         templates = "\n".join(

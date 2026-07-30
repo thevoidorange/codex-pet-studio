@@ -17,5 +17,7 @@ jobs:
           python-version: "3.11"
       - name: Run CLI tests
         run: python -m unittest discover -s tests -v
+      - name: Verify Delivery Target adapter
+        run: python .agents/skills/pet-studio/scripts/studio.py target check --root .
       - name: Run repository privacy gate
         run: python .agents/skills/pet-studio/scripts/studio.py privacy-check --root .

@@ -129,6 +129,10 @@ A Delivery Target defines the constraints needed to make that work runnable:
 - compiler and validation authority;
 - staging, packaging, signing, installation, and publication rules.
 
+For each supported runtime, these exact technical facts live in one
+machine-readable contract. CLI validation, Previewer playback, sample
+generation, and QA consume that contract; they do not own parallel copies.
+
 Target-derived Keyframes, Takes, sampled rows, atlases, previews, and packages
 are build and review evidence. Preserve them as provenance, but keep them
 distinct from canonical source art and resample them when a new target

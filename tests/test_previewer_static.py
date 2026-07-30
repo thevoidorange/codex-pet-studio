@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import struct
 import unittest
@@ -8,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PREVIEWER = ROOT / "previewer"
+TARGET_PATH = ROOT / "delivery-targets" / "codex-pet-v2.json"
 
 
 class PreviewerStaticTests(unittest.TestCase):
@@ -15,13 +17,31 @@ class PreviewerStaticTests(unittest.TestCase):
         self.html = (PREVIEWER / "index.html").read_text(encoding="utf-8")
         self.app = (PREVIEWER / "app.js").read_text(encoding="utf-8")
         self.data = (PREVIEWER / "preview-data.js").read_text(encoding="utf-8")
+        self.target_data = (PREVIEWER / "target-data.js").read_text(
+            encoding="utf-8"
+        )
+        self.target = json.loads(TARGET_PATH.read_text(encoding="utf-8"))
         self.i18n = (PREVIEWER / "i18n.js").read_text(encoding="utf-8")
         self.css = (PREVIEWER / "styles.css").read_text(encoding="utf-8")
 
     def test_static_references_and_dom_ids_exist(self) -> None:
-        for reference in ("styles.css", "i18n.js", "preview-data.js", "app.js"):
+        for reference in (
+            "styles.css",
+            "i18n.js",
+            "target-data.js",
+            "preview-data.js",
+            "app.js",
+        ):
             self.assertTrue((PREVIEWER / reference).is_file(), reference)
             self.assertIn(f"./{reference}", self.html)
+        self.assertLess(
+            self.html.index("./target-data.js"),
+            self.html.index("./preview-data.js"),
+        )
+        self.assertLess(
+            self.html.index("./preview-data.js"),
+            self.html.index("./app.js"),
+        )
 
         queried_ids = set(re.findall(r'querySelector\("#([^"]+)"\)', self.app))
         html_ids = set(re.findall(r'\bid="([^"]+)"', self.html))
@@ -40,22 +60,13 @@ class PreviewerStaticTests(unittest.TestCase):
             "running",
             "review",
         }
-        observed = set(re.findall(r'\bid:\s*"([^"]+)"', self.data))
-        self.assertTrue(expected.issubset(observed))
+        observed = {state["id"] for state in self.target["states"]}
+        self.assertEqual(expected, observed)
         self.assertFalse({"moveRight", "moveLeft", "greeting", "working"} & observed)
+        self.assertIn("window.PET_DELIVERY_TARGET", self.target_data)
 
     def test_timing_board_covers_all_standard_states(self) -> None:
-        expected = [
-            "idle",
-            "running-right",
-            "running-left",
-            "waving",
-            "jumping",
-            "failed",
-            "waiting",
-            "running",
-            "review",
-        ]
+        expected = [state["id"] for state in self.target["states"]]
         mechanics_block = self.data.split("mechanics: [", 1)[1].split(
             "],\n  backgrounds:",
             1,
@@ -63,7 +74,7 @@ class PreviewerStaticTests(unittest.TestCase):
         observed = re.findall(r'stateId:\s*"([^"]+)"', mechanics_block)
         self.assertEqual(expected, observed)
         self.assertNotIn("function withStateOverrides(", self.app)
-        self.assertIn("states: cloneValue(base.states)", self.app)
+        self.assertIn("states: deliveryTarget.states.map(", self.app)
         self.assertIn("function withMechanicsOverrides(", self.app)
         self.assertIn(
             "mechanics: withMechanicsOverrides(base.mechanics, next.mechanics)",
@@ -84,16 +95,8 @@ class PreviewerStaticTests(unittest.TestCase):
                 )
 
         state_frames = {
-            state_id: len(
-                re.search(
-                    rf'id:\s*"{re.escape(state_id)}".*?durations:\s*\[([^\]]+)\]',
-                    self.data,
-                    re.DOTALL,
-                )
-                .group(1)
-                .split(",")
-            )
-            for state_id in expected
+            state["id"]: len(state["durationsMs"])
+            for state in self.target["states"]
         }
         mechanic_frames = {
             state_id: len(
@@ -109,6 +112,36 @@ class PreviewerStaticTests(unittest.TestCase):
         }
         self.assertEqual(state_frames, mechanic_frames)
         self.assertEqual(57, sum(state_frames.values()))
+
+    def test_previewer_has_no_duplicate_delivery_target_facts(self) -> None:
+        generator = (
+            PREVIEWER / "sample-assets" / "generate_sample_assets.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotRegex(self.data, r"(?m)^\s*(?:sprite|states|directions):")
+        self.assertNotIn("FIXED_ACTION_LOOPS", self.app)
+        self.assertNotIn("FIXED_IDLE_SLOWDOWN", self.app)
+        self.assertNotIn("PREVIEW_SIZE_MIN_PX", self.app)
+        self.assertNotIn("PREVIEW_SIZE_MAX_PX", self.app)
+        self.assertIn("const deliveryTarget = window.PET_DELIVERY_TARGET;", self.app)
+        self.assertIn("function targetBackedConfig()", self.app)
+        self.assertIn("function assertCompatibleTarget(projectConfig)", self.app)
+        self.assertIn("runtime: cloneValue(deliveryTarget.runtime)", self.app)
+        self.assertIn("display: cloneValue(deliveryTarget.display)", self.app)
+        self.assertIn(
+            "directions: cloneValue(deliveryTarget.lookDirections.slots)",
+            self.app,
+        )
+        for duplicate in (
+            "FRAME_WIDTH =",
+            "FRAME_HEIGHT =",
+            "ATLAS_COLUMNS =",
+            "ATLAS_ROWS =",
+            "STATES =",
+            "DIRECTIONS =",
+        ):
+            self.assertNotIn(duplicate, generator)
+        self.assertIn("def load_target(path: Path)", generator)
+        self.assertIn('target["lookDirections"]["slots"]', generator)
 
     def test_version_and_locale_controls_are_generic(self) -> None:
         self.assertIn('id="versionSelect"', self.html)
@@ -534,12 +567,12 @@ class PreviewerStaticTests(unittest.TestCase):
             render_player,
         )
         self.assertIn(
-            "setSpriteFrame(playbackState.row, activeFrameIndex);",
+            "stateFrameColumn(playbackState, activeFrameIndex)",
             render_player,
         )
         readme = (PREVIEWER / "README.md").read_text(encoding="utf-8")
         self.assertIn("Confirmation is session-only review metadata.", readme)
-        self.assertNotIn("frameTakes", self.data.split("states: [", 1)[1])
+        self.assertNotIn("frameTakes", self.target_data)
 
     def test_frame_take_sources_and_ids_are_fail_closed(self) -> None:
         self.assertIn('const ORIGINAL_TAKE_ID = "original";', self.app)
@@ -577,11 +610,21 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_preview_size_is_display_only(self) -> None:
         self.assertIn('id="previewSizeInput"', self.html)
         self.assertIn('id="previewSizeValue"', self.html)
-        self.assertIn('min="80"', self.html)
-        self.assertIn('max="224"', self.html)
+        self.assertNotIn('min="80"', self.html)
+        self.assertNotIn('max="224"', self.html)
         self.assertIn('value="160"', self.html)
-        self.assertIn("const PREVIEW_SIZE_MIN_PX = 80;", self.app)
-        self.assertIn("const PREVIEW_SIZE_MAX_PX = 224;", self.app)
+        self.assertIn("config.display.minimumPx", self.app)
+        self.assertIn("config.display.maximumPx", self.app)
+        self.assertIn(
+            "elements.previewSizeInput.min = String(config.display.minimumPx);",
+            self.app,
+        )
+        self.assertIn(
+            "elements.previewSizeInput.max = String(config.display.maximumPx);",
+            self.app,
+        )
+        self.assertEqual(80, self.target["display"]["minimumPx"])
+        self.assertEqual(224, self.target["display"]["maximumPx"])
         self.assertIn("--preview-width", self.css)
         self.assertIn("width: var(--preview-width);", self.css)
         self.assertNotIn("--preview-scale", self.css)
@@ -625,18 +668,22 @@ class PreviewerStaticTests(unittest.TestCase):
             "/__pet-studio__/session",
             "/__pet-studio__/timing",
             "withStateOverrides",
-            "config.runtime",
         ):
             self.assertNotIn(removed, self.app)
         self.assertNotIn("5000", self.html + self.app + self.i18n)
 
-        self.assertIn("const FIXED_ACTION_LOOPS = 3;", self.app)
-        self.assertIn("const FIXED_IDLE_SLOWDOWN = 6;", self.app)
-        self.assertIn("sprite: cloneValue(base.sprite)", self.app)
-        self.assertIn("states: cloneValue(base.states)", self.app)
-        self.assertIn("directions: cloneValue(base.directions)", self.app)
-        self.assertNotIn("...(next.sprite || {})", self.app)
-        self.assertNotIn("next.directions", self.app)
+        self.assertNotIn("FIXED_ACTION_LOOPS", self.app)
+        self.assertNotIn("FIXED_IDLE_SLOWDOWN", self.app)
+        self.assertIn("const deliveryTarget = window.PET_DELIVERY_TARGET;", self.app)
+        self.assertIn("sprite: {", self.app)
+        self.assertIn("columns: deliveryTarget.atlas.columns", self.app)
+        self.assertIn("rows: deliveryTarget.atlas.rows", self.app)
+        self.assertIn("states: deliveryTarget.states.map(", self.app)
+        self.assertIn(
+            "directions: cloneValue(deliveryTarget.lookDirections.slots)",
+            self.app,
+        )
+        self.assertIn("runtime: cloneValue(deliveryTarget.runtime)", self.app)
         expected_contract = {
             "idle": (0, [280, 110, 110, 140, 140, 320]),
             "running-right": (1, [120, 120, 120, 120, 120, 120, 120, 220]),
@@ -649,21 +696,14 @@ class PreviewerStaticTests(unittest.TestCase):
             "review": (8, [150, 150, 150, 150, 150, 280]),
         }
         for state_id, (row, durations) in expected_contract.items():
-            match = re.search(
-                rf'id:\s*"{re.escape(state_id)}",\s*'
-                rf"row:\s*(\d+),\s*durations:\s*\[([^\]]+)\]",
-                self.data,
+            state = next(
+                item for item in self.target["states"] if item["id"] == state_id
             )
-            self.assertIsNotNone(match, state_id)
-            self.assertEqual(row, int(match.group(1)), state_id)
-            self.assertEqual(
-                durations,
-                [int(value.strip()) for value in match.group(2).split(",")],
-                state_id,
-            )
+            self.assertEqual(row, state["row"], state_id)
+            self.assertEqual(durations, state["durationsMs"], state_id)
         self.assertIn("function runtimeFrameDuration(state, frameIndex)", self.app)
         self.assertIn(
-            "? baseDuration * FIXED_IDLE_SLOWDOWN",
+            "? baseDuration * config.runtime.idleDurationMultiplier",
             self.app,
         )
         self.assertIn(
@@ -671,7 +711,7 @@ class PreviewerStaticTests(unittest.TestCase):
             self.app,
         )
         self.assertIn(
-            "state.durations.length * FIXED_ACTION_LOOPS",
+            "state.durations.length * config.runtime.actionLoops",
             self.app,
         )
         self.assertIn("let runtimeFramesCompleted = 0;", self.app)
@@ -781,7 +821,7 @@ class PreviewerStaticTests(unittest.TestCase):
         expected = (
             'autoPlayAllStates: "Play All States"',
             'animationStates: "State Animations"',
-            'lookDirections: "16 Gaze Directions"',
+            'lookDirections: "Gaze Directions"',
             'runtimeTiming: "Runtime Simulation"',
             'endlessLoop: "Endless Loop"',
             'confirmTake: "Confirm Take"',
@@ -823,7 +863,7 @@ class PreviewerStaticTests(unittest.TestCase):
             self.i18n,
         )
         self.assertIn(
-            'currentState().id === "idle"\n'
+            "currentState().id === idleState().id\n"
             '              ? "ui.runtimeIdleModeHelp"\n'
             '              : "ui.runtimeModeHelp"',
             self.app,

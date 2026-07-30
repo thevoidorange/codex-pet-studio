@@ -131,6 +131,8 @@ outcomes separate:
 The current release delivers **Codex Pet v2** packages. Its animation slots and
 runtime cadence come from the Codex client, so Codex designs the acting inside
 those real constraints instead of inventing settings the pet cannot carry.
+Those exact checked-in constraints live in one machine-readable Delivery
+Target contract; the CLI, Previewer, sample generator, and QA derive from it.
 
 ## Privacy and ownership
 
@@ -155,6 +157,13 @@ and open it in Codex. The core readiness check is:
 python3 .agents/skills/pet-studio/scripts/studio.py doctor
 ```
 
+Verify that the selected Delivery Target and its static Previewer adapter are
+in sync with:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py target check
+```
+
 Start the local Previewer with:
 
 ```bash
@@ -166,6 +175,8 @@ points:
 
 - [Product model](docs/product-model.md) — roles, domain model, and the
   Studio Core / Delivery Target boundary
+- [Codex Pet v2 contract](delivery-targets/codex-pet-v2.json) — the canonical
+  checked-in geometry, state, cadence, lifecycle, and display facts
 - [Agent instructions](AGENTS.md) — repository routing, privacy, and operating
   rules
 - [Pet Studio Skill](.agents/skills/pet-studio/SKILL.md) — the detailed

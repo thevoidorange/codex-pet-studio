@@ -22,6 +22,13 @@ http://127.0.0.1:8765/previewer/?config=../build/preview.json
 
 Asset paths are resolved relative to the external JSON file.
 
+The current Delivery Target contract lives at
+[`delivery-targets/codex-pet-v2.json`](../delivery-targets/codex-pet-v2.json).
+`target-data.js` is a generated browser adapter for that contract so the
+Previewer continues to work from both the local server and `file://`. After an
+intentional contract change, regenerate the adapter with
+`studio.py target sync`; do not edit the adapter by hand.
+
 ## Review-context URLs
 
 The Previewer keeps deliberate review focus in the URL:
@@ -36,7 +43,13 @@ http://127.0.0.1:8765/previewer/?config=../build/preview.json&candidate=v002&sta
 - `take` is a loaded Take ID or the explicit value `original`.
 - Existing query parameters, including `config`, are preserved.
 
-Candidate, state, Keyframe, and Take selections update the URL without reloading the page. Switching to 16 Gaze Directions clears the animation `frame` and `take`; Auto Orbit and pointer movement then leave the remaining review context unchanged. Runtime frame ticks and all-state playback also do not rewrite it. A valid review link restores the selected frame in inspection mode and auditions its Take; it does not confirm, approve, save, generate, install, or publish anything.
+Candidate, state, Keyframe, and Take selections update the URL without
+reloading the page. Switching to Gaze Directions clears the animation `frame`
+and `take`; Auto Orbit and pointer movement then leave the remaining review
+context unchanged. Runtime frame ticks and all-state playback also do not
+rewrite it. A valid review link restores the selected frame in inspection mode
+and auditions its Take; it does not confirm, approve, save, generate, install,
+or publish anything.
 
 Unknown or stale values fail closed and are replaced with valid project defaults. URL values are matched only against the loaded config and cannot introduce an arbitrary asset path.
 
@@ -47,6 +60,10 @@ If an explicitly requested external `config` fails to load, the Previewer may sh
 ```json
 {
   "schemaVersion": 1,
+  "deliveryTarget": {
+    "id": "codex-pet-v2",
+    "revision": 1
+  },
   "pet": {
     "name": "Example Pet"
   },
@@ -65,6 +82,9 @@ If an explicitly requested external `config` fails to load, the Previewer may sh
   ]
 }
 ```
+
+`deliveryTarget` is optional for legacy configs. When present, it must match the
+contract loaded by the Previewer; a mismatched target or revision fails closed.
 
 Any number of project versions is supported. When an external config supplies at least one project version, the Previewer selects the project default (or its first version) on load and appends one bundled `Example` option to the version dropdown. The example remains available for orientation without taking over the first view. Keep the same state IDs and atlas contract across versions for like-for-like review.
 
@@ -99,9 +119,9 @@ Previewer does not upload, save, approve, or rewrite them.
 }
 ```
 
-`assetUrl` points to one standalone 192×208 frame relative to the Previewer
-JSON. `atlasSlot` points to one cell in the Candidate atlas. Supply exactly one
-source per Take. Keep private working files under
+`assetUrl` points to one standalone frame matching the Delivery Target cell
+size, relative to the Previewer JSON. `atlasSlot` points to one cell in the
+Candidate atlas. Supply exactly one source per Take. Keep private working files under
 `design/takes/<candidate>/<state>/fNN/`; copy only the review assets that the
 Previewer needs into the generated build beside its JSON.
 
@@ -120,43 +140,23 @@ and it is cleared by a page reload. Reopen the Keyframe rail to audition and
 confirm a different Take or return to Original. Motion Timing continues
 to show the source atlas.
 
-## Stable state IDs
+## Delivery Target-owned behavior
 
-The bundled defaults use the Codex v2 identifiers:
+State IDs, atlas rows, frame counts, per-frame durations, look slots,
+action-loop behavior, Idle cadence, sprite geometry, and display limits come
+from the generated Delivery Target adapter. External Previewer JSON cannot
+override them. A project may still provide localized labels and descriptions,
+mechanics-board copy, backgrounds, Candidates, Takes, and asset paths.
 
-- `idle`
-- `running-right`
-- `running-left`
-- `waving`
-- `jumping`
-- `failed`
-- `waiting`
-- `running`
-- `review`
+Motion Timing covers every target state in atlas-row order. Partial `mechanics`
+overrides are merged by `stateId`, so a project can replace one state's anchors
+without making the remaining states disappear.
 
-State rows, frame counts, per-frame durations, action-loop count, and Idle slowdown are fixed by the current Codex desktop runtime. External Previewer JSON cannot override them. A project may still provide localized labels and descriptions, mechanics-board copy, backgrounds, versions, and asset paths.
-
-Motion Timing always covers all nine standard states in atlas-row order. Partial `mechanics` overrides are merged by `stateId`, so a project can replace one state's anchors without making the other eight states disappear.
-
-## Fixed desktop runtime contract
-
-The Previewer pins the current Codex v2 desktop cadence:
-
-This snapshot was verified against Codex Desktop `26.721.41059` (build `5848`) on 2026-07-28. Re-check it when the installed client or `$hatch-pet` contract changes.
-
-| State | Row | Fixed base durations |
-| --- | ---: | --- |
-| `idle` | 0 | `280, 110, 110, 140, 140, 320 ms`, each multiplied by `6` at runtime |
-| `running-right` | 1 | `120, 120, 120, 120, 120, 120, 120, 220 ms` |
-| `running-left` | 2 | `120, 120, 120, 120, 120, 120, 120, 220 ms` |
-| `waving` | 3 | `140, 140, 140, 280 ms` |
-| `jumping` | 4 | `140, 140, 140, 140, 280 ms` |
-| `failed` | 5 | `140, 140, 140, 140, 140, 140, 140, 240 ms` |
-| `waiting` | 6 | `150, 150, 150, 150, 150, 260 ms` |
-| `running` | 7 | `120, 120, 120, 120, 120, 220 ms` |
-| `review` | 8 | `150, 150, 150, 150, 150, 280 ms` |
-
-Non-Idle actions play exactly three loops, then return to the slowed Idle loop. These values are client behavior, not editable Pet Pack fields. The pack itself contains the atlas and basic manifest only.
+The canonical contract also records which installed `$hatch-pet` and Codex
+Desktop build the snapshot was verified against. Re-check that provenance when
+the installed client contract changes. Runtime cadence remains client behavior,
+not editable Pet Pack metadata; the pack itself contains the atlas and basic
+manifest only.
 
 ## Localized project copy
 
@@ -189,13 +189,18 @@ The language and version selectors preserve the current state, frame, selected p
 
 ## Playback modes and display size
 
-- **Runtime Simulation** reproduces the pinned current Codex desktop timing: fixed per-frame durations, three action loops, then Idle at one-sixth speed.
+- **Runtime Simulation** reproduces the Delivery Target's client cadence,
+  including its action-loop return and Idle timing.
 - **Endless Loop** uses the same spritesheet and fixed per-frame durations, but repeats the selected state indefinitely instead of returning to Idle.
 - **Frame inspection** is a temporary tool rather than a third playback mode. Pause, Previous, Next, a frame thumbnail, or a timing-board card enters inspection; Play returns to the previously selected Runtime Simulation or Endless Loop.
 
-**Keyframes** is read-only. Each thumbnail shows its fixed runtime duration; Idle shows the base duration together with its `× 6` runtime multiplier. Selecting a thumbnail opens frame inspection without changing the source JSON.
+**Keyframes** is read-only. Each thumbnail shows the target-defined runtime
+duration; Idle also shows its target-defined multiplier. Selecting a thumbnail
+opens frame inspection without changing the source JSON.
 
-The **Size** slider in the upper-right corner of the grid stage mirrors the desktop setting range of `80–224 px`. It changes only the displayed preview size and never resizes, rewrites, or re-exports the spritesheet.
+The **Size** slider in the upper-right corner of the grid stage reads its limits
+from the Delivery Target. It changes only the displayed preview size and never
+resizes, rewrites, or re-exports the spritesheet.
 
 The bundled geometric Example uses the same atlas for both playback modes, so
 their only behavioral difference is the client-style return to Idle versus an

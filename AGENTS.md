@@ -10,8 +10,11 @@ Keep three authority scopes separate:
 
 - **Creative truth:** current user steering, private approvals, and exact evidence.
 - **Conduct and method:** this file for rules and `$pet-studio` for workflow.
-- **Target truth:** installed `$hatch-pet`; checked-in target docs are a dated
-  snapshot.
+- **Checked-in target truth:** the selected machine-readable Delivery Target
+  contract; generated adapters must match it exactly.
+- **External production authority:** the currently installed `$hatch-pet`.
+  When it disagrees with the checked-in target, stop and reconcile the
+  contract intentionally instead of silently choosing one.
 
 Read [the product model](docs/product-model.md) for roles and target boundaries.
 Codex Pet v2 is the only supported Delivery Target.
@@ -112,6 +115,7 @@ Prefer the checked-in dependency-free tool:
 
 ```bash
 python3 .agents/skills/pet-studio/scripts/studio.py doctor
+python3 .agents/skills/pet-studio/scripts/studio.py target check
 python3 .agents/skills/pet-studio/scripts/studio.py preview
 python3 .agents/skills/pet-studio/scripts/studio.py privacy-check
 python3 -m unittest discover -s tests -v

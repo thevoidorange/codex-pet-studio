@@ -106,9 +106,9 @@ When the user refers to “this,” “this frame,” or asks for another Take:
 2. Resolve the external config to a canonical local file under the current
    project root. If it is missing, remote, fallback-only, or unsafe to map, ask
    one concise project/path question instead of guessing.
-3. Materialize the selected source as one `192×208` frame. Use it as the
-   primary visual reference; use neighboring frames only as read-only
-   continuity evidence.
+3. Load the selected Delivery Target contract, then materialize the selected
+   source as exactly one target-cell-sized frame. Use it as the primary visual
+   reference; use neighboring frames only as read-only continuity evidence.
 4. Apply only the requested delta and every current identity/mechanism lock.
    For a bare “another Take,” make a restrained same-brief variation unless the
    intended difference is genuinely ambiguous.
@@ -133,7 +133,9 @@ sampled target build.
 For the current `codex-pet-v2` target, the pet package cannot customize frame
 durations, loop counts, Idle slowdown, or display size. Treat the installed
 `$hatch-pet` instructions as authoritative and the checked-in Codex target
-reference as a dated planning snapshot.
+contract as the exact checked-in planning snapshot. Run `studio.py target
+check` before Previewer review or production so handwritten project code
+cannot drift from that contract.
 
 Create state difference through intention, focal location, silhouette,
 mechanism use, weight, and fixed-slot pose spacing. Subtle motion is valid;
@@ -146,8 +148,8 @@ Review source-atlas playback through both Previewer modes:
 - **Endless Loop** repeats the same fixed cadence for seam and continuity
   inspection.
 
-Neither mode is an exported GIF or a timing editor. Review at 80, 144, and
-224 px.
+Neither mode is an exported GIF or a timing editor. Review at the selected
+target's minimum, representative, and maximum display sizes.
 
 ## Produce, maintain, and release
 

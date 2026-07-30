@@ -3,13 +3,10 @@
 
   const STORAGE_KEY = "codexPetStudio.previewer.locale";
   const i18nBundle = window.PET_PREVIEW_I18N;
+  const deliveryTarget = window.PET_DELIVERY_TARGET;
   const bundledConfig = window.PET_PREVIEW_CONFIG;
   const generatedAtlases = new Map();
   const takeAssetStatus = new Map();
-  const FIXED_ACTION_LOOPS = 3;
-  const FIXED_IDLE_SLOWDOWN = 6;
-  const PREVIEW_SIZE_MIN_PX = 80;
-  const PREVIEW_SIZE_MAX_PX = 224;
   const PREVIEW_SIZE_INITIAL_PX = 160;
   const LOOK_ORBIT_STEP_MS = 120;
   const TOUR_PROGRESS_STEP_MS = 160;
@@ -224,6 +221,57 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function targetBackedConfig() {
+    if (
+      !deliveryTarget ||
+      !deliveryTarget.atlas ||
+      !deliveryTarget.runtime ||
+      !deliveryTarget.display ||
+      !Array.isArray(deliveryTarget.states) ||
+      !deliveryTarget.lookDirections ||
+      !Array.isArray(deliveryTarget.lookDirections.slots)
+    ) {
+      throw new Error("The generated Delivery Target adapter is missing or invalid.");
+    }
+
+    return {
+      deliveryTarget: {
+        id: deliveryTarget.id,
+        revision: deliveryTarget.revision,
+      },
+      sprite: {
+        columns: deliveryTarget.atlas.columns,
+        rows: deliveryTarget.atlas.rows,
+        frameWidth: deliveryTarget.atlas.cellWidthPx,
+        frameHeight: deliveryTarget.atlas.cellHeightPx,
+      },
+      runtime: cloneValue(deliveryTarget.runtime),
+      display: cloneValue(deliveryTarget.display),
+      states: deliveryTarget.states.map((state) => ({
+        id: state.id,
+        row: state.row,
+        firstColumn: state.firstColumn,
+        durations: cloneValue(state.durationsMs),
+      })),
+      directions: cloneValue(deliveryTarget.lookDirections.slots),
+    };
+  }
+
+  function assertCompatibleTarget(projectConfig) {
+    const requested = projectConfig && projectConfig.deliveryTarget;
+    if (!requested) return;
+    if (
+      requested.id !== deliveryTarget.id ||
+      requested.revision !== deliveryTarget.revision
+    ) {
+      throw new Error(
+        `Preview config requires unsupported Delivery Target ${String(
+          requested.id,
+        )} revision ${String(requested.revision)}.`,
+      );
+    }
+  }
+
   function withMechanicsOverrides(baseMechanics, projectMechanics) {
     if (!Array.isArray(projectMechanics)) {
       return baseMechanics;
@@ -300,6 +348,7 @@
         throw new Error(`Config request failed with ${response.status}`);
       }
       const data = await response.json();
+      assertCompatibleTarget(data);
       return {
         data,
         baseUrl: resolvedUrl.href,
@@ -319,6 +368,7 @@
 
   function normalizeConfig(input, includeBundledExample = false) {
     const base = cloneValue(bundledConfig);
+    const target = targetBackedConfig();
     const next = input && typeof input === "object" ? input : {};
     const projectVersions =
       Array.isArray(next.versions) && next.versions.length
@@ -326,15 +376,13 @@
         : null;
     const normalized = {
       ...base,
+      ...target,
       pet: { ...base.pet, ...(next.pet || {}) },
-      sprite: cloneValue(base.sprite),
       versions: projectVersions
         ? includeBundledExample
           ? withBundledExample(projectVersions, base.versions)
           : projectVersions
         : base.versions,
-      states: cloneValue(base.states),
-      directions: cloneValue(base.directions),
       mechanics: withMechanicsOverrides(base.mechanics, next.mechanics),
       backgrounds:
         Array.isArray(next.backgrounds) && next.backgrounds.length
@@ -572,13 +620,27 @@
 
   function idleState() {
     return (
-      config.states.find((state) => state.id === "idle") || config.states[0]
+      config.states.find(
+        (state) => state.id === config.runtime.idleStateId,
+      ) || config.states[0]
     );
+  }
+
+  function actionReturnState() {
+    return (
+      config.states.find(
+        (state) => state.id === config.runtime.actionReturnStateId,
+      ) || idleState()
+    );
+  }
+
+  function stateFrameColumn(state, frameIndex) {
+    return state.firstColumn + frameIndex;
   }
 
   function displayedState() {
     return !isInspectingFrame && playbackMode === "runtime" && runtimeFellBack
-      ? idleState()
+      ? actionReturnState()
       : currentState();
   }
 
@@ -613,7 +675,7 @@
   function runtimeFrameDuration(state, frameIndex) {
     const baseDuration = state.durations[frameIndex];
     return state.id === idleState().id
-      ? baseDuration * FIXED_IDLE_SLOWDOWN
+      ? baseDuration * config.runtime.idleDurationMultiplier
       : baseDuration;
   }
 
@@ -622,7 +684,7 @@
     if (state.id === idleState().id) {
       return t("ui.idleFrameDuration", {
         duration: baseDuration,
-        multiplier: FIXED_IDLE_SLOWDOWN,
+        multiplier: config.runtime.idleDurationMultiplier,
       });
     }
     return t("ui.frameDurationFixed", { duration: baseDuration });
@@ -711,7 +773,7 @@
     let eyeShiftX = 0;
     let eyeShiftY = 0;
 
-    if (state.id === "idle") {
+    if (state.id === idleState().id) {
       scaleY += wave * 0.018;
       offsetY -= wave * 1.6;
     } else if (state.id === "running-right") {
@@ -766,7 +828,7 @@
 
     context.fillStyle = "#ffffff";
     const blink =
-      state.id === "idle" &&
+      state.id === idleState().id &&
       column === Math.min(3, state.durations.length - 1);
     if (blink) {
       context.fillRect(-21 + eyeShiftX, -23 + eyeShiftY, 13, 2);
@@ -1331,7 +1393,11 @@
       const version = currentVersion();
       const assetUrl = resolveAssetUrl(take.assetUrl, version);
       if (takeAssetStatus.get(assetUrl) === "failed") {
-        setSpriteFrame(fallbackState.row, frameIndex, target);
+        setSpriteFrame(
+          fallbackState.row,
+          stateFrameColumn(fallbackState, frameIndex),
+          target,
+        );
         return;
       }
       if (!takeAssetStatus.has(assetUrl)) {
@@ -1447,7 +1513,7 @@
       return t("ui.runtimeIdleNote");
     }
     return t("ui.runtimeActionNote", {
-      loops: FIXED_ACTION_LOOPS,
+      loops: config.runtime.actionLoops,
     });
   }
 
@@ -1475,7 +1541,10 @@
     return [
       `background-image:url('${atlasUrlFor(currentVersion())}')`,
       `background-size:${atlasBackgroundSize()}`,
-      `background-position:${gridPosition(index, state.row)}`,
+      `background-position:${gridPosition(
+        stateFrameColumn(state, index),
+        state.row,
+      )}`,
     ].join(";");
   }
 
@@ -2065,7 +2134,23 @@
     elements.stateDescription.textContent = t("ui.lookDescription");
     elements.stateIntent.textContent = t("ui.lookIntent");
     elements.stateTrigger.textContent = t("ui.lookTrigger");
-    elements.stateDuration.textContent = t("ui.lookDuration");
+    const directionStep =
+      config.directions.length > 1
+        ? Math.abs(
+            config.directions[1].degree - config.directions[0].degree,
+          )
+        : 0;
+    elements.stateDuration.textContent = t("ui.lookDuration", {
+      count: config.directions.length,
+      step: Number(directionStep),
+    });
+    elements.spritePlayer.setAttribute(
+      "aria-label",
+      t("ui.assetAlt", {
+        pet: config.pet.name,
+        state: t("ui.lookTitle"),
+      }),
+    );
   }
 
   function renderControlLabels() {
@@ -2129,11 +2214,11 @@
             : "ui.frameInspectionRuntimeHelp"
           : playbackMode === "loop"
             ? "ui.endlessModeHelp"
-            : currentState().id === "idle"
+            : currentState().id === idleState().id
               ? "ui.runtimeIdleModeHelp"
               : "ui.runtimeModeHelp",
       {
-        loops: FIXED_ACTION_LOOPS,
+        loops: config.runtime.actionLoops,
       },
     );
     elements.previewModeHelp.textContent = modeHelp;
@@ -2238,7 +2323,7 @@
       } else {
         elements.frameReadout.textContent = t("ui.runtimeLoopReadout", {
           loop: runtimeLoopsCompleted + 1,
-          loops: FIXED_ACTION_LOOPS,
+          loops: config.runtime.actionLoops,
           frame: activeFrameIndex + 1,
           count: state.durations.length,
         });
@@ -2269,7 +2354,10 @@
           activeFrameIndex,
         );
       } else {
-        setSpriteFrame(state.row, activeFrameIndex);
+        setSpriteFrame(
+          state.row,
+          stateFrameColumn(state, activeFrameIndex),
+        );
       }
       elements.stageModeLabel.textContent = t("ui.frameInspectionLabel");
       clearFrameTimer();
@@ -2291,7 +2379,10 @@
         activeFrameIndex,
       );
     } else {
-      setSpriteFrame(playbackState.row, activeFrameIndex);
+      setSpriteFrame(
+        playbackState.row,
+        stateFrameColumn(playbackState, activeFrameIndex),
+      );
     }
     elements.stageModeLabel.textContent =
       playbackMode === "loop"
@@ -2301,7 +2392,7 @@
           : currentState().id === idleState().id
             ? t("ui.runtimeIdle")
             : t("ui.runtimeAction", {
-                loops: FIXED_ACTION_LOOPS,
+                loops: config.runtime.actionLoops,
               });
   }
 
@@ -2397,7 +2488,7 @@
         );
         if (
           runtimeFramesCompleted >=
-          state.durations.length * FIXED_ACTION_LOOPS
+          state.durations.length * config.runtime.actionLoops
         ) {
           runtimeFellBack = true;
           activeFrameIndex = 0;
@@ -2495,11 +2586,13 @@
     const numericValue = Number(value);
     const boundedValue = Number.isFinite(numericValue)
       ? Math.min(
-          PREVIEW_SIZE_MAX_PX,
-          Math.max(PREVIEW_SIZE_MIN_PX, numericValue),
+          config.display.maximumPx,
+          Math.max(config.display.minimumPx, numericValue),
         )
       : PREVIEW_SIZE_INITIAL_PX;
     previewSizePx = Math.round(boundedValue);
+    elements.previewSizeInput.min = String(config.display.minimumPx);
+    elements.previewSizeInput.max = String(config.display.maximumPx);
     elements.previewSizeInput.value = String(previewSizePx);
     elements.previewSizeValue.textContent = `${previewSizePx} px`;
     elements.stage.style.setProperty(
@@ -2508,7 +2601,10 @@
     );
     elements.stage.style.setProperty(
       "--preview-height",
-      `${Math.round((previewSizePx * 208) / 192)}px`,
+      `${Math.round(
+        (previewSizePx * config.sprite.frameHeight) /
+          config.sprite.frameWidth,
+      )}px`,
     );
   }
 
@@ -2772,8 +2868,8 @@
     const state = config.states[tourState.index];
     const runtimeMultiplier =
       state.id === idleState().id
-        ? FIXED_IDLE_SLOWDOWN
-        : FIXED_ACTION_LOOPS;
+        ? config.runtime.idleDurationMultiplier
+        : config.runtime.actionLoops;
     tourState.holdMs = Math.max(
       3600,
       totalDuration(state) * runtimeMultiplier,
