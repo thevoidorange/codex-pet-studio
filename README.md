@@ -1,8 +1,8 @@
 # Codex Pet Studio
 
 Codex Pet Studio is a complete co-design suite for creating custom
-Codex pets with your own Codex Agent, combining guided agent skills, a live Previewer,
-production tooling, and QA in one project.
+Codex pets with *your own Codex locally*, combining **guided agent skills, a live Previewer,
+production tooling, and QA** in one project.
 
 ![Codex Pet Studio Previewer showing Raincoat Cat states, animation playback, and Keyframes](docs/assets/codex-pet-studio-preview.png)
 
