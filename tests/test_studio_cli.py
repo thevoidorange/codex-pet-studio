@@ -308,6 +308,11 @@ class StudioCliTests(unittest.TestCase):
 
     def test_preview_server_has_no_timing_write_api(self) -> None:
         source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn(
+            'self.send_header("Cache-Control", "no-cache, max-age=0, must-revalidate")',
+            source,
+        )
+        self.assertNotIn('"no-store, max-age=0"', source)
         for forbidden in (
             "/__pet-studio__/session",
             "/__pet-studio__/timing",

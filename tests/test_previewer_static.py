@@ -25,6 +25,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.css = (PREVIEWER / "styles.css").read_text(encoding="utf-8")
 
     def test_static_references_and_dom_ids_exist(self) -> None:
+        self.assertIn('<link rel="icon" href="data:," />', self.html)
         for reference in (
             "styles.css",
             "i18n.js",
@@ -1134,6 +1135,14 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_rendering_avoids_large_blur_and_eager_offscreen_paint(self) -> None:
         workspace_rule = self.css.split(".workspace {", 1)[1].split("}", 1)[0]
         self.assertNotIn("backdrop-filter", workspace_rule)
+        stage_rule = self.css.split(".stage {", 1)[1].split("}", 1)[0]
+        self.assertIn("contain: layout paint;", stage_rule)
+        sprite_rule = self.css.split(".sprite-player {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("filter:", sprite_rule)
+        size_control_rule = self.css.split(
+            ".preview-size-control {", 1
+        )[1].split("}", 1)[0]
+        self.assertNotIn("backdrop-filter", size_control_rule)
         self.assertIn("content-visibility: auto;", self.css)
         self.assertIn("contain-intrinsic-size: auto 230px;", self.css)
         self.assertIn("transform: scaleX(0);", self.css)

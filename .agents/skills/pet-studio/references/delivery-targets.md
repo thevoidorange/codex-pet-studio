@@ -160,9 +160,9 @@ Read the machine-readable
 exact target facts and [codex-pet-v2.md](codex-pet-v2.md) for their acting,
 staging, and compiler boundary. Read
 [motion-and-state-contract.md](motion-and-state-contract.md)
-for target-neutral Motion Language. Re-read the installed `$hatch-pet` skill
-before production; it is the current technical authority when newer
-instructions conflict with the repository snapshot.
+for target-neutral Motion Language. Re-read the project-bundled `$hatch-pet`
+skill before production. If a newer external copy conflicts with the repository
+snapshot, stop and reconcile the contract intentionally before adopting it.
 
 ## Future behavior drivers
 

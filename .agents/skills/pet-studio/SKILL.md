@@ -45,7 +45,7 @@ and the Codex conversation as the editing surface.
   emotional stance, variable mechanisms, state acting, and motion.
   Never defer all imagery until an all-in-one multimodal delivery.
 - Use `$imagegen` for visual generation and editing. For the current
-  `codex-pet-v2` target, use the installed `$hatch-pet` skill as the
+  `codex-pet-v2` target, use the project-bundled `$hatch-pet` skill as the
   authoritative production compiler and validator.
 - Never install or publish unless the user explicitly requests that action.
 
@@ -239,7 +239,7 @@ Pass production:
 - every explicitly approved Keyframe or Take as a named grounding asset;
 - the exact Candidate ID, Delivery Target ID, and privacy classification.
 
-Stage validated output under `build/pet`. If the installed `$hatch-pet`
+Stage validated output under `build/pet`. If the bundled `$hatch-pet`
 workflow would write directly to a live Codex pets directory, stop before that
 copy step and stage the validated manifest and atlas in the project instead.
 Run project validation and privacy checks before export. Run
@@ -247,7 +247,8 @@ Run project validation and privacy checks before export. Run
 explicit destination.
 
 Read [codex-pet-v2.md](references/codex-pet-v2.md) for the production boundary.
-The installed `$hatch-pet` skill wins when its newer technical contract differs.
+If a newer externally installed `$hatch-pet` differs, report the discrepancy
+and reconcile the checked-in target intentionally before adopting it.
 
 ## Validate and hand off honestly
 

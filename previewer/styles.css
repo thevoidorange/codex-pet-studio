@@ -329,6 +329,7 @@ select:focus-visible {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 24px;
+  contain: layout paint;
   transition: background 180ms ease;
 }
 
@@ -360,7 +361,6 @@ select:focus-visible {
   z-index: 2;
   width: var(--preview-width);
   height: var(--preview-height);
-  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.07));
   transition:
     width 120ms ease-out,
     height 120ms ease-out;
@@ -408,7 +408,6 @@ select:focus-visible {
   color: #666666;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 5px 18px rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(10px);
   font-size: 10px;
   font-weight: 700;
 }

@@ -10,8 +10,8 @@ Keep three authority scopes separate:
 - **Creative truth:** current user steering, private approvals, and exact evidence.
 - **Conduct and method:** this file for rules and `$pet-studio` for workflow.
 - **Checked-in target truth:** the selected machine-readable Delivery Target contract; generated adapters must match it exactly.
-- **External production authority:** the currently installed `$hatch-pet`. When it disagrees with the checked-in target, stop and reconcile the contract intentionally instead of silently choosing one.
-
+- **Production authority:** the project-bundled `$hatch-pet`. A newer external copy is evidence of possible target drift, not permission to silently change this project.
+  Stop and reconcile the contract intentionally before adopting it.
 Read [the product model](docs/product-model.md) for roles and target boundaries. Codex Pet v2 is the only supported Delivery Target.
 
 ## Re-enter before acting

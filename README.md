@@ -208,8 +208,10 @@ Codex chooses the Candidate ID and display name from the actual idea. Candidate
 names are semantic, not sequential release numbers: two Candidates may be
 different directions or entirely different pets.
 
-The project is intentionally inspectable and dependency-free. Useful entry
-points:
+The core Studio CLI and Previewer are intentionally inspectable and
+dependency-free. Final pet production uses Codex's built-in image generation
+and bundled Python/Pillow workspace runtime; users do not install or configure
+those separately. Useful entry points:
 
 - [Product model](docs/product-model.md) — roles, domain model, and the
   Studio Core / Delivery Target boundary
@@ -219,10 +221,12 @@ points:
   rules
 - [Pet Studio Skill](.agents/skills/pet-studio/SKILL.md) — the detailed
   creative, review, production, and QA method
+- [Hatch Pet Skill](.agents/skills/hatch-pet/SKILL.md) — the bundled
+  deterministic Codex Pet v2 production compiler and validator
 - [Previewer](previewer/) — the bilingual read-only review workbench
 - [Templates](templates/) — reusable private decision artifacts
 - [Raincoat Cat](examples/raincoat-cat/) — complete public Codex Pet v2 Example
-- [Tests](tests/) — dependency-free regression coverage
+- [Tests](tests/) — core and production regression coverage
 
 The architecture keeps approved creative work separate from platform-specific
 sampling, but Codex Pet v2 is the only supported Delivery Target today. Future
@@ -231,7 +235,10 @@ targets should be added only after they work end to end.
 ## License
 
 Repository code, documentation, and templates are available under the
-[MIT License](LICENSE).
+[MIT License](LICENSE). The bundled Hatch Pet skill remains available under
+its included [Apache License 2.0](.agents/skills/hatch-pet/LICENSE.txt). It is a
+vendored OpenAI skill snapshot modified for project-local, build-first use; its
+license and modification notice are preserved in that subtree.
 
 That license does not grant rights to third-party characters, trademarks,
 photographs, or reference material. Generated pet assets may require their own

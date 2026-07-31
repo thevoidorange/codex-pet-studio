@@ -2314,8 +2314,8 @@ def command_doctor(args: argparse.Namespace) -> int:
             )
     codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")).expanduser()
     hatch_candidates = (
-        codex_home / "skills" / "hatch-pet" / "SKILL.md",
         root / ".agents" / "skills" / "hatch-pet" / "SKILL.md",
+        codex_home / "skills" / "hatch-pet" / "SKILL.md",
     )
     hatch_path = next((path for path in hatch_candidates if path.is_file()), None)
     checks.append(
@@ -2326,7 +2326,7 @@ def command_doctor(args: argparse.Namespace) -> int:
             "detail": (
                 str(hatch_path)
                 if hatch_path
-                else "not found in standard local skill paths; needed only for production"
+                else "missing project production skill; required before production"
             ),
         }
     )
@@ -2406,9 +2406,12 @@ def command_target_sync(args: argparse.Namespace) -> int:
     return 0
 
 
-class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+class RevalidatingCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
-        self.send_header("Cache-Control", "no-store, max-age=0")
+        # Keep the local workbench fresh without re-downloading large atlases
+        # after every reload. SimpleHTTPRequestHandler already supports
+        # If-Modified-Since, so no-cache gives the browser a cheap 304 path.
+        self.send_header("Cache-Control", "no-cache, max-age=0, must-revalidate")
         super().end_headers()
 
     def log_message(self, format_string: str, *args: object) -> None:
@@ -2440,8 +2443,11 @@ def command_preview(args: argparse.Namespace) -> int:
         print(f"OK: previewer is ready at {planned_url}")
         return 0
 
-    def handler(*handler_args: Any, **handler_kwargs: Any) -> NoCacheHandler:
-        request_handler = NoCacheHandler(
+    def handler(
+        *handler_args: Any,
+        **handler_kwargs: Any,
+    ) -> RevalidatingCacheHandler:
+        request_handler = RevalidatingCacheHandler(
             *handler_args,
             directory=str(root),
             **handler_kwargs,

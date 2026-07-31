@@ -9,9 +9,59 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / ".agents" / "skills" / "pet-studio"
 SKILL_MD = SKILL / "SKILL.md"
+HATCH_SKILL = ROOT / ".agents" / "skills" / "hatch-pet"
 
 
 class SkillBundleTests(unittest.TestCase):
+    def test_hatch_pet_production_skill_is_bundled_and_exported(self) -> None:
+        project = json.loads((ROOT / "pet-studio.json").read_text(encoding="utf-8"))
+        hatch_markdown = (HATCH_SKILL / "SKILL.md").read_text(encoding="utf-8")
+        hatch_license = (HATCH_SKILL / "LICENSE.txt").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        pet_studio = SKILL_MD.read_text(encoding="utf-8")
+
+        self.assertIn(".agents/skills/hatch-pet/**", project["export"]["include"])
+        self.assertIn("Apache License", hatch_license)
+        self.assertIn("project-bundled `$hatch-pet`", agents)
+        self.assertIn("project-bundled `$hatch-pet`", pet_studio)
+        self.assertIn("Modified for Codex Pet Studio", hatch_markdown)
+        self.assertIn(
+            "Do not use for cold-start inspiration or early concept exploration",
+            hatch_markdown,
+        )
+        self.assertIn(
+            'PET_DIR="${PET_OUTPUT_DIR:-$RUN_DIR/package/$PET_ID}"',
+            hatch_markdown,
+        )
+        self.assertNotIn(
+            'PET_DIR="${CODEX_HOME:-$HOME/.codex}/pets/$PET_ID"',
+            hatch_markdown,
+        )
+        prepare = (
+            HATCH_SKILL / "scripts" / "prepare_pet_run.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'Path.cwd() / "build" / "hatch-pet"',
+            prepare,
+        )
+        self.assertNotIn(
+            'Path.cwd() / "output" / "hatch-pet"',
+            prepare,
+        )
+        self.assertIn("output/", (ROOT / ".gitignore").read_text(encoding="utf-8"))
+        workflow = (
+            ROOT / ".github" / "workflows" / "validate.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Pillow>=10,<13", workflow)
+        self.assertIn(
+            "python -m unittest discover -s .agents/skills/hatch-pet/tests -v",
+            workflow,
+        )
+        self.assertGreaterEqual(
+            len(list((HATCH_SKILL / "scripts").glob("*.py"))),
+            10,
+        )
+
     def test_readme_leads_with_the_suite_and_single_paste_start(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         hero = ROOT / "docs" / "assets" / "codex-pet-studio-preview.png"
@@ -19,12 +69,10 @@ class SkillBundleTests(unittest.TestCase):
             "complete co-design suite",
             readme,
         )
-        self.assertIn("with your own Codex Agent", readme)
-        self.assertIn(
-            "guided agent skills, a live Previewer,\n"
-            "production tooling, and QA in one project.",
-            readme,
-        )
+        self.assertIn("your own Codex locally", readme)
+        self.assertIn("guided agent skills, a live Previewer", readme)
+        self.assertIn("production tooling, and QA", readme)
+        self.assertIn("in one project.", readme)
         self.assertIn(
             "![Codex Pet Studio Previewer showing Raincoat Cat states, "
             "animation playback, and Keyframes]"

@@ -15,6 +15,7 @@
       "CODE_OF_CONDUCT.md",
       "SECURITY.md",
       ".agents/skills/pet-studio/**",
+      ".agents/skills/hatch-pet/**",
       ".github/workflows/**",
       "delivery-targets/**",
       "docs/**",

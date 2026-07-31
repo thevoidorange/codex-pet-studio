@@ -27,9 +27,10 @@ not a second technical contract.
 
 The contract records the Codex Desktop build and date it was verified against.
 Treat that provenance as a snapshot, not a promise that later clients remain
-identical. Re-read the installed `$hatch-pet` skill before every production or
-repair run. If it conflicts with the checked-in contract, stop, report the
-discrepancy, and revise the contract intentionally before continuing.
+identical. Re-read the project-bundled `$hatch-pet` skill before every
+production or repair run. If a newer externally installed copy conflicts with
+the checked-in contract, stop, report the discrepancy, and revise the bundled
+compiler and contract intentionally before continuing.
 
 Run:
 
@@ -260,6 +261,6 @@ Treat these as separate operations:
 5. **Publish** — send an authorized artifact to an external destination.
 
 Do not let production write to a live Codex pets directory when the user asked
-only to validate, package, or export. If installed compiler instructions
+only to validate, package, or export. If compiler instructions
 include a live copy step, stop before it and stage the validated files in the
 project. Run installation only after an explicit conversational request.

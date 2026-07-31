@@ -17,4 +17,6 @@ design/
 # Generated and installed artifacts.
 build/
 dist/
+# Defense in depth for runs created by older Hatch Pet snapshots.
+output/
 *.zip
