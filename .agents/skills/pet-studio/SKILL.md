@@ -1,6 +1,6 @@
 ---
 name: pet-studio
-description: Co-design, review, refine, repair, validate, package, export, or explicitly install a Codex desktop pet from inspiration or an existing project. Use for staged creative decisions, identity and mechanism locks, fixed-slot state motion, Previewer Candidate/Keyframe/Take review, exact one-frame alternatives, existing-pack maintenance, and Codex v2 production without losing prior approvals or private inputs.
+description: Co-design, review, refine, repair, validate, package, export, or explicitly install a Codex desktop pet from inspiration or an existing project. Use for staged creative decisions, first-image Static Candidate and progressive Previewer handoff, identity and mechanism locks, fixed-slot state motion, Candidate/Keyframe/Take review, exact one-frame alternatives, existing-pack maintenance, and Codex v2 production without losing prior approvals or private inputs.
 ---
 
 # Pet Studio
@@ -30,6 +30,14 @@ and the Codex conversation as the editing surface.
   inspiration for a meaningful direction, deliver the first static character
   study in the next substantive response. Do not require approval of a
   prose-only brief first.
+- On a true project cold start, complete setup, start or reuse the local
+  Previewer immediately, open it on the bundled `Example.RaincoatCat`, and
+  verify that the Example is visible. Treat it as an orientation surface only,
+  never as project evidence.
+- As soon as that first reviewable static image exists, preserve the exact
+  asset as a Static Candidate, create or update a validated project Previewer
+  config, and move the already-running Previewer to a URL focused on that
+  image. Do not wait for an atlas, animation, or all nine runtime states.
 - Ask at most one genuinely blocking question before the first visual.
   Otherwise make restrained, visible assumptions and let the user correct the
   image.
@@ -46,19 +54,39 @@ and the Codex conversation as the editing surface.
 Before acting, inspect `pet-studio.json`, the selected Delivery Target, current
 `design/` decisions, available Candidates, `build/`, unresolved QA, and any
 valid Previewer URL in task context. Preserve current work and resume through
-the shortest truthful route. If no target is recorded, the current repository
-supports `codex-pet-v2` only:
+the shortest truthful route. Reopen the latest valid project-focused Previewer
+URL when reviewable work already exists; do not replace it with the bundled
+Example. When no project Candidate exists yet, start or reuse the Previewer and
+open its base URL so `Example.RaincoatCat` is visible while creative work
+begins. If no target is recorded, the current repository supports
+`codex-pet-v2` only:
 
 | User situation | Route |
 | --- | --- |
-| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, record a concise provisional reading, then produce the smallest useful static character study as soon as there is enough direction. Do not wait for a complete questionnaire or prose-only Gate 1 approval, and do not generate a full pet. |
-| Existing approved character or partial project | State what is locked and open, then resume at the first unresolved creative decision. Do not restart ideation. |
+| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, start or reuse the Previewer, open the bundled `Example.RaincoatCat`, and verify that it renders. Record a concise provisional reading, then produce the smallest useful static character study as soon as there is enough direction. Stage that exact image as a semantically named Static Candidate, validate its config, switch the Previewer to its focused URL, and verify that the visible asset belongs to the project. Do not wait for a complete questionnaire, prose-only Gate 1 approval, an atlas, or nine states. |
+| Existing approved character or partial project | State what is locked and open, reopen the latest valid project review focus when available, then resume at the first unresolved creative decision. Do not restart ideation or fill missing work with Example assets. |
 | Feedback on one Previewer Keyframe or Take | Resolve the exact review context and use the single-frame Take workflow. Do not reopen unrelated gates. |
 | Existing pack maintenance | Validate provenance and scope, preserve passing rows, and repair only the affected production unit. Return to a creative gate only when identity, state meaning, or motion language changes. |
 | Preview, validate, export, or explicit install | Use the deterministic project command for that operation without reopening creative decisions. |
 
 Read [creative-workflow.md](references/creative-workflow.md) for inspiration,
 identity, default-form, mechanism, state, and motion decisions.
+
+For the first-image handoff, prefer the deterministic command:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
+  --asset <path-to-exact-png-or-webp> \
+  --candidate <semantic-candidate-id> \
+  --default
+```
+
+Choose the Candidate ID and display name from the actual proposal. Use a
+stable, concise English identifier; do not manufacture `v001`, `v002`, or
+another sequential version scheme unless the project already uses one
+deliberately. Use the returned project-focused URL. Read
+[review-workbench.md](references/review-workbench.md) for candidate updates,
+safe URL restoration, and progressive runtime coverage.
 
 ## Use one decision loop
 
@@ -69,8 +97,11 @@ For each creative round:
 3. Produce the smallest visual comparison that can answer the question. If
    form, mechanism, acting, emotion, or motion is being decided, prose alone is
    not a completed round.
-4. Review at realistic desktop size when readability matters.
-5. Record the selection, rejection reasons, remaining open variables, and next
+4. Stage the exact review artifact in the current Candidate and open or refresh
+   its focused Previewer URL. A first still uses `state=static`; later runtime
+   work exposes only the states that actually exist.
+5. Review at realistic desktop size when readability matters.
+6. Record the selection, rejection reasons, remaining open variables, and next
    dependent decision.
 
 Do not treat “better,” “interesting,” a Previewer click, or silence as approval.
@@ -90,12 +121,19 @@ and
 
 ## Keep the domain model explicit
 
-- **Candidate** — one coherent, reviewable proposal across the relevant
-  character and state set. Use sortable IDs such as `v001`.
+- **Candidate** — one coherent, reviewable proposal at its current level of
+  completion. It may begin as one Static image and accumulate an exact subset
+  of runtime states over time. A Candidate is not a revision number: parallel
+  Candidates may represent different characters, pets, or creative directions.
+  Let the project's Codex choose a stable semantic ID and natural display name
+  from the actual proposal.
+- **Static** — one standalone character-study image plus optional Takes. It is
+  a review surface before runtime sampling, not a runtime state, Keyframe row,
+  timing entry, or fabricated one-frame animation.
 - **Keyframe** — one named visual time sample. In the current target's
   Candidate, it maps to one fixed runtime slot inside one state row.
-- **Take** — one additive visual alternative for one exact Candidate, state,
-  and Keyframe.
+- **Take** — one additive visual alternative for one exact Candidate and
+  review slot: either Static or one runtime Keyframe.
 - **Audition** — temporary Take viewing. It changes no project decision.
 - **Confirm** — session-only Previewer selection for that Keyframe. It changes
   no source asset, config, Candidate, QA result, or approval state.
@@ -124,14 +162,16 @@ When the user refers to “this,” “this frame,” or asks for another Take:
 2. Resolve the external config to a canonical local file under the current
    project root. If it is missing, remote, fallback-only, or unsafe to map, ask
    one concise project/path question instead of guessing.
-3. Load the selected Delivery Target contract, then materialize the selected
-   source as exactly one target-cell-sized frame. Use it as the primary visual
-   reference; use neighboring frames only as read-only continuity evidence.
+3. Resolve the selected source exactly. For `state=static`, use the standalone
+   Static image and preserve its canvas. For a runtime state, load the selected
+   Delivery Target contract and materialize exactly one target-cell-sized
+   frame. Treat neighboring frames only as read-only continuity evidence.
 4. Apply only the requested delta and every current identity/mechanism lock.
    For a bare “another Take,” make a restrained same-brief variation unless the
    intended difference is genuinely ambiguous.
-5. Generate exactly one standalone frame. Do not change the source atlas,
-   current Take, adjacent frames, or unrelated config.
+5. Generate exactly one standalone image at the source slot's dimensions. Do
+   not change the Static original, source atlas, current Take, adjacent frames,
+   or unrelated config.
 6. Register it atomically with
    `python3 .agents/skills/pet-studio/scripts/studio.py take add --help`.
 7. Validate the refreshed config and asset, then return the focused URL with
@@ -168,6 +208,13 @@ Review source-atlas playback through both Previewer modes:
 
 Neither mode is an exported GIF or a timing editor. Review at the selected
 target's minimum, representative, and maximum display sizes.
+
+Runtime review is progressive. Declare the exact runtime state IDs present in
+each Candidate and show only those states. Keep missing states absent; never
+duplicate an available row, synthesize a placeholder, or borrow the bundled
+Example to imply coverage. Static remains independently reviewable while
+runtime states accumulate. Require complete target coverage only at the
+production or release gate that actually needs it.
 
 ## Produce, maintain, and release
 

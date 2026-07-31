@@ -11,7 +11,7 @@ Useful contributions include:
 - Previewer accessibility, localization, or comparison improvements;
 - stronger visual, motion, and pack QA;
 - compatibility work for current Codex pet formats;
-- neutral, fully licensed examples;
+- project-owned or explicitly authorized, fully licensed examples;
 - fixes that make the repository easier for Codex and people to use together.
 
 This project is not a bulk character dump or a gallery of unlicensed fan assets.
@@ -21,8 +21,8 @@ This project is not a bulk character dump or a gallery of unlicensed fan assets.
 1. Open an issue or discussion for a material workflow change.
 2. Explain the user problem before proposing an implementation.
 3. Keep the core experience local-first and usable without a separate API key.
-4. Preserve phase gates and version comparison.
-5. Test the change with a neutral project.
+4. Preserve creative gates and Candidate comparison.
+5. Test the change with a privacy-safe project fixture.
 6. Remove personal data, machine-specific paths, and generated secrets.
 
 Run the dependency-free checks before opening a pull request:
@@ -35,7 +35,7 @@ python3 .agents/skills/pet-studio/scripts/studio.py privacy-check
 
 ## Public language
 
-Repository documentation, filenames, state identifiers, version identifiers, tests, and code comments should be in English.
+Repository documentation, filenames, state identifiers, Candidate identifiers, tests, and code comments should be in English.
 
 Codex may collaborate with users in any language. The Previewer may display bilingual user-facing labels, including English and Chinese, while retaining stable English IDs underneath.
 
@@ -71,8 +71,8 @@ If a bug report requires private material, follow [SECURITY.md](SECURITY.md) rat
 - [ ] The change has a clear user-facing reason.
 - [ ] Public text and identifiers are in English.
 - [ ] The core workflow still works without a hosted service or separate API key.
-- [ ] Existing approved-version behavior is preserved.
-- [ ] Previewer changes retain version comparison and stable state IDs.
+- [ ] Existing approved-Candidate behavior is preserved.
+- [ ] Previewer changes retain Candidate comparison and stable state IDs.
 - [ ] Relevant creative, motion, and technical QA was performed.
 - [ ] No personal data, secrets, or machine-specific paths are included.
 - [ ] New assets have a complete attribution and license record.
@@ -80,7 +80,7 @@ If a bug report requires private material, follow [SECURITY.md](SECURITY.md) rat
 
 ## Commit and review style
 
-Keep commits focused and describe the behavioral outcome. Reviewers may request a small before/after project, a version comparison, or proof that a packaged pet still validates.
+Keep commits focused and describe the behavioral outcome. Reviewers may request a small before/after project, a Candidate comparison, or proof that a packaged pet still validates.
 
 Be direct and kind. Critique the design or implementation, not the person.
 

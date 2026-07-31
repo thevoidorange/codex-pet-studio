@@ -1,6 +1,6 @@
 # Previewer configuration
 
-The Previewer works with the bundled neutral fixture or a project-specific JSON file.
+The Previewer works with the bundled Raincoat Cat Example or a project-specific JSON file.
 
 Start the local server from the repository root:
 
@@ -14,6 +14,10 @@ Open the bundled fixture:
 http://127.0.0.1:8765/previewer/
 ```
 
+After project setup, Codex should start or reuse this server, open the base
+URL, and verify that the Candidate selector shows exactly
+`Example.RaincoatCat`. This gives the user a working review surface immediately.
+
 Open an external configuration:
 
 ```text
@@ -21,6 +25,23 @@ http://127.0.0.1:8765/previewer/?config=../build/preview.json
 ```
 
 Asset paths are resolved relative to the external JSON file.
+
+For the first reviewable character image, prefer the deterministic staging
+command:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
+  --asset path/to/character-study.png \
+  --candidate <semantic-candidate-id> \
+  --default
+```
+
+It copies the exact PNG or WebP into the ignored review build, creates or
+updates a validated config, and returns a URL focused on the project Static
+asset. Codex chooses a stable semantic ID and natural display name from the
+actual proposal; do not prescribe a sequential `v001`/`v002` convention.
+Switch the already-running Previewer to that URL and verify it before producing
+later creative layers.
 
 The current Delivery Target contract lives at
 [`delivery-targets/codex-pet-v2.json`](../delivery-targets/codex-pet-v2.json).
@@ -34,11 +55,11 @@ intentional contract change, regenerate the adapter with
 The Previewer keeps deliberate review focus in the URL:
 
 ```text
-http://127.0.0.1:8765/previewer/?config=../build/preview.json&candidate=v002&state=idle&frame=2&take=t003
+http://127.0.0.1:8765/previewer/?config=../build/preview.json&candidate=<semantic-candidate-id>&state=idle&frame=2&take=t003
 ```
 
 - `candidate` is a loaded Candidate ID.
-- `state` is a loaded runtime state ID.
+- `state` is `static` or a loaded runtime state ID.
 - `frame` is one-based.
 - `take` is a loaded Take ID or the explicit value `original`.
 - Existing query parameters, including `config`, are preserved.
@@ -55,29 +76,37 @@ Unknown or stale values fail closed and are replaced with valid project defaults
 
 If an explicitly requested external `config` fails to load, the Previewer may show its bundled example as a fallback, but it removes all review-context fields and stops writing them. This prevents a project link from being mistaken for a colliding example Candidate, frame, or Take.
 
-## Minimal shape
+The bundled Example is never project data. Codex must not use it to fill a
+missing project state, replace a failed Static handoff, or claim that project
+work is reviewable. Repair the project config or asset instead.
+
+Its selector label is always `Example.RaincoatCat` in every supported locale.
+
+## Progressive Candidate shape
+
+A Candidate may begin with one Static image and no runtime states:
 
 ```json
 {
   "schemaVersion": 1,
   "deliveryTarget": {
     "id": "codex-pet-v2",
-    "revision": 1
+    "revision": 2
   },
   "pet": {
-    "name": "Example Pet"
+    "name": "Working Pet"
   },
   "versions": [
     {
-      "id": "v001",
-      "displayName": "v001",
-      "atlasUrl": "./v001/spritesheet.webp",
-      "isDefault": true
-    },
-    {
-      "id": "v002",
-      "displayName": "v002",
-      "atlasUrl": "./v002/spritesheet.webp"
+      "id": "<semantic-candidate-id>",
+      "displayName": "<candidate-name>",
+      "isDefault": true,
+      "static": {
+        "assetUrl": "./candidates/<semantic-candidate-id>/static/original.png",
+        "takes": []
+      },
+      "stateIds": [],
+      "lookDirectionsAvailable": false
     }
   ]
 }
@@ -86,7 +115,72 @@ If an explicitly requested external `config` fails to load, the Previewer may sh
 `deliveryTarget` is optional for legacy configs. When present, it must match the
 contract loaded by the Previewer; a mismatched target or revision fails closed.
 
-Any number of project versions is supported. When an external config supplies at least one project version, the Previewer selects the project default (or its first version) on load and appends one bundled `Example` option to the version dropdown. The example remains available for orientation without taking over the first view. Keep the same state IDs and atlas contract across versions for like-for-like review.
+Static contains exactly one standalone image plus optional Takes. It is not a
+runtime state, atlas row, Keyframe timing entry, or one-frame animation. Its
+focused URL is:
+
+```text
+?config=../build/review/preview.json&candidate=<semantic-candidate-id>&state=static&frame=1&take=original
+```
+
+When real runtime rows become available, add an atlas and the exact state
+subset that exists:
+
+```json
+{
+  "id": "<semantic-candidate-id>",
+  "displayName": "<candidate-name>",
+  "static": {
+    "assetUrl": "./candidates/<semantic-candidate-id>/static/original.png",
+    "takes": []
+  },
+  "atlasUrl": "./candidates/<semantic-candidate-id>/spritesheet.webp",
+  "stateIds": ["idle", "waving"],
+  "lookDirectionsAvailable": false
+}
+```
+
+`stateIds` may contain one state. Missing target states remain absent from
+navigation, playback, and Motion Timing; never duplicate an available row or
+borrow the bundled Example. Add a state only when its real atlas row exists.
+Set `lookDirectionsAvailable` to `true` only when the Candidate has the real
+direction-review asset required by the target.
+
+For compatibility, an atlas Candidate that omits `stateIds` uses the legacy
+complete target-state interpretation. New progressive configs should always
+declare their exact subset.
+
+Any number of project Candidates is supported, and each Candidate may have a
+different truthful level of completion. When an external config supplies at
+least one project Candidate, the Previewer selects the project default (or its
+first Candidate) on load and appends one bundled `Example` option to the
+Candidate dropdown as `Example.RaincoatCat`. The Example remains available for orientation without
+taking over the first view or contributing assets to the project.
+
+## Static Takes
+
+Static Takes are standalone images on the same canvas as the Static original:
+
+```json
+{
+  "id": "<semantic-candidate-id>",
+  "static": {
+    "assetUrl": "./candidates/<semantic-candidate-id>/static/original.png",
+    "takes": [
+      {
+        "id": "t001",
+        "label": "Take 01",
+        "assetUrl": "./takes/<semantic-candidate-id>/static/f01/t001.png"
+      }
+    ]
+  },
+  "stateIds": []
+}
+```
+
+Use `state=static&frame=1` when adding or focusing a Static Take. The
+Previewer auditions and confirms it with the same session-only interaction as
+a runtime Take, but no runtime cadence or target-cell geometry is assigned.
 
 ## Codex-managed frame takes
 
@@ -96,8 +190,8 @@ Previewer does not upload, save, approve, or rewrite them.
 
 ```json
 {
-  "id": "v002",
-  "atlasUrl": "./v002/spritesheet.webp",
+  "id": "<semantic-candidate-id>",
+  "atlasUrl": "./candidates/<semantic-candidate-id>/spritesheet.webp",
   "frameTakes": [
     {
       "stateId": "idle",
@@ -106,7 +200,7 @@ Previewer does not upload, save, approve, or rewrite them.
         {
           "id": "t001",
           "label": "Take 01",
-          "assetUrl": "./v002/takes/idle/f02/t001.webp"
+          "assetUrl": "./takes/<semantic-candidate-id>/idle/f02/t001.webp"
         },
         {
           "id": "t002",
@@ -119,7 +213,7 @@ Previewer does not upload, save, approve, or rewrite them.
 }
 ```
 
-`assetUrl` points to one standalone frame matching the Delivery Target cell
+For runtime Keyframes, `assetUrl` points to one standalone frame matching the Delivery Target cell
 size, relative to the Previewer JSON. `atlasSlot` points to one cell in the
 Candidate atlas. Supply exactly one source per Take. Keep private working files under
 `design/takes/<candidate>/<state>/fNN/`; copy only the review assets that the
@@ -132,25 +226,27 @@ Confirm button at the right edge records the current choice for that exact
 Candidate, state, and Keyframe, then closes the rail. The Viewer Previous / Next
 controls always move between Keyframes; arrow keys move between Takes only while
 a Take card has focus. The confirmed Take is used by the Keyframe thumbnail,
-Runtime Simulation, and Endless Loop so continuity can be reviewed.
+Runtime Simulation, Endless Loop, and Motion Timing so continuity can be
+reviewed. While a rail is open, Motion Timing follows the currently auditioned
+Take immediately, including Original.
 
 Confirmation is session-only review metadata. It does not rewrite the source
 atlas, Previewer JSON, Take asset, neighboring frame, Candidate, or QA status,
 and it is cleared by a page reload. Reopen the Keyframe rail to audition and
-confirm a different Take or return to Original. Motion Timing continues
-to show the source atlas.
+confirm a different Take or return to Original.
 
 ## Delivery Target-owned behavior
 
-State IDs, atlas rows, frame counts, per-frame durations, look slots,
+Available state IDs come from each Candidate's declared subset. For those
+states, atlas rows, frame counts, per-frame durations, look slots,
 action-loop behavior, Idle cadence, sprite geometry, and display limits come
 from the generated Delivery Target adapter. External Previewer JSON cannot
 override them. A project may still provide localized labels and descriptions,
 mechanics-board copy, backgrounds, Candidates, Takes, and asset paths.
 
-Motion Timing covers every target state in atlas-row order. Partial `mechanics`
-overrides are merged by `stateId`, so a project can replace one state's anchors
-without making the remaining states disappear.
+Motion Timing covers only the Candidate's available runtime states in target
+atlas-row order. Static never appears there. Partial `mechanics` overrides are
+merged by `stateId`; they do not create missing states.
 
 The canonical contract also records which installed `$hatch-pet` and Codex
 Desktop build the snapshot was verified against. Re-check that provenance when
@@ -202,6 +298,11 @@ The **Size** slider in the upper-right corner of the grid stage reads its limits
 from the Delivery Target. It changes only the displayed preview size and never
 resizes, rewrites, or re-exports the spritesheet.
 
-The bundled geometric Example uses the same atlas for both playback modes, so
+Runtime-only controls disable or disappear when their required state or asset
+does not exist. A Static-only Candidate remains fully reviewable, and a
+one-state Candidate can use the runtime controls that are truthful for that
+state. All-state playback never invents missing states.
+
+The bundled Raincoat Cat Example uses the same atlas for both playback modes, so
 their only behavioral difference is the client-style return to Idle versus an
 endless repeat of the selected row.

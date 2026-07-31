@@ -80,7 +80,8 @@ class PreviewerStaticTests(unittest.TestCase):
             "mechanics: withMechanicsOverrides(base.mechanics, next.mechanics)",
             self.app,
         )
-        self.assertIn("const mechanicsBoards = config.states.map(", self.app)
+        self.assertIn("const runtimeStates = currentRuntimeStates();", self.app)
+        self.assertIn("const mechanicsBoards = runtimeStates.map(", self.app)
         self.assertIn("states: mechanicsBoards.length", self.app)
 
         motion_boards = self.i18n.split("motionBoard: {")[1:]
@@ -114,9 +115,6 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertEqual(57, sum(state_frames.values()))
 
     def test_previewer_has_no_duplicate_delivery_target_facts(self) -> None:
-        generator = (
-            PREVIEWER / "sample-assets" / "generate_sample_assets.py"
-        ).read_text(encoding="utf-8")
         self.assertNotRegex(self.data, r"(?m)^\s*(?:sprite|states|directions):")
         self.assertNotIn("FIXED_ACTION_LOOPS", self.app)
         self.assertNotIn("FIXED_IDLE_SLOWDOWN", self.app)
@@ -139,9 +137,7 @@ class PreviewerStaticTests(unittest.TestCase):
             "STATES =",
             "DIRECTIONS =",
         ):
-            self.assertNotIn(duplicate, generator)
-        self.assertIn("def load_target(path: Path)", generator)
-        self.assertIn('target["lookDirections"]["slots"]', generator)
+            self.assertNotIn(duplicate, self.data)
 
     def test_version_and_locale_controls_are_generic(self) -> None:
         self.assertIn('id="versionSelect"', self.html)
@@ -276,7 +272,10 @@ class PreviewerStaticTests(unittest.TestCase):
             self.assertNotIn("syncReviewContextToUrl", function_body)
             self.assertNotIn("setReviewFocusFromCurrent", function_body)
         self.assertIn("if (!options.fromTour) {", self.app)
-        self.assertIn("setReviewFocusFromCurrent();", self.app)
+        self.assertIn(
+            "includeFrame: isStaticState(currentState()),",
+            self.app,
+        )
         self.assertIn("setReviewFocusFromCurrent({ includeFrame: true });", self.app)
         self.assertNotIn("syncContext", self.app)
 
@@ -297,7 +296,9 @@ class PreviewerStaticTests(unittest.TestCase):
             1,
         )[0]
         self.assertIn("if (loaded.externalLoadFailed) {", boot)
-        self.assertIn("clearReviewContextFromUrl();", boot)
+        self.assertIn("elements.configError.hidden = false;", boot)
+        self.assertIn("elements.workspace.hidden = true;", boot)
+        self.assertIn("return;", boot)
         self.assertIn("restoreReviewContextFromUrl(requestedReviewContext);", boot)
         self.assertLess(
             boot.index("if (loaded.externalLoadFailed) {"),
@@ -316,9 +317,10 @@ class PreviewerStaticTests(unittest.TestCase):
             "if (sectionChanged && updateReviewFocus) {",
             set_section,
         )
-        self.assertIn(
-            'includeFrame: mode === "animation" && isInspectingFrame',
+        self.assertRegex(
             set_section,
+            r'includeFrame:\s*mode === "animation" &&\s*'
+            r"\(isInspectingFrame \|\| isStaticState\(currentState\(\)\)\)",
         )
         self.assertIn(
             'setSection("look", { updateReviewFocus: true })',
@@ -344,7 +346,7 @@ class PreviewerStaticTests(unittest.TestCase):
 
         previewer_readme = (PREVIEWER / "README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "&candidate=v002&state=idle&frame=2&take=t003",
+            "&candidate=<semantic-candidate-id>&state=idle&frame=2&take=t003",
             previewer_readme,
         )
         self.assertIn("`frame` is one-based.", previewer_readme)
@@ -378,18 +380,93 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("isBundledExample: true", self.app)
         self.assertIn("isDefault: false", self.app)
         self.assertIn("config = normalizeConfig(loaded.data, loaded.isExternal)", self.app)
-        self.assertIn('exampleVersion: "Example"', self.i18n)
-        example_translation = "".join(chr(code) for code in (0x793A, 0x4F8B))
-        self.assertIn(f'exampleVersion: "{example_translation}"', self.i18n)
+        self.assertEqual(
+            2,
+            self.i18n.count('exampleVersion: "Example.RaincoatCat"'),
+        )
+        self.assertIn('id: "example-raincoat-cat"', self.data)
+        self.assertIn('labelKey: "ui.exampleVersion"', self.data)
+        self.assertNotIn('statusKey: "ui.currentVersion"', self.data)
+        self.assertIn('let exampleId = "example-raincoat-cat";', self.app)
+        self.assertIn('displayName: "Example.RaincoatCat"', self.app)
+        self.assertNotIn(
+            "const status = version.statusKey ? t(version.statusKey) : \"\";",
+            self.app,
+        )
+        self.assertIn("return version.displayName || version.id;", self.app)
         self.assertIn("version && version.isBundledExample", self.app)
         self.assertIn("? window.location.href", self.app)
 
-    def test_bundled_example_uses_only_the_smooth_atlas(self) -> None:
-        version_id = "v002"
-        version_root = PREVIEWER / "sample-assets" / version_id
+    def test_candidates_can_progress_from_static_to_partial_runtime(self) -> None:
+        self.assertIn('id="staticSection"', self.html)
+        self.assertIn('id="staticList"', self.html)
+        self.assertLess(
+            self.html.index('id="staticSection"'),
+            self.html.index('id="stateList"'),
+        )
+        for function_name in (
+            "staticReviewState",
+            "runtimeStatesFor",
+            "reviewStatesFor",
+            "currentRuntimeStates",
+            "currentVersionSupportsLook",
+            "setStandaloneImage",
+            "setOriginalFrame",
+        ):
+            self.assertIn(f"function {function_name}(", self.app)
+
+        runtime_states = self.app.split(
+            "function runtimeStatesFor(version) {",
+            1,
+        )[1].split(
+            "function reviewStatesFor(version)",
+            1,
+        )[0]
+        self.assertIn("if (!version || !version.atlasUrl) return [];", runtime_states)
+        self.assertIn(
+            "if (!Array.isArray(version.stateIds)) return config.states;",
+            runtime_states,
+        )
+        self.assertIn(
+            "return config.states.filter((state) => availableIds.has(state.id));",
+            runtime_states,
+        )
+
+        review_states = self.app.split(
+            "function reviewStatesFor(version) {",
+            1,
+        )[1].split(
+            "function currentReviewStates()",
+            1,
+        )[0]
+        self.assertIn("...(staticState ? [staticState] : [])", review_states)
+        self.assertIn("...runtimeStatesFor(version)", review_states)
+
+        supports_look = self.app.split(
+            "function currentVersionSupportsLook() {",
+            1,
+        )[1].split(
+            "function currentState()",
+            1,
+        )[0]
+        self.assertIn("if (!version || !version.atlasUrl) return false;", supports_look)
+        self.assertIn("version.lookDirectionsAvailable", supports_look)
+
+        self.assertIn('static: "Static"', self.i18n)
+        self.assertIn('staticImage: "1 image"', self.i18n)
+        self.assertIn('staticTakes: "Static Image & Takes"', self.i18n)
+        self.assertIn('static: "静态形象"', self.i18n)
+        self.assertIn('staticTakes: "静态图与 Takes"', self.i18n)
+
+    def test_bundled_example_is_the_sanitized_raincoat_cat_pack(self) -> None:
+        version_id = "example-raincoat-cat"
+        version_root = ROOT / "examples" / "raincoat-cat"
         atlas = version_root / "spritesheet.png"
+        manifest_path = version_root / "pet.json"
         self.assertTrue(atlas.is_file(), atlas)
-        self.assertFalse((PREVIEWER / "sample-assets" / "v001").exists())
+        self.assertTrue(manifest_path.is_file(), manifest_path)
+        self.assertFalse((ROOT / "examples" / "neutral-demo").exists())
+        self.assertFalse((PREVIEWER / "sample-assets").exists())
         atlas_data = atlas.read_bytes()
         self.assertEqual(b"\x89PNG\r\n\x1a\n", atlas_data[:8])
         self.assertEqual(
@@ -397,14 +474,30 @@ class PreviewerStaticTests(unittest.TestCase):
             struct.unpack(">II", atlas_data[16:24]),
         )
         self.assertIn(
-            f'atlasUrl: "./sample-assets/{version_id}/spritesheet.png"',
+            'atlasUrl: "../examples/raincoat-cat/spritesheet.png"',
             self.data,
         )
+        self.assertIn('name: "Raincoat Cat"', self.data)
+        self.assertIn(f'id: "{version_id}"', self.data)
         self.assertNotIn("gifRoot", self.data)
         self.assertNotIn("gifByState", self.data)
-        self.assertNotIn('id: "v001"', self.data)
         self.assertNotIn("sampleVariant", self.data)
         self.assertNotIn("variant >= 2", self.app)
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual("raincoat-cat", manifest["id"])
+        self.assertEqual("Raincoat Cat", manifest["displayName"])
+        self.assertEqual(2, manifest["spriteVersionNumber"])
+        self.assertEqual("spritesheet.png", manifest["spritesheetPath"])
+        serialized = json.dumps(manifest, ensure_ascii=False).lower()
+        private_names = (
+            "".join(chr(code) for code in (0x963F, 0x5E03)),
+            "".join(chr(code) for code in (0x5916, 0x5957, 0x963F, 0x5E03)),
+            '"' + "a" + "bu" + '"',
+            '"' + "ab" + "bu" + '"',
+        )
+        for forbidden in private_names:
+            self.assertNotIn(forbidden, serialized)
 
     def test_css_palette_is_grayscale(self) -> None:
         colors = re.findall(r"#([0-9a-fA-F]{6})\b", self.css)
@@ -566,12 +659,47 @@ class PreviewerStaticTests(unittest.TestCase):
             "    const confirmedTake = confirmedTakeForFrame(",
             render_player,
         )
+        self.assertIn("setOriginalFrame(playbackState, activeFrameIndex);", render_player)
+        self.assertIn("function displayedTakeForFrame(", self.app)
         self.assertIn(
-            "stateFrameColumn(playbackState, activeFrameIndex)",
-            render_player,
+            "expandedTakeFrameIndex === frameIndex &&\n"
+            "      isInspectingFrame",
+            self.app,
         )
+        self.assertIn(
+            "return confirmedTakeForFrame(version, state, frameIndex);",
+            self.app,
+        )
+        self.assertIn("function refreshMechanicsFrameTake(", self.app)
+        self.assertIn("function refreshMechanicsTakeFrames()", self.app)
+        preview_take = self.app.split(
+            "function previewFrameTake(takeId) {",
+            1,
+        )[1].split(
+            "function primeFrameTakeFromConfirmed()",
+            1,
+        )[0]
+        self.assertIn("refreshMechanicsFrameTake(", preview_take)
+        mechanics_board = self.app.split(
+            "function renderMechanicsBoard() {",
+            1,
+        )[1].split(
+            "function renderDirectionList()",
+            1,
+        )[0]
+        self.assertIn("displayedTakeForFrame(", mechanics_board)
+        self.assertIn("frameTakeStyle(", mechanics_board)
         readme = (PREVIEWER / "README.md").read_text(encoding="utf-8")
         self.assertIn("Confirmation is session-only review metadata.", readme)
+        self.assertIn(
+            "Motion Timing follows the currently auditioned",
+            readme,
+        )
+        self.assertNotIn(
+            "Motion Timing continues\n"
+            "to show the source atlas.",
+            readme,
+        )
         self.assertNotIn("frameTakes", self.target_data)
 
     def test_frame_take_sources_and_ids_are_fail_closed(self) -> None:
@@ -593,6 +721,14 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("function currentTakeAssetUsage(", self.app)
         self.assertIn("function removeConfirmedSelectionsForAsset(", self.app)
         self.assertIn("currentTakeAssetUsage(assetUrl).controls", self.app)
+        invalidate_take = self.app.split(
+            "function invalidateTakeAsset(assetUrl) {",
+            1,
+        )[1].split(
+            "function setTakeSpriteFrame(",
+            1,
+        )[0]
+        self.assertIn("refreshMechanicsTakeFrames();", invalidate_take)
         self.assertIn(".icon-button:disabled", self.css)
 
     def test_candidate_and_take_copy_is_localized(self) -> None:
@@ -863,7 +999,7 @@ class PreviewerStaticTests(unittest.TestCase):
             self.i18n,
         )
         self.assertIn(
-            "currentState().id === idleState().id\n"
+            "currentState().id === config.runtime.idleStateId\n"
             '              ? "ui.runtimeIdleModeHelp"\n'
             '              : "ui.runtimeModeHelp"',
             self.app,
@@ -915,17 +1051,37 @@ class PreviewerStaticTests(unittest.TestCase):
     def test_pointer_follow_coalesces_updates_and_skips_same_direction(self) -> None:
         self.assertIn("let pointerFrameRequest = null;", self.app)
         self.assertIn("let pendingPointerSample = null;", self.app)
+        self.assertIn("let lookIsNeutral = false;", self.app)
+        self.assertIn(
+            "neutralLookStateId: deliveryTarget.lookDirections.neutralStateId",
+            self.app,
+        )
         self.assertIn(
             "pointerFrameRequest = window.requestAnimationFrame(flushPointerMove);",
             self.app,
         )
         self.assertIn("function cancelPointerUpdate()", self.app)
         self.assertIn(
-            "if (directionIndex !== activeDirectionIndex) {\n"
+            "if (lookIsNeutral || directionIndex !== activeDirectionIndex) {\n"
             "      setDirection(directionIndex);\n"
             "    }",
             self.app,
         )
+        self.assertIn("function setLookNeutral()", self.app)
+        self.assertIn(
+            "if (Math.hypot(deltaX, deltaY) < 28) {\n"
+            '      elements.directionTarget.style.display = "none";\n'
+            "      setLookNeutral();\n"
+            "      return;\n"
+            "    }",
+            self.app,
+        )
+        self.assertIn(
+            'elements.stage.addEventListener("pointerleave", () => {',
+            self.app,
+        )
+        self.assertIn('lookNeutralReadout: "Pointer Dead Zone · {state}"', self.i18n)
+        self.assertIn('lookNeutralReadout: "指针中心区 · {state}"', self.i18n)
         self.assertIn("translate3d(", self.app)
 
         set_direction = self.app.split("function setDirection(index)", 1)[1].split(

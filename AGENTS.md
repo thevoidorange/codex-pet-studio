@@ -9,11 +9,8 @@ Keep three authority scopes separate:
 
 - **Creative truth:** current user steering, private approvals, and exact evidence.
 - **Conduct and method:** this file for rules and `$pet-studio` for workflow.
-- **Checked-in target truth:** the selected machine-readable Delivery Target
-  contract; generated adapters must match it exactly.
-- **External production authority:** the currently installed `$hatch-pet`.
-  When it disagrees with the checked-in target, stop and reconcile the
-  contract intentionally instead of silently choosing one.
+- **Checked-in target truth:** the selected machine-readable Delivery Target contract; generated adapters must match it exactly.
+- **External production authority:** the currently installed `$hatch-pet`. When it disagrees with the checked-in target, stop and reconcile the contract intentionally instead of silently choosing one.
 
 Read [the product model](docs/product-model.md) for roles and target boundaries. Codex Pet v2 is the only supported Delivery Target.
 
@@ -23,13 +20,12 @@ Do not mistake a new Codex task for a new project. Before changing files:
 
 1. confirm the root, branch, and dirty worktree;
 2. inspect `pet-studio.json`, populated `design/`, Candidates, Takes, `build/`, unresolved QA, and any focused Previewer URL;
-3. summarize `Locked`, `Open`, `Current Focus`, and `Next`;
-4. resume by the shortest truthful route.
+3. reopen the latest valid project-focused Previewer URL when reviewable work exists; never substitute the bundled Example;
+4. summarize `Locked`, `Open`, `Current Focus`, and `Next`;
+5. resume by the shortest truthful route.
 
-For a true cold start, initialize, check readiness, classify inspiration as
-private, briefly reflect a working interpretation, and move directly to the
-smallest useful static character study. Ask at most one blocking question; do
-not require prose-only approval or a completed questionnaire first.
+For a true cold start, initialize, check readiness, then immediately start or reuse the local Previewer and open its base URL on `Example.RaincoatCat`.
+Verify that the Example renders, classify inspiration as private, briefly reflect a working interpretation, and move directly to the smallest useful static character study. Ask at most one blocking question; do not require prose-only approval or a completed questionnaire first.
 
 ## Route by user intent
 
@@ -55,6 +51,9 @@ questions to an all-in-one reveal. Exploratory visuals are not approval. After
 each visual checkpoint, stop before the next dependent layer unless the user
 explicitly asked to combine those exact layers.
 
+The first reviewable still must immediately become a Static Candidate. Stage the exact image with `studio.py review stage-static`, validate its project config, switch the running Previewer to the returned focused URL, and verify that it shows the project asset.
+Do not wait for a spritesheet or all nine runtime states.
+
 ## Review and approval boundary
 
 The Previewer is a read-only co-design review workbench. The Codex task is the
@@ -69,6 +68,9 @@ focus; never fall back to a colliding bundled Example.
 Review URLs use a one-based `frame`. Single-frame work never silently changes
 an adjacent frame.
 
+- Static is one image with optional Takes; it is not a runtime state or timing row.
+- each Candidate declares the exact runtime-state subset that currently exists;
+  missing states remain absent and are never filled with placeholders or Example assets;
 - clicking a Take auditions it;
 - Previewer Confirm is session-only review state;
 - approval requires an explicit conversational decision tied to exact evidence;
@@ -84,9 +86,8 @@ actions such as **Request New Take** or **Install in Codex** to the Previewer.
 Never force-add or unignore `.pet-studio-private.json`, `inputs/`, `design/`,
 `build/`, or `dist/`.
 
-Do not commit personal inspiration, names, home imagery, anecdotes,
-credentials, machine paths, metadata, personal skills, or private UI kits.
-Public examples must be neutral project-owned fixtures with reviewed rights.
+Do not commit personal inspiration, names, home imagery, anecdotes, credentials, machine paths, metadata, personal skills, or private UI kits.
+Public examples require project ownership or explicit publication approval, a rights review, and only sanitized final artifacts.
 
 Before commit, export, or publication, run the privacy check and inspect staged
 paths, visuals, and metadata. External upload or publication requires explicit
@@ -101,6 +102,8 @@ Use **Candidate** for a coherent proposal, **Keyframe** for a reviewed target
 sample, and **Take** for an additive one-frame alternative. `versions` is a
 legacy Previewer data field, not user-facing terminology.
 
+Candidate IDs are stable semantic English identifiers chosen from the actual proposal. Do not impose `v001`/`v002` sequencing: Candidates may be parallel directions or completely different pets.
+
 Author every UI locale natively from shared facts; do not translate sentence by
 sentence. Review each locale in the rendered interface.
 
@@ -110,13 +113,10 @@ Run proportionate checks. Separate character, motion, target, pack, Previewer,
 privacy, and rights QA. Automated success does not overrule a visible
 regression.
 
-Report `generated`, `reviewed`, `approved`, `validated`, `packaged`,
-`exported`, `installed`, and `published` as distinct outcomes. Claim only the
-statuses verified for the exact artifact.
+Report `generated`, `reviewed`, `approved`, `validated`, `packaged`, `exported`, `installed`, and `published` as distinct outcomes. Claim only the statuses verified for the exact artifact.
 Never install or publish without an explicit user request.
 
 ## Standard project commands
-
 Prefer the checked-in dependency-free tool:
 
 ```bash

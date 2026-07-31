@@ -9,7 +9,12 @@
   </head>
   <body>
     <main class="app-shell">
-      <header class="topbar">
+      <section id="configError" class="config-error" role="alert" hidden>
+        <h1 data-i18n="ui.configErrorTitle"></h1>
+        <p data-i18n="ui.configErrorBody"></p>
+      </section>
+
+      <header id="topbar" class="topbar">
         <div class="top-actions">
           <button
             id="autoPlayStatesToggle"
@@ -33,11 +38,23 @@
       </header>
 
       <section
+        id="workspace"
         class="workspace"
         data-i18n-aria-label="ui.workspaceAria"
       >
         <aside class="state-panel">
-          <div class="panel-heading">
+          <div id="staticSection" class="state-section" hidden>
+            <div class="panel-heading">
+              <span data-i18n="ui.static"></span>
+            </div>
+            <nav
+              id="staticList"
+              class="state-list static-list"
+              data-i18n-aria-label="ui.staticListAria"
+            ></nav>
+          </div>
+
+          <div id="runtimeStateHeading" class="panel-heading">
             <span data-i18n="ui.states"></span>
             <span id="stateCount" class="muted"></span>
           </div>
@@ -251,7 +268,7 @@
 
           <div class="frame-section">
             <div class="panel-heading">
-              <span data-i18n="ui.keyframes"></span>
+              <span id="frameSectionTitle" data-i18n="ui.keyframes"></span>
             </div>
             <div id="frameStrip" class="frame-strip"></div>
           </div>
@@ -259,6 +276,7 @@
       </section>
 
       <section
+        id="mechanicsBoard"
         class="mechanics-board"
         data-i18n-aria-label="ui.mechanicsTitle"
       >
@@ -276,7 +294,7 @@
         <div id="mechanicsRows" class="mechanics-rows"></div>
       </section>
 
-      <footer>
+      <footer id="previewFooter">
         <span data-i18n="ui.sourceFooter"></span>
         <span data-i18n="ui.shortcutFooter"></span>
       </footer>

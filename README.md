@@ -1,50 +1,32 @@
 # Codex Pet Studio
 
-Make a distinctive animated Codex pet with Codex, one creative decision at a
-time.
+Codex Pet Studio is a complete co-design suite for creating custom
+Codex pets with your own Codex Agent, combining guided agent skills, a live Previewer,
+production tooling, and QA in one project.
 
-You bring inspiration, taste, and feedback. Codex remembers the decisions,
-creates and refines the visual work, handles the technical production, and
-checks the final pet. A local Previewer gives both of you the same place to
-look, compare, and point at exact frames.
+![Codex Pet Studio Previewer showing Raincoat Cat states, animation playback, and Keyframes](docs/assets/codex-pet-studio-preview.png)
 
-> Design together in Codex, review together in the Previewer, then bring the
-> pet to life on your desktop.
-
-Beyond access to Codex, the recommended flow requires no terminal, separate Pet
-Studio backend or account, or separate OpenAI API key.
-
-**Recommended: GPT‑5.6 Sol, Medium+**
-
-## Start in two steps
-
-### 1. Give this repository to Codex
-
-Start a blank Codex task and paste:
+## Start a blank Codex task and paste:
 
 > I want to use this GitHub project to design my own Codex pet:
 > https://github.com/thevoidorange/codex-pet-studio. I do not use Git or the
 > terminal. Please set up the project for me and guide me one creative decision
-> at a time. Start from my inspiration, reflect the essentials briefly, then
-> make the smallest useful static character study as soon as you have enough
-> direction. Use images rather than a long questionnaire to align each major
-> decision. Do not generate the full pet yet.
+> at a time. Open the bundled Previewer as soon as setup is ready. Start from
+> my inspiration, reflect the essentials briefly, then make the smallest useful
+> static character study as soon as you have enough direction. Use images
+> rather than a long questionnaire to align each major decision. Do not
+> generate the full pet yet.
 
-Codex should prepare a private local workspace and explain any environment
-limitation instead of handing setup work back to a nontechnical user.
+That is the entire setup flow.
 
-### 2. Share your inspiration
+Codex prepares a private local workspace, opens
+the Previewer on `Example.RaincoatCat`, asks for your inspiration, and then uses
+the bundled skill to guide one visual decision at a time.
 
-Inspiration can be:
+Beyond access to Codex, the recommended flow requires no terminal, separate Pet Studio backend
+or account, or separate OpenAI API key.
 
-- a photo and personality description of your own pet;
-- an original drawing;
-- a shape, material, object, or visual reference;
-- a behavioral idea or emotional presence;
-- any combination of these.
-
-You do not need to write a formal brief. Personal inspiration stays out of the
-public repository, exports, and publication by default.
+**Recommended: GPT‑5.6 Sol, Medium+**
 
 ## What the first session feels like
 
@@ -64,6 +46,12 @@ study. The first image is exploratory: it gives you something concrete to
 correct and does not imply approval. Codex does not wait for a complete written
 brief, run a questionnaire to the end, or combine the whole character, behavior
 system, and animation pack into one all-in-one reveal.
+
+The Previewer is already open on `Example.RaincoatCat` during this first
+creative exchange. When your first useful image exists, Codex places the exact
+image in a private Static Candidate, switches the Previewer directly to it,
+and checks that you are now looking at your project rather than the bundled
+Example. You do not need a spritesheet or nine finished states first.
 
 The process then uses focused images to align default form, relationship and
 emotional stance, variable mechanisms, state acting, and motion before
@@ -93,11 +81,13 @@ from inspiration.
 
 ## The Previewer
 
-Codex opens the local Previewer when there is a real Candidate worth reviewing.
-It helps you:
+Codex opens the local Previewer immediately after project setup. It begins on
+`Example.RaincoatCat`, then switches to your first real Static Candidate as
+soon as one exists. It helps you:
 
+- review one Static character image and its Takes before animation exists;
 - compare Candidates without losing an approved direction;
-- play and compare all runtime states;
+- play and compare whichever runtime states have actually been made;
 - pause on an exact Keyframe;
 - audition multiple Takes for that Keyframe;
 - inspect real runtime cadence, loop seams, gaze, and desktop display sizes;
@@ -110,6 +100,22 @@ Clicking a Take only auditions it. Previewer Confirm remembers a temporary
 choice for that browser session. To approve a visual decision, say so in the
 Codex conversation; Codex records the exact asset and the details that must
 remain unchanged.
+
+The review surface grows with the work:
+
+```text
+Example.RaincoatCat
+  -> first project Static image
+  -> one or more real runtime states
+  -> complete target state set
+  -> validated package
+```
+
+Static is a single image, not a disguised animation state. Runtime states
+appear only when their real assets exist. The Previewer never duplicates a row,
+invents a placeholder, or borrows the bundled Example to make a project look
+complete. Completing every Codex Pet state is required later for delivery, not
+for early review.
 
 ## The creative workflow
 
@@ -149,11 +155,11 @@ The current release delivers **Codex Pet v2** packages. Its animation slots and
 runtime cadence come from the Codex client, so Codex designs the acting inside
 those real constraints instead of inventing settings the pet cannot carry.
 Those exact checked-in constraints live in one machine-readable Delivery
-Target contract; the CLI, Previewer, sample generator, and QA derive from it.
+Target contract; the CLI, Previewer, validators, and QA derive from it.
 
 ## Privacy and ownership
 
-The public repository contains the workflow, tools, neutral Example, and
+The public repository contains the workflow, tools, Raincoat Cat Example, and
 templates. Private inspiration, design decisions, generated Candidates,
 builds, and exports stay in ignored local folders.
 
@@ -187,6 +193,21 @@ Start the local Previewer with:
 python3 .agents/skills/pet-studio/scripts/studio.py preview
 ```
 
+To stage the first exact static image as a reviewable Candidate:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
+  --asset path/to/character-study.png \
+  --candidate <semantic-candidate-id> \
+  --default
+```
+
+The command copies the review asset into the ignored local build, creates or
+updates a validated Previewer config, and returns the focused project URL.
+Codex chooses the Candidate ID and display name from the actual idea. Candidate
+names are semantic, not sequential release numbers: two Candidates may be
+different directions or entirely different pets.
+
 The project is intentionally inspectable and dependency-free. Useful entry
 points:
 
@@ -200,7 +221,7 @@ points:
   creative, review, production, and QA method
 - [Previewer](previewer/) — the bilingual read-only review workbench
 - [Templates](templates/) — reusable private decision artifacts
-- [Neutral demo](examples/neutral-demo/) — fictional public example material
+- [Raincoat Cat](examples/raincoat-cat/) — complete public Codex Pet v2 Example
 - [Tests](tests/) — dependency-free regression coverage
 
 The architecture keeps approved creative work separate from platform-specific

@@ -157,6 +157,12 @@ Use one cohesive clockwise 16-pose loop. Direction may be expressed through
 eyes, face, head, body surface, fold, appendage, or another approved aiming
 feature. Cardinals must be unmistakable and adjacent directions coherent.
 
+The extended atlas also carries one dedicated neutral reference cell declared
+by `lookDirections.neutralReferenceSlot`. It supports scale, registration, and
+neutral-versus-direction QA; it is not a seventeenth direction or an editable
+runtime state. The client-owned pointer deadzone still falls back to the
+declared neutral state.
+
 Do not rotate the entire sprite merely to fake gaze unless whole-object
 rotation is part of the approved mechanism system.
 

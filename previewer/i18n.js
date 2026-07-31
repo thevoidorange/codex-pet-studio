@@ -14,6 +14,11 @@ window.PET_PREVIEW_I18N = {
         version: "Candidate",
         language: "Language",
         workspaceAria: "Animated pet preview",
+        configErrorTitle: "Project Preview Unavailable",
+        configErrorBody:
+          "The project Previewer config could not be loaded. Ask your coding agent to restage the current Candidate and reopen its focused Previewer URL.",
+        static: "Static",
+        staticListAria: "Static character study",
         states: "States",
         stateCount: "{count}",
         stateListAria: "Animation state list",
@@ -67,6 +72,7 @@ window.PET_PREVIEW_I18N = {
         desktopTrigger: "When It Appears",
         actionLength: "Timing",
         keyframes: "Keyframes",
+        staticTakes: "Static Image & Takes",
         originalFrame: "Original",
         takeRailAria: "Takes for frame {frame}",
         takeAria: "Preview {take} for frame {frame}",
@@ -89,6 +95,9 @@ window.PET_PREVIEW_I18N = {
         frameWithConfirmedTakeAria:
           "View frame {frame} · {duration} · {count} takes · {take} confirmed",
         frameDurationFixed: "{duration} ms",
+        staticImage: "1 image",
+        staticAssetCount: "1 image · not a runtime state",
+        staticReadout: "Static Study",
         idleFrameDuration: "{duration} ms × {multiplier}",
         frameReadout: "Frame {frame} / {count}",
         takeFrameReadout:
@@ -116,14 +125,14 @@ window.PET_PREVIEW_I18N = {
         lookTrigger:
           "The pointer moves outside the pet’s central dead zone.",
         lookDuration: "{count} directions · {step}° increments",
+        lookNeutralReadout: "Pointer Dead Zone · {state}",
         finalLookFrame: "Gaze Direction Preview",
+        neutralLookFrame: "Pointer Dead Zone · Idle",
         assetAlt: "{pet}: {state}",
-        sourceFooter: "Sample data · customize in preview-data.js",
+        sourceFooter: "Raincoat Cat · Bundled Example",
         shortcutFooter:
           "Shortcuts: ←/→ switch frames, or browse takes when a take has focus · Space plays or pauses · Number keys select states",
-        currentVersion: "Current",
-        baselineVersion: "Baseline",
-        exampleVersion: "Example",
+        exampleVersion: "Example.RaincoatCat",
       },
       directions: {
         up: "Up",
@@ -136,6 +145,15 @@ window.PET_PREVIEW_I18N = {
         upLeft: "Up Left",
       },
       states: {
+        static: {
+          label: "Static",
+          title: "Character Study",
+          short: "The current visual direction",
+          description:
+            "A single still used to align the character before animation states are built.",
+          intent: "Confirm identity, silhouette, proportion, and visual character.",
+          trigger: "Design review only; this is not a runtime state.",
+        },
         idle: {
           label: "Idle",
           title: "Resting Nearby",
@@ -414,6 +432,11 @@ window.PET_PREVIEW_I18N = {
         version: "方案",
         language: "语言",
         workspaceAria: "动态宠物预览",
+        configErrorTitle: "项目预览暂不可用",
+        configErrorBody:
+          "项目的 Previewer 配置未能加载。请让你的编程 Agent 重新登记当前方案，并打开它对应的 Previewer 链接。",
+        static: "静态形象",
+        staticListAria: "静态形象方案",
         states: "状态",
         stateCount: "{count} 个",
         stateListAria: "动画状态列表",
@@ -467,6 +490,7 @@ window.PET_PREVIEW_I18N = {
         desktopTrigger: "桌面触发",
         actionLength: "动作长度",
         keyframes: "关键帧",
+        staticTakes: "静态图与 Takes",
         originalFrame: "原始",
         takeRailAria: "第 {frame} 帧的 Takes",
         takeAria: "预览第 {frame} 帧 · {take}",
@@ -489,6 +513,9 @@ window.PET_PREVIEW_I18N = {
         frameWithConfirmedTakeAria:
           "查看第 {frame} 帧 · {duration} · {count} 个 Takes · 已选择 {take}",
         frameDurationFixed: "{duration} 毫秒",
+        staticImage: "1 张图",
+        staticAssetCount: "1 张图 · 非运行状态",
+        staticReadout: "静态形象",
         idleFrameDuration: "{duration} 毫秒 × {multiplier}",
         frameReadout: "第 {frame} / {count} 帧",
         takeFrameReadout:
@@ -514,14 +541,14 @@ window.PET_PREVIEW_I18N = {
         lookIntent: "它在跟随你，但不会把整个身体机械地旋转。",
         lookTrigger: "鼠标位于桌面宠物周围，并离开中心死区时。",
         lookDuration: "{count} 个方向 · 每 {step}° 一帧",
+        lookNeutralReadout: "指针中心区 · {state}",
         finalLookFrame: "最终视线方向帧",
+        neutralLookFrame: "指针中心区 · 待机",
         assetAlt: "{pet}：{state}",
-        sourceFooter: "通用示例数据 · 可通过 preview-data.js 替换",
+        sourceFooter: "Raincoat Cat · 内置示例",
         shortcutFooter:
           "快捷键：← → 切帧（焦点在 Take 时浏览 Takes），空格播放 / 暂停，数字键切换状态",
-        currentVersion: "当前",
-        baselineVersion: "基线",
-        exampleVersion: "示例",
+        exampleVersion: "Example.RaincoatCat",
       },
       directions: {
         up: "上",
@@ -534,6 +561,15 @@ window.PET_PREVIEW_I18N = {
         upLeft: "左上",
       },
       states: {
+        static: {
+          label: "静态形象",
+          title: "角色形象稿",
+          short: "当前视觉方向",
+          description:
+            "在制作动画状态前，用一张静态图对齐角色身份与整体视觉。",
+          intent: "确认身份、轮廓、比例和视觉性格。",
+          trigger: "仅用于设计评审，不是运行时状态。",
+        },
         idle: {
           label: "Idle",
           title: "安静待着",

@@ -58,6 +58,28 @@ select:focus-visible {
   padding: 30px 0 24px;
 }
 
+.config-error {
+  max-width: 620px;
+  margin: min(18vh, 160px) auto 0;
+  padding: 28px 30px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.config-error h1 {
+  margin: 0 0 10px;
+  font-size: clamp(22px, 3vw, 32px);
+  letter-spacing: -0.02em;
+}
+
+.config-error p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -134,7 +156,8 @@ select:focus-visible {
 }
 
 .button:disabled,
-.icon-button:disabled {
+.icon-button:disabled,
+.mode-tab:disabled {
   cursor: default;
   opacity: 0.42;
   transform: none;
@@ -173,6 +196,12 @@ select:focus-visible {
   min-width: 0;
   flex-direction: column;
   border-right: 1px solid var(--line);
+}
+
+.state-section {
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
 }
 
 .detail-panel {

@@ -57,8 +57,7 @@
     "candidate": {
       "type": "object",
       "required": [
-        "id",
-        "atlasUrl"
+        "id"
       ],
       "properties": {
         "id": {
@@ -71,11 +70,143 @@
           "minLength": 1,
           "pattern": "\\S"
         },
+        "static": {
+          "$ref": "#/$defs/staticStudy"
+        },
+        "stateIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "lookDirectionsAvailable": {
+          "type": "boolean"
+        },
         "frameTakes": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/frameTakeGroup"
           }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "static"
+          ]
+        },
+        {
+          "required": [
+            "atlasUrl"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "lookDirectionsAvailable"
+            ],
+            "properties": {
+              "lookDirectionsAvailable": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "atlasUrl"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stateIds"
+            ],
+            "properties": {
+              "stateIds": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "atlasUrl"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stateIds"
+            ],
+            "properties": {
+              "stateIds": {
+                "maxItems": 0
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "static"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "staticStudy": {
+      "type": "object",
+      "required": [
+        "assetUrl"
+      ],
+      "properties": {
+        "assetUrl": {
+          "$ref": "#/$defs/assetUrl"
+        },
+        "takes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/standaloneTake"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "standaloneTake": {
+      "type": "object",
+      "required": [
+        "id",
+        "assetUrl"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "not": {
+            "const": "original"
+          }
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "assetUrl": {
+          "$ref": "#/$defs/assetUrl"
         }
       },
       "additionalProperties": true
@@ -134,9 +265,7 @@
           }
         },
         "assetUrl": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^(?:\\./)?(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+(?:/(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+)*$"
+          "$ref": "#/$defs/assetUrl"
         },
         "atlasSlot": {
           "$ref": "#/$defs/atlasSlot"
@@ -165,6 +294,11 @@
         }
       ],
       "additionalProperties": true
+    },
+    "assetUrl": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\./)?(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+(?:/(?!\\.\\.(?:/|$))[A-Za-z0-9._~-]+)*$"
     },
     "atlasSlot": {
       "type": "object",

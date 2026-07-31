@@ -20,7 +20,7 @@
       "docs/**",
       "previewer/**",
       "templates/**",
-      "examples/neutral-demo/**",
+      "examples/raincoat-cat/**",
       "tests/**"
     ]
   },

@@ -20,6 +20,10 @@ presentation step.
 
 - After inspiration arrives, produce a first static character study as soon as
   there is enough direction to make one meaningful.
+- Immediately preserve that exact reviewable image as the Candidate's Static
+  original, stage it through the deterministic review command, and open the
+  focused project Previewer URL. Do not wait for an atlas or nine states, and
+  do not regenerate the image merely to make it previewable.
 - Ask at most one genuinely blocking question first. Do not run a questionnaire
   to completion.
 - Keep the first study small and exploratory. It exists to reveal
@@ -34,6 +38,10 @@ presentation step.
   motion beats.
 - Do not accumulate those decisions into one all-in-one reveal. Let feedback on
   each visual constrain the next one.
+- Keep the Previewer current after each checkpoint. Static holds one image with
+  optional Takes; runtime navigation exposes only rows that actually exist.
+  Missing states remain absent rather than becoming placeholders or Example
+  assets.
 - Stop after each visual checkpoint. Do not advance to its dependent creative
   layer until the user corrects or selects it, unless the user explicitly
   requested those exact layers together.
@@ -50,6 +58,8 @@ assumptions it tests.
   change.
 - Use a mechanism board when testing one reusable range or attachment.
 - Use a single-frame Take when changing one fixed state slot.
+- Use a Static Take when changing the one-image character study before runtime
+  Keyframes exist.
 - Use `$hatch-pet` row generation only after state and motion decisions are
   approved.
 
@@ -83,6 +93,9 @@ cannot be confused.
 - Keep backgrounds, scale, framing, and rendering treatment comparable.
 - Show normal-size views when small-scale readability is part of the decision.
 - Do not mix several independent visual questions into one board.
+- Stage the exact comparison artifact selected for review. A Previewer handoff
+  must point to the project Candidate and visible project asset, never the
+  bundled Example.
 
 ## Protect identity during editing
 
@@ -96,8 +109,9 @@ alone is not evidence that the lock survived.
 
 For a single-frame Take:
 
-- materialize exactly one source frame at the selected target's cell size;
-- preserve transparent canvas geometry;
+- materialize exactly one source slot;
+- preserve the Static original's canvas for Static work or the selected
+  target's cell size and transparent geometry for a runtime Keyframe;
 - use adjacent frames only to understand continuity;
 - produce exactly one standalone result at that same target cell size;
 - never paste the new result into the atlas during audition;

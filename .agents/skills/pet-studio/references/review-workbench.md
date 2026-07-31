@@ -12,6 +12,8 @@ Takes.
 
 - Product boundary
 - Review vocabulary
+- Cold-start Previewer handoff
+- Progressive Candidate handoff
 - URL contract
 - Safe local mapping
 - Frame indexing
@@ -36,14 +38,119 @@ Previewer controls may change local review state only.
 
 - A **Candidate** is a coherent proposal. The implementation may retain a
   legacy `versions` collection, but user-facing and decision language uses
-  Candidate.
+  Candidate. A Candidate may be incomplete and grow from Static review into an
+  exact subset of runtime states. It may also represent a materially different
+  character, pet, or creative direction; it is not a sequential revision.
+- **Static** is one standalone character-study image with optional Takes. It
+  is not a runtime state, Keyframe row, timing entry, or one-frame animation.
 - A **Keyframe** is a fixed state slot.
-- A **Take** is an additive option for one exact Keyframe.
+- A **Take** is an additive option for one exact review slot: either Static or
+  one runtime Keyframe.
 - Clicking a Take auditions it.
 - Confirming a Take records session-only review metadata and collapses the
   rail. It is not approval or writeback.
 - Conversational approval records an authoritative visual decision in the
   private project artifacts.
+
+## Cold-start Previewer handoff
+
+After project setup and readiness checks, start or reuse the local Previewer
+before waiting for the first generated project image. Open its base URL and
+verify that the Candidate selector shows exactly `Example.RaincoatCat`.
+
+The bundled Example is a working orientation surface: it proves the review
+tool is available and lets the user see the intended experience immediately.
+It is not a project Candidate, approval, placeholder, or source of missing
+states. As soon as the first real project Static exists, switch the same
+Previewer session to the focused project URL described below.
+
+If a valid project-focused URL already exists on re-entry, reopen that URL
+instead of returning to the Example.
+
+## Progressive Candidate handoff
+
+Open the Previewer at the first useful visual checkpoint. Do not wait for a
+spritesheet, animation, or all nine Codex Pet states.
+
+When the first reviewable static image exists:
+
+1. Preserve that exact image as the Candidate's Static original. Do not
+   regenerate or reinterpret it merely to make it Previewer-compatible.
+2. Use the deterministic staging command:
+
+   ```bash
+   python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
+     --asset <path-to-exact-png-or-webp> \
+     --candidate <semantic-candidate-id> \
+     --default
+   ```
+
+   The command atomically copies the exact asset under the ignored review
+   build, creates or updates `build/review/preview.json`, validates the result,
+   and returns the focused URL. Let Codex choose a stable semantic Candidate ID
+   and natural display name from the actual proposal. Do not prescribe a
+   `v001`/`v002` sequence; Candidates may be parallel or represent completely
+   different pets. Use `--display-name` or `--pet-name` only when real
+   project-facing names are known.
+3. Expect the generated review layout to follow:
+
+   ```text
+   build/review/
+   ├── preview.json
+   └── candidates/<semantic-candidate-id>/static/original.png
+   ```
+
+4. Confirm that the generated config names the project Candidate and declares
+   no runtime coverage yet:
+
+   ```json
+   {
+     "schemaVersion": 1,
+     "deliveryTarget": {
+       "id": "codex-pet-v2",
+       "revision": 2
+     },
+     "pet": {
+       "name": "Working Pet"
+     },
+     "versions": [
+       {
+         "id": "<semantic-candidate-id>",
+         "displayName": "<candidate-name>",
+         "isDefault": true,
+         "static": {
+           "assetUrl": "./candidates/<semantic-candidate-id>/static/original.png",
+           "takes": []
+         },
+         "stateIds": [],
+         "lookDirectionsAvailable": false
+       }
+     ]
+   }
+   ```
+
+5. Start or reuse the local Previewer server and open the returned equivalent
+   of:
+
+   ```text
+   /previewer/?config=../build/review/preview.json&candidate=<semantic-candidate-id>&state=static&frame=1&take=original
+   ```
+
+6. Verify that the visible image is the exact project asset and that the
+   selected Candidate is the project Candidate, not the bundled Example.
+7. Stop for review before producing the next dependent creative layer.
+
+On re-entry, reopen the latest valid project-focused URL before resuming work.
+If the config or asset is invalid, repair or report that project handoff.
+Never substitute the bundled Example, fabricate a placeholder, or claim that a
+private image cannot be previewed merely because no atlas exists.
+
+As animation work begins, add `atlasUrl` and an exact `stateIds` subset to the
+same Candidate. A subset may contain one state. Missing states remain absent
+from state navigation, playback, and timing surfaces. Add a state only when its
+real row exists. Set `lookDirectionsAvailable` only when that review asset
+exists. Complete target coverage is a later production requirement, not a
+Previewer startup requirement.
 
 ## URL contract
 
@@ -58,7 +165,9 @@ Rules:
 - Preserve unrelated query parameters, including `config`.
 - Validate Candidate, state, frame, and Take against the successfully loaded
   config before restoring focus.
-- Treat `take=original` as the source atlas frame.
+- Treat `state=static&frame=1` as the Candidate's standalone Static slot.
+- Treat `take=original` as the Static original or source atlas frame for the
+  selected slot.
 - Treat a valid Take ID as the current visual reference, not approval.
 - Keep the URL stable during runtime frame ticks, Auto Orbit, pointer movement,
   all-state playback, language changes, and compatible Candidate switches.
@@ -106,14 +215,19 @@ URL frame = config.frameIndex + 1
 ```
 
 Reject zero, negative, non-integer, or out-of-range URL frames.
+Static has exactly one slot, so its only valid URL frame is `frame=1`.
 
 ## Create an additive Take
 
 1. Resolve the exact Candidate, state, Keyframe, and selected source.
-2. Extract or load only that one target-cell-sized source frame.
+2. For Static, load the exact standalone original or auditioned Take and
+   preserve its format and canvas dimensions. For runtime work, extract or
+   load only that one target-cell-sized source frame.
 3. Read identity locks and the user's requested delta.
-4. Generate one standalone target-cell-sized transparent asset under the private
-   `design/takes/<candidate>/<state>/fNN/` working directory.
+4. Generate one standalone same-slot asset under the private
+   `design/takes/<candidate>/<state>/fNN/` working directory. Runtime Takes
+   retain target-cell geometry; Static Takes retain the Static original's
+   canvas.
 5. Keep source atlas, existing Takes, neighboring frames, and unrelated config
    semantically unchanged.
 6. Register the Take through the deterministic CLI:
@@ -146,8 +260,8 @@ silently revise either neighbor.
 Previewer Confirm remains temporary. When the user explicitly approves a Take
 in conversation:
 
-- record Candidate, state, Keyframe, Take ID, exact asset path, and locked
-  details in the active private decision artifact;
+- record Candidate, Static or state/Keyframe slot, Take ID, exact asset path,
+  and locked details in the active private decision artifact;
 - keep the asset available as production grounding;
 - do not promote the Candidate until full state and motion QA passes.
 

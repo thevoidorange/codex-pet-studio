@@ -1,7 +1,7 @@
 {
   "$schema": "../.agents/skills/pet-studio/schemas/delivery-target.schema.json",
   "schemaVersion": 1,
-  "revision": 1,
+  "revision": 2,
   "id": "codex-pet-v2",
   "displayName": "Codex Pet v2",
   "verifiedAgainst": {
@@ -159,6 +159,10 @@
     "coordinateSystem": "screen-clockwise-from-up",
     "clockwise": true,
     "neutralStateId": "idle",
+    "neutralReferenceSlot": {
+      "row": 0,
+      "column": 6
+    },
     "slots": [
       {
         "degree": 0,

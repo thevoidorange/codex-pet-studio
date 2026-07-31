@@ -49,7 +49,7 @@ DEFAULT_EXPORT_INCLUDE = [
     "docs/**",
     "previewer/**",
     "templates/**",
-    "examples/neutral-demo/**",
+    "examples/raincoat-cat/**",
     "tests/**",
 ]
 
@@ -457,7 +457,13 @@ def validate_delivery_target(
     validate_object_keys(
         look_directions,
         f"{field}: lookDirections",
-        required={"coordinateSystem", "clockwise", "neutralStateId", "slots"},
+        required={
+            "coordinateSystem",
+            "clockwise",
+            "neutralStateId",
+            "neutralReferenceSlot",
+            "slots",
+        },
     )
     if look_directions.get("coordinateSystem") != "screen-clockwise-from-up":
         raise StudioError(
@@ -469,6 +475,37 @@ def validate_delivery_target(
         raise StudioError(
             f"{field}: lookDirections.neutralStateId must name a target state."
         )
+    neutral_reference_slot = look_directions.get("neutralReferenceSlot")
+    if not isinstance(neutral_reference_slot, dict):
+        raise StudioError(
+            f"{field}: lookDirections.neutralReferenceSlot must be an object."
+        )
+    validate_object_keys(
+        neutral_reference_slot,
+        f"{field}: lookDirections.neutralReferenceSlot",
+        required={"row", "column"},
+    )
+    neutral_row = neutral_reference_slot.get("row")
+    neutral_column = neutral_reference_slot.get("column")
+    if (
+        isinstance(neutral_row, bool)
+        or not isinstance(neutral_row, int)
+        or neutral_row < 0
+        or neutral_row >= rows
+        or isinstance(neutral_column, bool)
+        or not isinstance(neutral_column, int)
+        or neutral_column < 0
+        or neutral_column >= columns
+    ):
+        raise StudioError(
+            f"{field}: lookDirections.neutralReferenceSlot must name a cell inside the atlas."
+        )
+    neutral_position = (neutral_row, neutral_column)
+    if neutral_position in used_slots:
+        raise StudioError(
+            f"{field}: lookDirections.neutralReferenceSlot collides with another used atlas slot."
+        )
+    used_slots.add(neutral_position)
     slots = look_directions.get("slots")
     if not isinstance(slots, list) or not slots:
         raise StudioError(f"{field}: lookDirections.slots must be a non-empty array.")
@@ -814,7 +851,7 @@ def read_image_file(path: Path, label: str) -> tuple[str, int, int, bytes]:
         return "WebP", dimensions[0], dimensions[1], data
     raise StudioError(
         f"{path} is not a supported PNG or WebP image.",
-        "Export the atlas as PNG or WebP without renaming another file type.",
+        "Export the image as PNG or WebP without renaming another file type.",
     )
 
 
@@ -1083,17 +1120,20 @@ def resolve_take_review_context(
     assert reference_take_id is not None
 
     frame_counts = target_state_frame_counts(target)
-    if state_id not in frame_counts:
+    if state_id == "static":
+        frame_count = 1
+    elif state_id in frame_counts:
+        frame_count = frame_counts[state_id]
+    else:
         raise StudioError(
             f"Unknown Codex Pet state {state_id!r}.",
-            "Use one of: " + ", ".join(frame_counts),
+            "Use 'static' or one of: " + ", ".join(frame_counts),
         )
     if not re.fullmatch(r"[1-9][0-9]*", raw_frame):
         raise StudioError(
             f"Review frame must be a positive one-based integer; got {raw_frame!r}."
         )
     frame_number = int(raw_frame)
-    frame_count = frame_counts[state_id]
     if frame_number > frame_count:
         raise StudioError(
             f"State {state_id!r} has {frame_count} frames; frame {frame_number} is out of range."
@@ -1302,12 +1342,110 @@ def validate_preview_config(
             raise StudioError(f"{path}: duplicate Candidate id {version_id!r}.")
         version_ids.add(version_id)
         atlas_url = version.get("atlasUrl")
-        if not isinstance(atlas_url, str) or not atlas_url.strip():
+        has_atlas = isinstance(atlas_url, str) and bool(atlas_url.strip())
+        if atlas_url is not None and not has_atlas:
             raise StudioError(f"{version_field}.atlasUrl must be a non-empty string.")
+
+        static_study = version.get("static")
+        if static_study is not None:
+            if not isinstance(static_study, dict):
+                raise StudioError(f"{version_field}.static must be an object.")
+            validate_take_asset_url(
+                static_study.get("assetUrl"),
+                f"{version_field}.static.assetUrl",
+            )
+            static_takes = static_study.get("takes", [])
+            if not isinstance(static_takes, list):
+                raise StudioError(f"{version_field}.static.takes must be an array.")
+            static_take_ids: set[str] = set()
+            for take_index, take in enumerate(static_takes):
+                take_field = f"{version_field}.static.takes[{take_index}]"
+                if not isinstance(take, dict):
+                    raise StudioError(f"{take_field} must be an object.")
+                take_id = take.get("id")
+                if (
+                    not isinstance(take_id, str)
+                    or not take_id.strip()
+                    or take_id == "original"
+                ):
+                    raise StudioError(f"{take_field}.id must be a non-reserved string.")
+                if take_id in static_take_ids:
+                    raise StudioError(
+                        f"{path}: duplicate Static Take id {take_id!r} for {version_id}."
+                    )
+                static_take_ids.add(take_id)
+                validate_take_asset_url(
+                    take.get("assetUrl"),
+                    f"{take_field}.assetUrl",
+                )
+                if "atlasSlot" in take:
+                    raise StudioError(
+                        f"{take_field} must use a standalone assetUrl, not atlasSlot."
+                    )
+                if "label" in take and (
+                    not isinstance(take["label"], str) or not take["label"].strip()
+                ):
+                    raise StudioError(f"{take_field}.label must be a non-empty string.")
+                if "labels" in take:
+                    labels = take["labels"]
+                    if not isinstance(labels, dict) or not all(
+                        isinstance(key, str)
+                        and key
+                        and isinstance(label, str)
+                        and label.strip()
+                        for key, label in labels.items()
+                    ):
+                        raise StudioError(f"{take_field}.labels must map locales to labels.")
+
+        if not has_atlas and static_study is None:
+            raise StudioError(
+                f"{version_field} must supply at least one of atlasUrl or static."
+            )
+
+        state_ids = version.get("stateIds")
+        if state_ids is not None:
+            if (
+                not isinstance(state_ids, list)
+                or any(not isinstance(state_id, str) for state_id in state_ids)
+            ):
+                raise StudioError(f"{version_field}.stateIds must be an array of state ids.")
+            if len(state_ids) != len(set(state_ids)):
+                raise StudioError(f"{version_field}.stateIds must not contain duplicates.")
+            unknown_state_ids = [
+                state_id for state_id in state_ids if state_id not in frame_counts
+            ]
+            if unknown_state_ids:
+                raise StudioError(
+                    f"{version_field}.stateIds contains unknown states: "
+                    + ", ".join(unknown_state_ids)
+                )
+            if state_ids and not has_atlas:
+                raise StudioError(
+                    f"{version_field}.stateIds requires atlasUrl."
+                )
+            if not state_ids and static_study is None:
+                raise StudioError(
+                    f"{version_field} declares no reviewable states or Static study."
+                )
+
+        look_directions_available = version.get("lookDirectionsAvailable")
+        if (
+            look_directions_available is not None
+            and not isinstance(look_directions_available, bool)
+        ):
+            raise StudioError(
+                f"{version_field}.lookDirectionsAvailable must be a boolean."
+            )
+        if look_directions_available is True and not has_atlas:
+            raise StudioError(
+                f"{version_field}.lookDirectionsAvailable requires atlasUrl."
+            )
 
         groups = version.get("frameTakes", [])
         if not isinstance(groups, list):
             raise StudioError(f"{version_field}.frameTakes must be an array.")
+        if groups and not has_atlas:
+            raise StudioError(f"{version_field}.frameTakes requires atlasUrl.")
         take_ids_by_frame: dict[tuple[str, int], set[str]] = {}
         for group_index, group in enumerate(groups):
             group_field = f"{version_field}.frameTakes[{group_index}]"
@@ -1316,6 +1454,10 @@ def validate_preview_config(
             state_id = group.get("stateId")
             if state_id not in frame_counts:
                 raise StudioError(f"{group_field}.stateId is not a stable Codex Pet state.")
+            if state_ids is not None and state_id not in state_ids:
+                raise StudioError(
+                    f"{group_field}.stateId is not declared in {version_field}.stateIds."
+                )
             frame_index = group.get("frameIndex")
             if (
                 isinstance(frame_index, bool)
@@ -1554,6 +1696,93 @@ def atomic_register_take(
             raise StudioError(
                 f"Generated Take asset already exists: {asset_path}",
                 "Use another Take id; existing review assets are never overwritten.",
+            ) from exc
+        asset_promoted = True
+        asset_temporary.unlink()
+        asset_temporary = None
+        os.replace(config_temporary, config_path)
+        config_temporary = None
+    except Exception:
+        if asset_promoted and asset_path.exists():
+            asset_path.unlink()
+        raise
+    finally:
+        for temporary in (asset_temporary, config_temporary):
+            if temporary is not None and temporary.exists():
+                temporary.unlink()
+
+
+def atomic_stage_static_candidate(
+    config_path: Path,
+    config_value: dict[str, Any],
+    asset_path: Path,
+    asset_bytes: bytes,
+    target: dict[str, Any],
+    *,
+    expected_config_bytes: bytes | None,
+) -> None:
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    asset_path.parent.mkdir(parents=True, exist_ok=True)
+    asset_temporary: Path | None = None
+    config_temporary: Path | None = None
+    asset_promoted = False
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{asset_path.name}.tmp-",
+            dir=asset_path.parent,
+            delete=False,
+        ) as handle:
+            asset_temporary = Path(handle.name)
+            handle.write(asset_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(asset_temporary, 0o644)
+
+        encoded_config = (
+            json.dumps(config_value, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        validate_preview_config(
+            json.loads(encoded_config.decode("utf-8")),
+            config_path,
+            target,
+        )
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{config_path.name}.tmp-",
+            dir=config_path.parent,
+            delete=False,
+        ) as handle:
+            config_temporary = Path(handle.name)
+            handle.write(encoded_config)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(
+            config_temporary,
+            (config_path.stat().st_mode & 0o777) if config_path.exists() else 0o644,
+        )
+
+        if expected_config_bytes is None:
+            if config_path.exists():
+                raise StudioError(
+                    f"Previewer config appeared during Static staging: {config_path}",
+                    "Reload the project state and retry; no files were updated.",
+                )
+        elif (
+            not config_path.exists()
+            or config_path.read_bytes() != expected_config_bytes
+        ):
+            raise StudioError(
+                f"Previewer config changed during Static staging: {config_path}",
+                "Reload the project state and retry; no files were updated.",
+            )
+
+        try:
+            os.link(asset_temporary, asset_path)
+        except FileExistsError as exc:
+            raise StudioError(
+                f"Static Candidate asset already exists: {asset_path}",
+                "Use a new Candidate id; existing review evidence is never overwritten.",
             ) from exc
         asset_promoted = True
         asset_temporary.unlink()
@@ -1980,8 +2209,8 @@ def command_init(args: argparse.Namespace) -> int:
         print(f"OK: initialized Pet Studio project at {root}")
     print(f"  project id: {config['project']['id']}")
     print(f"  private terms: {PRIVATE_CONFIG_NAME} (keep this file out of git)")
-    print("Next: add inspiration under inputs/, list private names in the local private-terms file,")
-    print("then run `studio.py doctor`.")
+    print("Next: run `studio.py doctor`, start the Previewer on Example.RaincoatCat,")
+    print("then add private inspiration under inputs/ and begin the first visual study.")
     return 0
 
 
@@ -2239,6 +2468,189 @@ def command_preview(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_review_stage_static(args: argparse.Namespace) -> int:
+    root = resolve_root(args.root)
+    project_config = load_config(root)
+    target = load_delivery_target(root, project_config)
+    if args.host not in LOOPBACK_HOSTS:
+        raise StudioError(
+            f"Static review URL must use a loopback host, not {args.host!r}."
+        )
+    if isinstance(args.port, bool) or not 1 <= args.port <= 65535:
+        raise StudioError("Static review URL port must be between 1 and 65535.")
+    candidate_id = args.candidate.strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", candidate_id):
+        raise StudioError(
+            "Candidate id must be 1–64 ASCII letters, digits, dots, underscores, or hyphens."
+        )
+
+    raw_asset_path = Path(args.asset).expanduser()
+    if raw_asset_path.is_symlink():
+        raise StudioError(f"Static asset must not be a symlink: {raw_asset_path}")
+    asset_source = raw_asset_path.resolve()
+    image_format, width, height, asset_bytes = read_image_file(
+        asset_source,
+        "Static Candidate asset",
+    )
+    extension = "png" if image_format == "PNG" else "webp"
+
+    raw_config_path = Path(args.config)
+    config_path = (
+        raw_config_path.expanduser().resolve()
+        if raw_config_path.is_absolute()
+        else (root / raw_config_path).resolve()
+    )
+    contained_path(config_path, root / "build", "Previewer config")
+    if config_path.suffix.casefold() != ".json":
+        raise StudioError("Previewer config must be a JSON file.")
+    if config_path.is_symlink():
+        raise StudioError(f"Previewer config must not be a symlink: {config_path}")
+
+    expected_config_bytes: bytes | None = None
+    if config_path.exists():
+        if not config_path.is_file():
+            raise StudioError(f"Previewer config is not a regular file: {config_path}")
+        preview_config, expected_config_bytes = load_preview_config(
+            config_path,
+            target,
+        )
+    else:
+        preview_config = {
+            "schemaVersion": 1,
+            "deliveryTarget": {
+                "id": target["id"],
+                "revision": target["revision"],
+            },
+            "pet": {
+                "name": (
+                    args.pet_name.strip()
+                    if args.pet_name
+                    else project_config["project"]["displayName"]
+                )
+            },
+            "versions": [],
+        }
+
+    if any(
+        candidate.get("id") == candidate_id
+        for candidate in preview_config["versions"]
+    ):
+        raise StudioError(
+            f"Candidate {candidate_id!r} already exists in {config_path}.",
+            "Use a new Candidate id; Static evidence is never overwritten.",
+        )
+
+    candidate_segment = safe_take_candidate_segment(candidate_id)
+    asset_destination = contained_path(
+        config_path.parent
+        / "candidates"
+        / candidate_segment
+        / "static"
+        / f"original.{extension}",
+        root / "build",
+        "Static Candidate asset",
+    )
+    if asset_destination.exists() or asset_destination.is_symlink():
+        raise StudioError(
+            f"Static Candidate asset already exists: {asset_destination}",
+            "Use a new Candidate id; existing review evidence is never overwritten.",
+        )
+    asset_url = os.path.relpath(
+        asset_destination,
+        start=config_path.parent,
+    ).replace(os.sep, "/")
+    if not asset_url.startswith("."):
+        asset_url = f"./{asset_url}"
+    validate_take_asset_url(asset_url, "Static Candidate assetUrl")
+
+    make_default = bool(args.default) or not preview_config["versions"]
+    if make_default:
+        for candidate in preview_config["versions"]:
+            candidate["isDefault"] = False
+    preview_config["versions"].append(
+        {
+            "id": candidate_id,
+            "displayName": (
+                args.display_name.strip()
+                if args.display_name
+                else candidate_id
+            ),
+            "isDefault": make_default,
+            "static": {
+                "assetUrl": asset_url,
+                "takes": [],
+            },
+            "stateIds": [],
+            "lookDirectionsAvailable": False,
+            "frameTakes": [],
+        }
+    )
+    validate_preview_config(preview_config, config_path, target)
+
+    preview_relative = project_config["paths"]["previewer"]
+    preview_dir = project_path(
+        root,
+        preview_relative,
+        "paths.previewer",
+    )
+    config_reference = os.path.relpath(
+        config_path,
+        start=preview_dir,
+    ).replace(os.sep, "/")
+    query = urllib.parse.urlencode(
+        {
+            "config": config_reference,
+            "candidate": candidate_id,
+            "state": "static",
+            "frame": "1",
+            "take": "original",
+        }
+    )
+    quoted_preview_path = "/".join(
+        urllib.parse.quote(part)
+        for part in PurePosixPath(preview_relative).parts
+    )
+    review_host = f"[{args.host}]" if ":" in args.host else args.host
+    review_url = (
+        f"http://{review_host}:{args.port}/{quoted_preview_path}/?{query}"
+    )
+
+    if not args.check:
+        atomic_stage_static_candidate(
+            config_path,
+            preview_config,
+            asset_destination,
+            asset_bytes,
+            target,
+            expected_config_bytes=expected_config_bytes,
+        )
+
+    result = {
+        "ok": True,
+        "checkOnly": bool(args.check),
+        "candidateId": candidate_id,
+        "imageFormat": image_format,
+        "width": width,
+        "height": height,
+        "asset": str(asset_destination),
+        "assetUrl": asset_url,
+        "config": str(config_path),
+        "reviewUrl": review_url,
+    }
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        action = "validated" if args.check else "staged"
+        print(
+            f"OK: {action} Static Candidate {candidate_id!r} — "
+            f"{image_format} {width}x{height}"
+        )
+        print(f"  config: {config_path}")
+        print(f"  asset: {asset_destination}")
+        print(f"  review: {review_url}")
+    return 0
+
+
 def command_privacy_check(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
     config = load_config(root, required=False)
@@ -2380,21 +2792,42 @@ def command_take_add_with_context(
             f"Candidate {context.candidate_id!r} is not present in {context.config_path}."
         )
 
-    frame_groups = candidate.get("frameTakes")
-    if frame_groups is None:
-        frame_groups = []
-        candidate["frameTakes"] = frame_groups
-    matching_groups = [
-        group
-        for group in frame_groups
-        if group["stateId"] == context.state_id
-        and group["frameIndex"] == context.frame_index
-    ]
-    existing_ids = {
-        take["id"]
-        for group in matching_groups
-        for take in group["takes"]
-    }
+    is_static_review = context.state_id == "static"
+    matching_groups: list[dict[str, Any]] = []
+    frame_groups: list[dict[str, Any]] = []
+    if is_static_review:
+        static_study = candidate.get("static")
+        if not isinstance(static_study, dict):
+            raise StudioError(
+                f"Candidate {context.candidate_id!r} has no Static study."
+            )
+        static_takes = static_study.get("takes")
+        if static_takes is None:
+            static_takes = []
+            static_study["takes"] = static_takes
+        existing_ids = {take["id"] for take in static_takes}
+    else:
+        state_ids = candidate.get("stateIds")
+        if isinstance(state_ids, list) and context.state_id not in state_ids:
+            raise StudioError(
+                f"State {context.state_id!r} is not available in "
+                f"Candidate {context.candidate_id!r}."
+            )
+        frame_groups = candidate.get("frameTakes")
+        if frame_groups is None:
+            frame_groups = []
+            candidate["frameTakes"] = frame_groups
+        matching_groups = [
+            group
+            for group in frame_groups
+            if group["stateId"] == context.state_id
+            and group["frameIndex"] == context.frame_index
+        ]
+        existing_ids = {
+            take["id"]
+            for group in matching_groups
+            for take in group["takes"]
+        }
     if (
         context.reference_take_id != "original"
         and context.reference_take_id not in existing_ids
@@ -2425,8 +2858,36 @@ def command_take_add_with_context(
     asset_source = raw_asset_path.resolve()
     if not asset_source.is_file():
         raise StudioError(f"Take asset is not a regular file: {asset_source}")
-    asset_bytes = read_take_png(asset_source, target)
-    extension = "png"
+    if is_static_review:
+        original_asset_url = candidate["static"]["assetUrl"]
+        original_asset_path = contained_path(
+            context.config_path.parent.joinpath(
+                *PurePosixPath(original_asset_url).parts
+            ),
+            root / "build",
+            "Static original asset",
+        )
+        original_format, original_width, original_height, _ = read_image_file(
+            original_asset_path,
+            "Static original asset",
+        )
+        image_format, width, height, asset_bytes = read_image_file(
+            asset_source,
+            "Static Take asset",
+        )
+        if image_format != original_format or (width, height) != (
+            original_width,
+            original_height,
+        ):
+            raise StudioError(
+                "Static Take canvas must match the Static original exactly: "
+                f"expected {original_format} {original_width}x{original_height}, "
+                f"got {image_format} {width}x{height}."
+            )
+        extension = "png" if image_format == "PNG" else "webp"
+    else:
+        asset_bytes = read_take_png(asset_source, target)
+        extension = "png"
     candidate_segment = safe_take_candidate_segment(context.candidate_id)
     build_root = root / "build"
     generated_relative = (
@@ -2455,8 +2916,23 @@ def command_take_add_with_context(
         asset_url = f"./{asset_url}"
     validate_take_asset_url(asset_url, "generated Take assetUrl")
 
-    if matching_groups:
+    if is_static_review:
+        candidate["static"]["takes"].append(
+            {
+                "id": take_id,
+                "label": label,
+                "assetUrl": asset_url,
+            }
+        )
+    elif matching_groups:
         target_group = matching_groups[0]
+        target_group["takes"].append(
+            {
+                "id": take_id,
+                "label": label,
+                "assetUrl": asset_url,
+            }
+        )
     else:
         target_group = {
             "stateId": context.state_id,
@@ -2464,13 +2940,13 @@ def command_take_add_with_context(
             "takes": [],
         }
         frame_groups.append(target_group)
-    target_group["takes"].append(
-        {
-            "id": take_id,
-            "label": label,
-            "assetUrl": asset_url,
-        }
-    )
+        target_group["takes"].append(
+            {
+                "id": take_id,
+                "label": label,
+                "assetUrl": asset_url,
+            }
+        )
     validate_preview_config(preview_config, context.config_path, target)
     focused_url = review_url_with_take(context.review_url, take_id)
     result = {
@@ -2635,6 +3111,61 @@ def build_parser() -> argparse.ArgumentParser:
     preview_parser.add_argument("--check", action="store_true", help="validate and print the URL without serving")
     preview_parser.set_defaults(func=command_preview)
 
+    review_parser = subparsers.add_parser(
+        "review",
+        help="stage progressive Candidates for the local Previewer",
+    )
+    review_subparsers = review_parser.add_subparsers(
+        dest="review_command",
+        required=True,
+    )
+    review_stage_static_parser = review_subparsers.add_parser(
+        "stage-static",
+        help="register the first exact still as a Static Candidate",
+    )
+    add_root_argument(review_stage_static_parser)
+    review_stage_static_parser.add_argument(
+        "--asset",
+        required=True,
+        help="PNG or WebP Static image to copy into the private review build",
+    )
+    review_stage_static_parser.add_argument(
+        "--candidate",
+        required=True,
+        help="stable semantic Candidate id chosen from the actual proposal",
+    )
+    review_stage_static_parser.add_argument(
+        "--display-name",
+        help="visible Candidate name (default: Candidate id)",
+    )
+    review_stage_static_parser.add_argument(
+        "--pet-name",
+        help="visible pet name when creating the first Previewer config",
+    )
+    review_stage_static_parser.add_argument(
+        "--config",
+        default="build/review/preview.json",
+        help="review config path under build/ (default: build/review/preview.json)",
+    )
+    review_stage_static_parser.add_argument("--host", default="127.0.0.1")
+    review_stage_static_parser.add_argument("--port", type=int, default=8765)
+    review_stage_static_parser.add_argument(
+        "--default",
+        action="store_true",
+        help="make this the default Candidate",
+    )
+    review_stage_static_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate and report without writing files",
+    )
+    review_stage_static_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit machine-readable JSON",
+    )
+    review_stage_static_parser.set_defaults(func=command_review_stage_static)
+
     validate_parser = subparsers.add_parser("validate", help="validate a Codex Pet v2 package")
     add_root_argument(validate_parser)
     validate_parser.add_argument("--pet-dir", help="pet package directory (default: config paths.pet)")
@@ -2674,12 +3205,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     take_parser = subparsers.add_parser(
         "take",
-        help="manage standalone Keyframe Takes for an external Previewer config",
+        help="manage standalone Static and Keyframe Takes for a project Previewer config",
     )
     take_subparsers = take_parser.add_subparsers(dest="take_command", required=True)
     take_add_parser = take_subparsers.add_parser(
         "add",
-        help="atomically register one target-sized Take from a focused review URL",
+        help="atomically register one same-slot Take from a focused review URL",
     )
     add_root_argument(take_add_parser)
     take_add_parser.add_argument(
@@ -2690,7 +3221,7 @@ def build_parser() -> argparse.ArgumentParser:
     take_add_parser.add_argument(
         "--asset",
         required=True,
-        help="standalone target-sized 8-bit RGBA PNG frame to copy into the generated build",
+        help="standalone PNG/WebP matching Static, or target-sized RGBA PNG for a runtime Keyframe",
     )
     take_add_parser.add_argument(
         "--id",

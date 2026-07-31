@@ -205,6 +205,7 @@
         "coordinateSystem",
         "clockwise",
         "neutralStateId",
+        "neutralReferenceSlot",
         "slots"
       ],
       "properties": {
@@ -217,6 +218,24 @@
         "neutralStateId": {
           "type": "string",
           "minLength": 1
+        },
+        "neutralReferenceSlot": {
+          "type": "object",
+          "required": [
+            "row",
+            "column"
+          ],
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
         },
         "slots": {
           "type": "array",

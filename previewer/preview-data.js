@@ -1,16 +1,16 @@
-// Project-facing data for the bundled neutral Example. Delivery Target facts
+// Project-facing data for the bundled Raincoat Cat Example. Delivery Target facts
 // are generated separately in target-data.js from the canonical contract.
 window.PET_PREVIEW_CONFIG = {
   schemaVersion: 1,
   pet: {
-    name: "Sample Pet",
+    name: "Raincoat Cat",
   },
   versions: [
     {
-      id: "v002",
-      displayName: "v002",
-      statusKey: "ui.currentVersion",
-      atlasUrl: "./sample-assets/v002/spritesheet.png",
+      id: "example-raincoat-cat",
+      displayName: "Example.RaincoatCat",
+      labelKey: "ui.exampleVersion",
+      atlasUrl: "../examples/raincoat-cat/spritesheet.png",
       isDefault: true,
       frameTakes: [
         {

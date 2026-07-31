@@ -9,7 +9,7 @@ Public source files should contain only:
 - generic workflow instructions
 - parameterized tools and schemas
 - blank templates
-- a project-owned neutral demo
+- a project-owned or explicitly authorized public example
 - intentionally public pack artifacts
 
 ## Local project zones
@@ -48,7 +48,12 @@ Do not assume stripped filenames make an image anonymous. Images may reveal:
 - prompt or generation parameters
 - source-specific visual identity
 
-For public examples, create new project-owned neutral fixtures. Do not derive them from a user's private pet, art, or approved character.
+Prefer new project-owned fixtures for public examples. A user-originated
+character may be included only after the user gives explicit, scoped
+publication approval for the exact final artifact. Publish only the sanitized
+package, a compact public description, and a reviewed rights record. Exclude
+raw references, private names, prompts, design history, conversations, local
+paths, and identifying metadata.
 
 ## Export allowlist
 

@@ -12,6 +12,7 @@
   const TOUR_PROGRESS_STEP_MS = 160;
   const KEYFRAME_COLUMNS = 4;
   const ORIGINAL_TAKE_ID = "original";
+  const STATIC_STATE_ID = "static";
   const REVIEW_CONTEXT_PARAMS = Object.freeze({
     candidate: "candidate",
     state: "state",
@@ -23,15 +24,18 @@
     animationControls: document.querySelector("#animationControls"),
     animationTab: document.querySelector("#animationTab"),
     autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
+    configError: document.querySelector("#configError"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     endlessModeButton: document.querySelector("#endlessModeButton"),
     followPointerButton: document.querySelector("#followPointerButton"),
     frameReadout: document.querySelector("#frameReadout"),
+    frameSectionTitle: document.querySelector("#frameSectionTitle"),
     frameStrip: document.querySelector("#frameStrip"),
     languageSelect: document.querySelector("#languageSelect"),
     lookControls: document.querySelector("#lookControls"),
     lookTab: document.querySelector("#lookTab"),
+    mechanicsBoard: document.querySelector("#mechanicsBoard"),
     mechanicsRows: document.querySelector("#mechanicsRows"),
     mechanicsSummary: document.querySelector("#mechanicsSummary"),
     nextFrameButton: document.querySelector("#nextFrameButton"),
@@ -41,11 +45,15 @@
     previewSizeInput: document.querySelector("#previewSizeInput"),
     previewSizeValue: document.querySelector("#previewSizeValue"),
     previousFrameButton: document.querySelector("#previousFrameButton"),
+    previewFooter: document.querySelector("#previewFooter"),
     restartButton: document.querySelector("#restartButton"),
     runtimeModeButton: document.querySelector("#runtimeModeButton"),
+    runtimeStateHeading: document.querySelector("#runtimeStateHeading"),
     spritePlayer: document.querySelector("#spritePlayer"),
     stage: document.querySelector("#stage"),
     stageModeLabel: document.querySelector("#stageModeLabel"),
+    staticList: document.querySelector("#staticList"),
+    staticSection: document.querySelector("#staticSection"),
     stateCount: document.querySelector("#stateCount"),
     stateDescription: document.querySelector("#stateDescription"),
     stateDuration: document.querySelector("#stateDuration"),
@@ -59,9 +67,11 @@
     tourProgress: document.querySelector("#tourProgress"),
     tourProgressBar: document.querySelector("#tourProgressBar"),
     tourProgressText: document.querySelector("#tourProgressText"),
+    topbar: document.querySelector("#topbar"),
     transportControls: document.querySelector("#transportControls"),
     versionSelect: document.querySelector("#versionSelect"),
     versionStatus: document.querySelector("#versionStatus"),
+    workspace: document.querySelector("#workspace"),
   };
 
   let config = null;
@@ -81,6 +91,7 @@
   let activeFrameTake = null;
   const confirmedFrameTakeIds = new Map();
   let activeDirectionIndex = 0;
+  let lookIsNeutral = false;
   let playbackMode = "runtime";
   let isInspectingFrame = false;
   let sectionMode = "animation";
@@ -229,6 +240,8 @@
       !deliveryTarget.display ||
       !Array.isArray(deliveryTarget.states) ||
       !deliveryTarget.lookDirections ||
+      typeof deliveryTarget.lookDirections.neutralStateId !== "string" ||
+      !deliveryTarget.lookDirections.neutralReferenceSlot ||
       !Array.isArray(deliveryTarget.lookDirections.slots)
     ) {
       throw new Error("The generated Delivery Target adapter is missing or invalid.");
@@ -253,6 +266,10 @@
         firstColumn: state.firstColumn,
         durations: cloneValue(state.durationsMs),
       })),
+      neutralLookStateId: deliveryTarget.lookDirections.neutralStateId,
+      neutralLookReferenceSlot: cloneValue(
+        deliveryTarget.lookDirections.neutralReferenceSlot,
+      ),
       directions: cloneValue(deliveryTarget.lookDirections.slots),
     };
   }
@@ -270,6 +287,35 @@
         )} revision ${String(requested.revision)}.`,
       );
     }
+  }
+
+  function assertReviewableProjectConfig(projectConfig) {
+    if (
+      !projectConfig ||
+      !Array.isArray(projectConfig.versions) ||
+      projectConfig.versions.length === 0
+    ) {
+      throw new Error("Project Previewer config has no Candidates.");
+    }
+    projectConfig.versions.forEach((version) => {
+      const hasStatic =
+        version &&
+        version.static &&
+        typeof version.static.assetUrl === "string" &&
+        Boolean(version.static.assetUrl.trim());
+      const hasAtlas =
+        version &&
+        typeof version.atlasUrl === "string" &&
+        Boolean(version.atlasUrl.trim());
+      if (
+        !version ||
+        typeof version.id !== "string" ||
+        !version.id.trim() ||
+        (!hasStatic && !hasAtlas)
+      ) {
+        throw new Error("Project Previewer config has an invalid Candidate.");
+      }
+    });
   }
 
   function withMechanicsOverrides(baseMechanics, projectMechanics) {
@@ -308,10 +354,10 @@
   function withBundledExample(projectVersions, bundledVersions) {
     const versions = cloneValue(projectVersions);
     const usedIds = new Set(versions.map((version) => version.id));
-    let exampleId = "example";
+    let exampleId = "example-raincoat-cat";
     let suffix = 2;
     while (usedIds.has(exampleId)) {
-      exampleId = `example-${suffix}`;
+      exampleId = `example-raincoat-cat-${suffix}`;
       suffix += 1;
     }
 
@@ -321,7 +367,7 @@
     const example = {
       ...cloneValue(bundledDefault),
       id: exampleId,
-      displayName: "Example",
+      displayName: "Example.RaincoatCat",
       labelKey: "ui.exampleVersion",
       statusKey: null,
       isDefault: false,
@@ -349,6 +395,7 @@
       }
       const data = await response.json();
       assertCompatibleTarget(data);
+      assertReviewableProjectConfig(data);
       return {
         data,
         baseUrl: resolvedUrl.href,
@@ -427,8 +474,72 @@
     );
   }
 
+  function staticReviewState(version) {
+    if (
+      !version ||
+      !version.static ||
+      typeof version.static.assetUrl !== "string" ||
+      !version.static.assetUrl.trim()
+    ) {
+      return null;
+    }
+    const assetUrl = version.static.assetUrl.trim();
+    if (!isSafeTakeAssetUrl(assetUrl)) {
+      throw new Error(
+        `Candidate ${String(version.id)} has an unsafe Static asset URL.`,
+      );
+    }
+    return {
+      id: STATIC_STATE_ID,
+      kind: STATIC_STATE_ID,
+      durations: [0],
+      assetUrl,
+    };
+  }
+
+  function runtimeStatesFor(version) {
+    if (!version || !version.atlasUrl) return [];
+    if (!Array.isArray(version.stateIds)) return config.states;
+    const availableIds = new Set(version.stateIds);
+    return config.states.filter((state) => availableIds.has(state.id));
+  }
+
+  function reviewStatesFor(version) {
+    const staticState = staticReviewState(version);
+    return [
+      ...(staticState ? [staticState] : []),
+      ...runtimeStatesFor(version),
+    ];
+  }
+
+  function currentReviewStates() {
+    return reviewStatesFor(currentVersion());
+  }
+
+  function currentRuntimeStates() {
+    return runtimeStatesFor(currentVersion());
+  }
+
+  function stateForVersion(version, stateId) {
+    return reviewStatesFor(version).find((state) => state.id === stateId);
+  }
+
+  function isStaticState(state) {
+    return Boolean(state && state.kind === STATIC_STATE_ID);
+  }
+
+  function currentVersionSupportsLook() {
+    const version = currentVersion();
+    if (!version || !version.atlasUrl) return false;
+    if (typeof version.lookDirectionsAvailable === "boolean") {
+      return version.lookDirectionsAvailable;
+    }
+    return !Array.isArray(version.stateIds);
+  }
+
   function currentState() {
-    return config.states[activeStateIndex] || config.states[0];
+    const states = currentReviewStates();
+    return states[activeStateIndex] || states[0];
   }
 
   function readReviewContextFromUrl() {
@@ -550,7 +661,7 @@
 
     let canRestoreFrame = false;
     if (canRestoreState && context.stateId !== null) {
-      const requestedStateIndex = config.states.findIndex(
+      const requestedStateIndex = currentReviewStates().findIndex(
         (state) => state.id === context.stateId,
       );
       if (requestedStateIndex >= 0) {
@@ -600,11 +711,15 @@
       }
     }
 
+    const defaultStaticFrame =
+      restoredFrameIndex === null && isStaticState(currentState()) ? 0 : null;
     reviewFocus = {
       candidateId: activeVersionId,
       stateId: currentState().id,
-      frameIndex: restoredFrameIndex,
-      takeId: restoredTakeId,
+      frameIndex: restoredFrameIndex ?? defaultStaticFrame,
+      takeId:
+        restoredTakeId ??
+        (defaultStaticFrame === null ? null : ORIGINAL_TAKE_ID),
     };
     elements.versionSelect.value = activeVersionId;
     renderStateList();
@@ -612,23 +727,29 @@
     renderMechanicsBoard();
     renderDetails();
     renderControlLabels();
+    renderAvailability();
     renderPlayer();
     renderFrameReadout();
     refreshActiveClasses();
     scheduleNextFrame();
   }
 
-  function idleState() {
+  function runtimeIdleState() {
     return (
-      config.states.find(
+      currentRuntimeStates().find(
         (state) => state.id === config.runtime.idleStateId,
-      ) || config.states[0]
+      ) || null
     );
   }
 
+  function idleState() {
+    return runtimeIdleState() || currentRuntimeStates()[0] || currentState();
+  }
+
   function actionReturnState() {
+    const states = currentRuntimeStates();
     return (
-      config.states.find(
+      states.find(
         (state) => state.id === config.runtime.actionReturnStateId,
       ) || idleState()
     );
@@ -662,10 +783,7 @@
     if (version.labels && version.labels[locale]) {
       return version.labels[locale];
     }
-    const status = version.statusKey ? t(version.statusKey) : "";
-    return [version.displayName || version.id, status]
-      .filter(Boolean)
-      .join(" · ");
+    return version.displayName || version.id;
   }
 
   function directionLabel(direction) {
@@ -674,14 +792,16 @@
 
   function runtimeFrameDuration(state, frameIndex) {
     const baseDuration = state.durations[frameIndex];
-    return state.id === idleState().id
+    if (isStaticState(state)) return 0;
+    return state.id === config.runtime.idleStateId
       ? baseDuration * config.runtime.idleDurationMultiplier
       : baseDuration;
   }
 
   function runtimeDurationLabel(state, frameIndex) {
+    if (isStaticState(state)) return t("ui.staticImage");
     const baseDuration = state.durations[frameIndex];
-    if (state.id === idleState().id) {
+    if (state.id === config.runtime.idleStateId) {
       return t("ui.idleFrameDuration", {
         duration: baseDuration,
         multiplier: config.runtime.idleDurationMultiplier,
@@ -773,7 +893,7 @@
     let eyeShiftX = 0;
     let eyeShiftY = 0;
 
-    if (state.id === idleState().id) {
+    if (state.id === config.runtime.idleStateId) {
       scaleY += wave * 0.018;
       offsetY -= wave * 1.6;
     } else if (state.id === "running-right") {
@@ -867,6 +987,25 @@
       : createFixtureAtlas(version);
   }
 
+  function setStandaloneImage(
+    assetUrl,
+    target = elements.spritePlayer,
+    version = currentVersion(),
+  ) {
+    const image = `url("${resolveAssetUrl(assetUrl, version)}")`;
+    const size = "contain";
+    const position = "center";
+    const cached = spriteStyleCache.get(target) || {};
+
+    if (cached.image !== image) target.style.backgroundImage = image;
+    if (cached.size !== size) target.style.backgroundSize = size;
+    if (cached.position !== position) {
+      target.style.backgroundPosition = position;
+    }
+
+    spriteStyleCache.set(target, { image, size, position });
+  }
+
   function setSpriteFrame(row, column, target = elements.spritePlayer) {
     const image = `url("${atlasUrlFor(currentVersion())}")`;
     const size = atlasBackgroundSize();
@@ -878,6 +1017,23 @@
     if (cached.position !== position) target.style.backgroundPosition = position;
 
     spriteStyleCache.set(target, { image, size, position });
+  }
+
+  function setOriginalFrame(
+    state,
+    frameIndex,
+    target = elements.spritePlayer,
+    version = currentVersion(),
+  ) {
+    if (isStaticState(state)) {
+      setStandaloneImage(state.assetUrl, target, version);
+      return;
+    }
+    setSpriteFrame(
+      state.row,
+      stateFrameColumn(state, frameIndex),
+      target,
+    );
   }
 
   function isValidAtlasSlot(slot) {
@@ -893,6 +1049,34 @@
   }
 
   function frameTakesFor(version, state, frameIndex) {
+    if (
+      isStaticState(state) &&
+      frameIndex === 0 &&
+      version &&
+      version.static &&
+      Array.isArray(version.static.takes)
+    ) {
+      const usedIds = new Set();
+      return version.static.takes.reduce((takes, take) => {
+        const takeId =
+          take && typeof take.id === "string" ? take.id.trim() : "";
+        const assetUrl =
+          take && typeof take.assetUrl === "string"
+            ? take.assetUrl.trim()
+            : "";
+        if (
+          !takeId ||
+          takeId === ORIGINAL_TAKE_ID ||
+          usedIds.has(takeId) ||
+          !isSafeTakeAssetUrl(assetUrl)
+        ) {
+          return takes;
+        }
+        usedIds.add(takeId);
+        takes.push({ ...take, id: takeId, assetUrl });
+        return takes;
+      }, []);
+    }
     if (!version || !Array.isArray(version.frameTakes)) return [];
     const groups = version.frameTakes.filter(
       (candidate) =>
@@ -1036,19 +1220,24 @@
     return `Take ${String(index + 1).padStart(2, "0")}`;
   }
 
-  function frameTakeStyle(take, state, frameIndex) {
-    if (!take || isFrameTakeUnavailable(take)) {
-      return frameThumbnailStyle(state, frameIndex);
+  function frameTakeStyle(
+    take,
+    state,
+    frameIndex,
+    version = currentVersion(),
+  ) {
+    if (!take || isFrameTakeUnavailable(take, version)) {
+      return frameThumbnailStyle(state, frameIndex, version);
     }
     if (take.assetUrl) {
       return [
-        `background-image:url('${resolveAssetUrl(take.assetUrl, currentVersion())}')`,
+        `background-image:url('${resolveAssetUrl(take.assetUrl, version)}')`,
         "background-size:contain",
         "background-position:center",
       ].join(";");
     }
     return [
-      `background-image:url('${atlasUrlFor(currentVersion())}')`,
+      `background-image:url('${atlasUrlFor(version)}')`,
       `background-size:${atlasBackgroundSize()}`,
       `background-position:${gridPosition(take.atlasSlot.column, take.atlasSlot.row)}`,
     ].join(";");
@@ -1077,23 +1266,83 @@
     return take ? take.id : ORIGINAL_TAKE_ID;
   }
 
-  function displayedTakeForCurrentFrame() {
+  function displayedTakeForFrame(version, state, frameIndex) {
     if (
-      expandedTakeFrameIndex === activeFrameIndex &&
+      version.id === activeVersionId &&
+      state.id === currentState().id &&
+      frameIndex === activeFrameIndex &&
+      expandedTakeFrameIndex === frameIndex &&
       isInspectingFrame
     ) {
       return activeTakeForCurrentFrame();
     }
-    return confirmedTakeForFrame(
+    return confirmedTakeForFrame(version, state, frameIndex);
+  }
+
+  function displayedTakeForCurrentFrame() {
+    return displayedTakeForFrame(
       currentVersion(),
       currentState(),
       activeFrameIndex,
     );
   }
 
+  function refreshMechanicsFrameTake(version, state, frameIndex) {
+    if (
+      !version ||
+      !state ||
+      version.id !== activeVersionId ||
+      isStaticState(state)
+    ) {
+      return;
+    }
+    const card = [...elements.mechanicsRows.querySelectorAll(".mechanics-card")]
+      .find(
+        (candidate) =>
+          candidate.dataset.stateId === state.id &&
+          Number(candidate.dataset.frameIndex) === frameIndex,
+      );
+    const sprite = card?.querySelector(".mechanics-sprite");
+    if (!sprite) return;
+    sprite.setAttribute(
+      "style",
+      frameTakeStyle(
+        displayedTakeForFrame(version, state, frameIndex),
+        state,
+        frameIndex,
+        version,
+      ),
+    );
+  }
+
+  function refreshMechanicsTakeFrames() {
+    const version = currentVersion();
+    elements.mechanicsRows
+      .querySelectorAll(".mechanics-card")
+      .forEach((card) => {
+        const state = stateForVersion(version, card.dataset.stateId);
+        const frameIndex = Number(card.dataset.frameIndex);
+        if (!state || !Number.isInteger(frameIndex)) return;
+        refreshMechanicsFrameTake(version, state, frameIndex);
+      });
+  }
+
   function clearFrameTakeState({ closeRail = true } = {}) {
+    const previousVersion =
+      config && Number.isInteger(expandedTakeFrameIndex)
+        ? currentVersion()
+        : null;
+    const previousState = previousVersion ? currentState() : null;
+    const previousFrameIndex = expandedTakeFrameIndex;
     activeFrameTake = null;
     if (closeRail) expandedTakeFrameIndex = null;
+    if (Number.isInteger(previousFrameIndex)) {
+      refreshMechanicsFrameTake(
+        previousVersion,
+        previousState,
+        previousFrameIndex,
+      );
+    }
   }
 
   function previewFrameTake(takeId) {
@@ -1115,6 +1364,11 @@
     renderPlayer();
     renderFrameReadout();
     renderControlLabels();
+    refreshMechanicsFrameTake(
+      currentVersion(),
+      state,
+      activeFrameIndex,
+    );
     scheduleTakeRailPosition();
     setReviewFocusFromCurrent({
       includeFrame: true,
@@ -1253,9 +1507,7 @@
     const version = config.versions.find(
       (candidate) => candidate.id === activeFrameTake.versionId,
     );
-    const state = config.states.find(
-      (candidate) => candidate.id === activeFrameTake.stateId,
-    );
+    const state = stateForVersion(version, activeFrameTake.stateId);
     return takeAssetUrlForSelection(
       version,
       state,
@@ -1323,9 +1575,7 @@
       const version = config.versions.find(
         (candidate) => candidate.id === versionId,
       );
-      const state = config.states.find(
-        (candidate) => candidate.id === stateId,
-      );
+      const state = stateForVersion(version, stateId);
       if (
         takeAssetUrlForSelection(
           version,
@@ -1349,6 +1599,7 @@
     if (activeTakeAssetUrl() === assetUrl) {
       activeFrameTake = null;
     }
+    refreshMechanicsTakeFrames();
     if (usage.rail) {
       renderFrameStrip();
       renderControlLabels();
@@ -1367,8 +1618,9 @@
       const focusedVersion = config.versions.find(
         (version) => version.id === reviewFocus.candidateId,
       );
-      const focusedState = config.states.find(
-        (state) => state.id === reviewFocus.stateId,
+      const focusedState = stateForVersion(
+        focusedVersion,
+        reviewFocus.stateId,
       );
       const focusedAssetUrl = takeAssetUrlForSelection(
         focusedVersion,
@@ -1393,11 +1645,7 @@
       const version = currentVersion();
       const assetUrl = resolveAssetUrl(take.assetUrl, version);
       if (takeAssetStatus.get(assetUrl) === "failed") {
-        setSpriteFrame(
-          fallbackState.row,
-          stateFrameColumn(fallbackState, frameIndex),
-          target,
-        );
+        setOriginalFrame(fallbackState, frameIndex, target, version);
         return;
       }
       if (!takeAssetStatus.has(assetUrl)) {
@@ -1405,8 +1653,9 @@
         const probe = new Image();
         probe.addEventListener("load", () => {
           if (
-            probe.naturalWidth !== config.sprite.frameWidth ||
-            probe.naturalHeight !== config.sprite.frameHeight
+            !isStaticState(fallbackState) &&
+            (probe.naturalWidth !== config.sprite.frameWidth ||
+              probe.naturalHeight !== config.sprite.frameHeight)
           ) {
             invalidateTakeAsset(assetUrl);
             return;
@@ -1473,12 +1722,20 @@
   }
 
   function renderStateList() {
+    const states = currentReviewStates();
+    const runtimeStates = currentRuntimeStates();
+    const staticState = states.find((state) => isStaticState(state));
     elements.stateCount.textContent = t("ui.stateCount", {
-      count: config.states.length,
+      count: runtimeStates.length,
     });
-    elements.stateList.innerHTML = config.states
-      .map((state, index) => {
+    elements.staticSection.hidden = !staticState;
+    elements.runtimeStateHeading.hidden = runtimeStates.length === 0;
+
+    function stateButtonMarkup(state, index) {
         const copy = stateCopy(state);
+        const indexLabel = isStaticState(state)
+          ? "S"
+          : String(runtimeStates.indexOf(state) + 1).padStart(2, "0");
         return `
           <button
             class="state-button ${index === activeStateIndex ? "is-active" : ""}"
@@ -1486,17 +1743,26 @@
             type="button"
             aria-label="${escapeHtml([copy.title, copy.label].join(" · "))}"
           >
-            <span class="state-index">${String(index + 1).padStart(2, "0")}</span>
+            <span class="state-index">${indexLabel}</span>
             <span class="state-name">
               <strong>${escapeHtml(copy.title)}</strong>
               <small>${escapeHtml(copy.label)}</small>
             </span>
           </button>
         `;
-      })
+    }
+
+    elements.staticList.innerHTML = staticState
+      ? stateButtonMarkup(staticState, states.indexOf(staticState))
+      : "";
+    elements.stateList.innerHTML = runtimeStates
+      .map((state) => stateButtonMarkup(state, states.indexOf(state)))
       .join("");
 
-    stateButtons = [...elements.stateList.querySelectorAll(".state-button")];
+    stateButtons = [
+      ...elements.staticList.querySelectorAll(".state-button"),
+      ...elements.stateList.querySelectorAll(".state-button"),
+    ];
     stateButtons.forEach((button) => {
       button.addEventListener("click", () => {
         stopTour();
@@ -1509,7 +1775,7 @@
     if (playbackMode === "loop") {
       return t("ui.endlessLoopNote");
     }
-    if (state.id === idleState().id) {
+    if (state.id === config.runtime.idleStateId) {
       return t("ui.runtimeIdleNote");
     }
     return t("ui.runtimeActionNote", {
@@ -1520,16 +1786,24 @@
   function renderDetails() {
     const state = currentState();
     const copy = stateCopy(state);
-    elements.stateTag.textContent = `${String(activeStateIndex + 1).padStart(2, "0")} · ${copy.label}`;
+    const runtimeIndex = currentRuntimeStates().indexOf(state);
+    elements.stateTag.textContent = isStaticState(state)
+      ? copy.label
+      : `${String(runtimeIndex + 1).padStart(2, "0")} · ${copy.label}`;
     elements.stateTitle.textContent = copy.title;
     elements.stateDescription.textContent = copy.description;
     elements.stateIntent.textContent = copy.intent;
     elements.stateTrigger.textContent = copy.trigger;
-    elements.stateDuration.textContent = t("ui.duration", {
-      frames: state.durations.length,
-      seconds: (totalDuration(state, true) / 1000).toFixed(2),
-      runtimeNote: runtimeNoteFor(state),
-    });
+    elements.stateDuration.textContent = isStaticState(state)
+      ? t("ui.staticAssetCount")
+      : t("ui.duration", {
+          frames: state.durations.length,
+          seconds: (totalDuration(state, true) / 1000).toFixed(2),
+          runtimeNote: runtimeNoteFor(state),
+        });
+    elements.frameSectionTitle.textContent = t(
+      isStaticState(state) ? "ui.staticTakes" : "ui.keyframes",
+    );
     const alt = t("ui.assetAlt", {
       pet: config.pet.name,
       state: copy.title,
@@ -1537,9 +1811,23 @@
     elements.spritePlayer.setAttribute("aria-label", alt);
   }
 
-  function frameThumbnailStyle(state, index) {
+  function frameThumbnailStyle(
+    state,
+    index,
+    version = currentVersion(),
+  ) {
+    if (isStaticState(state)) {
+      return [
+        `background-image:url('${resolveAssetUrl(
+          state.assetUrl,
+          version,
+        )}')`,
+        "background-size:contain",
+        "background-position:center",
+      ].join(";");
+    }
     return [
-      `background-image:url('${atlasUrlFor(currentVersion())}')`,
+      `background-image:url('${atlasUrlFor(version)}')`,
       `background-size:${atlasBackgroundSize()}`,
       `background-position:${gridPosition(
         stateFrameColumn(state, index),
@@ -2000,13 +2288,15 @@
   }
 
   function renderMechanicsBoard() {
-    const mechanicsBoards = config.states.map((state) => {
+    const runtimeStates = currentRuntimeStates();
+    elements.mechanicsBoard.hidden = runtimeStates.length === 0;
+    const mechanicsBoards = runtimeStates.map((state) => {
       const configured = config.mechanics.find(
         (board) => board.stateId === state.id,
       );
       return configured || { stateId: state.id, anchors: [] };
     });
-    const totalFrames = config.states.reduce(
+    const totalFrames = runtimeStates.reduce(
       (sum, state) => sum + state.durations.length,
       0,
     );
@@ -2020,7 +2310,7 @@
 
     elements.mechanicsRows.innerHTML = mechanicsBoards
       .map((board) => {
-        const state = config.states.find(
+        const state = runtimeStates.find(
           (candidate) => candidate.id === board.stateId,
         );
         if (!state) return "";
@@ -2047,7 +2337,15 @@
               >
                 <span
                   class="mechanics-sprite"
-                  style="${frameThumbnailStyle(state, index)}"
+                  style="${frameTakeStyle(
+                    displayedTakeForFrame(
+                      currentVersion(),
+                      state,
+                      index,
+                    ),
+                    state,
+                    index,
+                  )}"
                 ></span>
                 <span class="mechanics-copy">
                   <span class="mechanics-frame-meta">
@@ -2082,7 +2380,7 @@
       .querySelectorAll(".mechanics-card")
       .forEach((card) => {
         card.addEventListener("click", () => {
-          const stateIndex = config.states.findIndex(
+          const stateIndex = currentReviewStates().findIndex(
             (state) => state.id === card.dataset.stateId,
           );
           stopTour();
@@ -2107,7 +2405,7 @@
       .map(
         (direction, index) => `
           <button
-            class="direction-button ${index === activeDirectionIndex ? "is-active" : ""}"
+            class="direction-button ${!lookIsNeutral && index === activeDirectionIndex ? "is-active" : ""}"
             data-direction-index="${index}"
             type="button"
           >
@@ -2214,7 +2512,7 @@
             : "ui.frameInspectionRuntimeHelp"
           : playbackMode === "loop"
             ? "ui.endlessModeHelp"
-            : currentState().id === idleState().id
+            : currentState().id === config.runtime.idleStateId
               ? "ui.runtimeIdleModeHelp"
               : "ui.runtimeModeHelp",
       {
@@ -2236,7 +2534,23 @@
     );
   }
 
+  function renderAvailability() {
+    const supportsLook = currentVersionSupportsLook();
+    const runtimeStateCount = currentRuntimeStates().length;
+    const supportsRuntimeSimulation = Boolean(runtimeIdleState());
+    elements.lookTab.disabled = !supportsLook;
+    elements.lookTab.setAttribute(
+      "aria-disabled",
+      String(!supportsLook),
+    );
+    elements.autoPlayStatesToggle.disabled = runtimeStateCount < 2;
+    elements.runtimeModeButton.disabled = !supportsRuntimeSimulation;
+    elements.animationControls.hidden =
+      sectionMode !== "animation" || isStaticState(currentState());
+  }
+
   function renderTourStatus() {
+    const states = currentRuntimeStates();
     elements.tourProgress.hidden = !(
       tourState.active || tourState.completed
     );
@@ -2251,17 +2565,17 @@
     );
 
     if (tourState.active) {
-      const state = config.states[tourState.index] || currentState();
+      const state = states[tourState.index] || currentState();
       elements.tourLabel.textContent = t("ui.autoPlayingState", {
         state: stateCopy(state).title,
       });
-      elements.tourProgressText.textContent = `${tourState.index + 1} / ${config.states.length}`;
+      elements.tourProgressText.textContent = `${tourState.index + 1} / ${states.length}`;
       return;
     }
 
     if (tourState.completed) {
       elements.tourLabel.textContent = t("ui.allStatesPlayed");
-      elements.tourProgressText.textContent = `${config.states.length} / ${config.states.length}`;
+      elements.tourProgressText.textContent = `${states.length} / ${states.length}`;
       setTourProgress(100);
       return;
     }
@@ -2272,12 +2586,22 @@
 
   function renderFrameReadout() {
     if (sectionMode === "look") {
+      if (lookIsNeutral) {
+        elements.frameReadout.textContent = t("ui.lookNeutralReadout", {
+          state: stateCopy(neutralLookState()).title,
+        });
+        return;
+      }
       const direction = config.directions[activeDirectionIndex];
       elements.frameReadout.textContent = `${direction.degree}° · ${directionLabel(direction)}`;
       return;
     }
 
     const state = currentState();
+    if (isStaticState(state) && !isInspectingFrame) {
+      elements.frameReadout.textContent = t("ui.staticReadout");
+      return;
+    }
     if (isInspectingFrame) {
       const take = displayedTakeForCurrentFrame();
       elements.frameReadout.textContent = take
@@ -2315,7 +2639,7 @@
           frame: activeFrameIndex + 1,
           count: playbackState.durations.length,
         });
-      } else if (state.id === idleState().id) {
+      } else if (state.id === config.runtime.idleStateId) {
         elements.frameReadout.textContent = t("ui.runtimeSlowIdle", {
           frame: activeFrameIndex + 1,
           count: state.durations.length,
@@ -2336,6 +2660,14 @@
   function renderPlayer() {
     if (sectionMode === "look") {
       elements.spritePlayer.style.display = "block";
+      if (lookIsNeutral) {
+        setSpriteFrame(
+          config.neutralLookReferenceSlot.row,
+          config.neutralLookReferenceSlot.column,
+        );
+        elements.stageModeLabel.textContent = t("ui.neutralLookFrame");
+        return;
+      }
       const direction = config.directions[activeDirectionIndex];
       setSpriteFrame(direction.row, direction.column);
       elements.stageModeLabel.textContent = t("ui.finalLookFrame");
@@ -2354,12 +2686,11 @@
           activeFrameIndex,
         );
       } else {
-        setSpriteFrame(
-          state.row,
-          stateFrameColumn(state, activeFrameIndex),
-        );
+        setOriginalFrame(state, activeFrameIndex);
       }
-      elements.stageModeLabel.textContent = t("ui.frameInspectionLabel");
+      elements.stageModeLabel.textContent = isStaticState(state)
+        ? t("ui.static")
+        : t("ui.frameInspectionLabel");
       clearFrameTimer();
       return;
     }
@@ -2379,17 +2710,16 @@
         activeFrameIndex,
       );
     } else {
-      setSpriteFrame(
-        playbackState.row,
-        stateFrameColumn(playbackState, activeFrameIndex),
-      );
+      setOriginalFrame(playbackState, activeFrameIndex);
     }
-    elements.stageModeLabel.textContent =
+    elements.stageModeLabel.textContent = isStaticState(playbackState)
+      ? t("ui.static")
+      :
       playbackMode === "loop"
         ? t("ui.endlessLoop")
         : runtimeFellBack
           ? t("ui.runtimeBackToIdle")
-          : currentState().id === idleState().id
+          : currentState().id === config.runtime.idleStateId
             ? t("ui.runtimeIdle")
             : t("ui.runtimeAction", {
                 loops: config.runtime.actionLoops,
@@ -2463,7 +2793,8 @@
       isPlaying &&
       pageVisible &&
       !isInspectingFrame &&
-      sectionMode === "animation"
+      sectionMode === "animation" &&
+      !isStaticState(currentState())
     );
   }
 
@@ -2480,7 +2811,7 @@
       if (
         playbackMode === "runtime" &&
         !runtimeFellBack &&
-        currentState().id !== idleState().id
+        currentState().id !== config.runtime.idleStateId
       ) {
         runtimeFramesCompleted += 1;
         runtimeLoopsCompleted = Math.floor(
@@ -2615,16 +2946,20 @@
 
   function setState(index, options = {}) {
     clearFrameTakeState();
+    const states = currentReviewStates();
     activeStateIndex =
-      ((index % config.states.length) + config.states.length) %
-      config.states.length;
+      ((index % states.length) + states.length) % states.length;
     activeFrameIndex = 0;
     resetRuntimePlayback();
+    if (!runtimeIdleState() && playbackMode === "runtime") {
+      playbackMode = "loop";
+    }
     isInspectingFrame = false;
     isPlaying = true;
     renderStateList();
     renderDetails();
     renderControlLabels();
+    renderAvailability();
     renderFrameStrip();
     renderPlayer();
     renderFrameReadout();
@@ -2634,12 +2969,16 @@
       tourState.completed = false;
       setTourProgress(0);
       renderTourStatus();
-      setReviewFocusFromCurrent();
+      setReviewFocusFromCurrent({
+        includeFrame: isStaticState(currentState()),
+        takeId: ORIGINAL_TAKE_ID,
+      });
     }
   }
 
   function setPlaybackMode(mode) {
     if (!["loop", "runtime"].includes(mode)) return;
+    if (mode === "runtime" && !runtimeIdleState()) return;
     clearFrameTakeState();
     clearFrameTimer();
     playbackMode = mode;
@@ -2661,6 +3000,9 @@
   }
 
   function setSection(mode, { updateReviewFocus = false } = {}) {
+    if (mode === "look" && !currentVersionSupportsLook()) {
+      mode = "animation";
+    }
     const sectionChanged = sectionMode !== mode;
     if (tourState.active) stopTour();
     clearFrameTakeState();
@@ -2673,11 +3015,20 @@
     );
     elements.lookTab.classList.toggle("is-active", !isAnimation);
     elements.lookTab.setAttribute("aria-selected", String(!isAnimation));
+    elements.lookTab.disabled = !currentVersionSupportsLook();
+    elements.lookTab.setAttribute(
+      "aria-disabled",
+      String(!currentVersionSupportsLook()),
+    );
     elements.stateList.style.opacity = isAnimation ? "1" : "0.42";
     elements.stateList.style.pointerEvents = isAnimation ? "auto" : "none";
-    elements.animationControls.hidden = !isAnimation;
+    elements.staticList.style.opacity = isAnimation ? "1" : "0.42";
+    elements.staticList.style.pointerEvents = isAnimation ? "auto" : "none";
+    elements.animationControls.hidden =
+      !isAnimation || isStaticState(currentState());
     elements.lookControls.hidden = isAnimation;
     elements.frameStrip.parentElement.hidden = !isAnimation;
+    renderAvailability();
     setLookControlMode(isAnimation ? "manual" : "pointer");
 
     if (isAnimation) {
@@ -2689,16 +3040,24 @@
       scheduleNextFrame();
     } else {
       clearFrameTimer();
-      setDirection(activeDirectionIndex);
+      if (lookControlMode !== "pointer") {
+        setDirection(activeDirectionIndex);
+      }
     }
     if (sectionChanged && updateReviewFocus) {
       setReviewFocusFromCurrent({
-        includeFrame: mode === "animation" && isInspectingFrame,
+        includeFrame:
+          mode === "animation" &&
+          (isInspectingFrame || isStaticState(currentState())),
+        takeId: isStaticState(currentState())
+          ? ORIGINAL_TAKE_ID
+          : null,
       });
     }
   }
 
   function setDirection(index) {
+    lookIsNeutral = false;
     activeDirectionIndex =
       ((index % config.directions.length) + config.directions.length) %
       config.directions.length;
@@ -2707,6 +3066,26 @@
         "is-active",
         buttonIndex === activeDirectionIndex,
       );
+    });
+    renderLookDetails();
+    renderFrameReadout();
+    renderPlayer();
+  }
+
+  function neutralLookState() {
+    return (
+      config.states.find(
+        (state) => state.id === config.neutralLookStateId,
+      ) ||
+      idleState()
+    );
+  }
+
+  function setLookNeutral() {
+    if (lookIsNeutral) return;
+    lookIsNeutral = true;
+    directionButtons.forEach((button) => {
+      button.classList.remove("is-active");
     });
     renderLookDetails();
     renderFrameReadout();
@@ -2751,8 +3130,13 @@
     elements.directionTarget.style.display = "none";
     lookControlMode = nextMode;
 
-    if (lookControlMode === "orbit") {
+    if (lookControlMode === "pointer" && sectionMode === "look") {
+      setLookNeutral();
+    } else if (lookControlMode === "orbit") {
+      setDirection(activeDirectionIndex);
       startOrbitTimer();
+    } else if (sectionMode === "look" && lookIsNeutral) {
+      setDirection(activeDirectionIndex);
     }
     renderControlLabels();
   }
@@ -2795,14 +3179,18 @@
     const centerY = rect.top + rect.height / 2;
     const deltaX = sample.clientX - centerX;
     const deltaY = sample.clientY - centerY;
-    if (Math.hypot(deltaX, deltaY) < 28) return;
+    if (Math.hypot(deltaX, deltaY) < 28) {
+      elements.directionTarget.style.display = "none";
+      setLookNeutral();
+      return;
+    }
 
     const degrees =
       (Math.atan2(deltaX, -deltaY) * (180 / Math.PI) + 360) % 360;
     const directionIndex =
       Math.round(degrees / (360 / config.directions.length)) %
       config.directions.length;
-    if (directionIndex !== activeDirectionIndex) {
+    if (lookIsNeutral || directionIndex !== activeDirectionIndex) {
       setDirection(directionIndex);
     }
     elements.directionTarget.style.display = "block";
@@ -2823,7 +3211,7 @@
     tourState = {
       active: false,
       completed,
-      index: completed ? config.states.length - 1 : 0,
+      index: completed ? currentRuntimeStates().length - 1 : 0,
       startedAt: 0,
       holdMs: 0,
     };
@@ -2858,16 +3246,20 @@
   }
 
   function showNextTourState() {
-    if (tourState.index >= config.states.length) {
+    const states = currentRuntimeStates();
+    if (tourState.index >= states.length) {
       stopTour({ completed: true });
       return;
     }
 
-    setState(tourState.index, { fromTour: true });
+    const state = states[tourState.index];
+    const reviewStateIndex = currentReviewStates().findIndex(
+      (candidate) => candidate.id === state.id,
+    );
+    setState(reviewStateIndex, { fromTour: true });
     restartPlayback();
-    const state = config.states[tourState.index];
     const runtimeMultiplier =
-      state.id === idleState().id
+      state.id === config.runtime.idleStateId
         ? config.runtime.idleDurationMultiplier
         : config.runtime.actionLoops;
     tourState.holdMs = Math.max(
@@ -2882,7 +3274,7 @@
       const elapsed = performance.now() - tourState.startedAt;
       const withinState = Math.min(1, elapsed / tourState.holdMs);
       const overall =
-        ((tourState.index + withinState) / config.states.length) * 100;
+        ((tourState.index + withinState) / states.length) * 100;
       setTourProgress(overall);
     }, TOUR_PROGRESS_STEP_MS);
 
@@ -2931,26 +3323,45 @@
     if (!nextVersion) return;
 
     clearFrameTakeState();
+    const previousStateId = currentState() ? currentState().id : null;
     const wasPlaying = isPlaying;
     const wasInspectingFrame = isInspectingFrame;
     clearFrameTimer();
     activeVersionId = nextVersion.id;
+    const nextStates = currentReviewStates();
+    const preservedStateIndex = nextStates.findIndex(
+      (state) => state.id === previousStateId,
+    );
+    activeStateIndex = preservedStateIndex >= 0 ? preservedStateIndex : 0;
+    if (!runtimeIdleState() && playbackMode === "runtime") {
+      playbackMode = "loop";
+    }
+    if (sectionMode === "look" && !currentVersionSupportsLook()) {
+      sectionMode = "animation";
+    }
     elements.versionSelect.value = activeVersionId;
     isInspectingFrame = wasInspectingFrame;
     isPlaying = wasInspectingFrame ? false : wasPlaying;
     const frameCount = currentState().durations.length;
     activeFrameIndex = Math.min(activeFrameIndex, frameCount - 1);
     renderFrameStrip();
+    renderStateList();
     renderMechanicsBoard();
     renderDetails();
     renderPlayer();
     renderFrameReadout();
     renderControlLabels();
+    renderAvailability();
     refreshActiveClasses();
     scheduleNextFrame();
+    setSection(sectionMode);
     setReviewFocusFromCurrent({
       includeFrame:
-        sectionMode === "animation" && isInspectingFrame,
+        sectionMode === "animation" &&
+        (isInspectingFrame || isStaticState(currentState())),
+      takeId: isStaticState(currentState())
+        ? ORIGINAL_TAKE_ID
+        : null,
     });
   }
 
@@ -2969,6 +3380,7 @@
     renderMechanicsBoard();
     renderDirectionList();
     renderControlLabels();
+    renderAvailability();
     renderTourStatus();
     renderPlayer();
     renderFrameReadout();
@@ -3009,6 +3421,7 @@
       cancelPointerUpdate();
       if (lookControlMode === "pointer") {
         elements.directionTarget.style.display = "none";
+        setLookNeutral();
       }
     });
     elements.autoPlayStatesToggle.addEventListener(
@@ -3075,9 +3488,13 @@
         togglePlayback();
       } else if (/^[1-9]$/.test(event.key)) {
         const stateIndex = Number(event.key) - 1;
-        if (stateIndex < config.states.length) {
+        const runtimeState = currentRuntimeStates()[stateIndex];
+        if (runtimeState) {
+          const reviewStateIndex = currentReviewStates().findIndex(
+            (state) => state.id === runtimeState.id,
+          );
           setSection("animation");
-          setState(stateIndex);
+          setState(reviewStateIndex);
         }
       }
     });
@@ -3098,6 +3515,15 @@
     const loaded = await loadConfig();
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
+    if (loaded.externalLoadFailed) {
+      applyStaticTranslations();
+      elements.configError.hidden = false;
+      elements.topbar.hidden = true;
+      elements.workspace.hidden = true;
+      elements.mechanicsBoard.hidden = true;
+      elements.previewFooter.hidden = true;
+      return;
+    }
     activeVersionId = initialVersionId();
 
     applyStaticTranslations();
@@ -3114,13 +3540,9 @@
     setPreviewSize(previewSizePx);
     setState(0);
     setSection("animation");
-    if (loaded.externalLoadFailed) {
-      clearReviewContextFromUrl();
-    } else {
-      restoreReviewContextFromUrl(requestedReviewContext);
-      reviewContextReady = true;
-      syncReviewContextToUrl();
-    }
+    restoreReviewContextFromUrl(requestedReviewContext);
+    reviewContextReady = true;
+    syncReviewContextToUrl();
   }
 
   boot();

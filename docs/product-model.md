@@ -36,9 +36,12 @@ without asking the user to restate known context.
 
 ### Previewer: read-only co-design review workbench
 
-The Previewer makes visual work easy to compare and inspect. It supports
-Candidate comparison, state playback, Keyframe inspection, Take audition,
-runtime-scale review, and target-specific mechanics such as gaze directions.
+The Previewer opens as soon as project setup succeeds, initially showing the
+bundled `Example.RaincoatCat`. It switches to the user's first reviewable
+Static image and grows with the project. It supports one-image Static review,
+Candidate comparison, partial or complete state playback, Keyframe inspection,
+Take audition, runtime-scale review, and target-specific mechanics such as gaze
+directions.
 
 It does not generate, upload, save, package, install, publish, or approve
 assets. Previewer Confirm is a temporary session choice. Durable approval
@@ -57,11 +60,14 @@ Private project files are the durable memory used when the same local project
 is reopened across tasks.
 
 ```text
-Inspiration
+Project setup and Example.RaincoatCat orientation
+  -> inspiration
   -> Codex interpretation and focused visual production
+  -> exact first image staged as a Static Candidate
   -> Previewer comparison and inspection
   -> natural-language feedback in Codex
   -> additive refinement and recorded approval
+  -> truthful runtime-state coverage added progressively
   -> target production, QA, and explicit delivery
 ```
 
@@ -86,18 +92,23 @@ Returning to a project should restore four things before new work begins:
   waiting, inspecting, disappointment, or locomotion
 - **Motion Language** — material, weight, lead/follow order, pose spacing,
   stillness, overshoot, settling, and seam rules
-- **Candidate** — one coherent proposal across the character or relevant state
-  set
+- **Candidate** — one coherent proposal at its current level of completion; it
+  may begin with Static and accumulate an exact runtime-state subset; parallel
+  Candidates may represent different characters, pets, or creative directions
+- **Static** — one standalone character-study image with optional Takes, before
+  runtime sampling; it has no runtime timing or state-row semantics
 - **Keyframe** — one sampled visual slot in a Candidate for the selected
   Delivery Target
-- **Take** — one additive visual alternative for one exact Candidate, target
-  state, and Keyframe
+- **Take** — one additive visual alternative for one exact Candidate review
+  slot, either Static or a target state Keyframe
 - **Approval** — an explicit conversational decision tied to exact evidence
 - **Delivery Target** — the platform contract that maps approved creative work
   into a runnable artifact
 
 Candidate is the public design term. `versions` may remain as a legacy
 implementation field in existing Previewer JSON, but it is not the user model.
+Candidate IDs and names are semantic project choices, not prescribed sequential
+version numbers.
 
 ## Studio Core and Delivery Targets
 
@@ -137,6 +148,22 @@ Target-derived Keyframes, Takes, sampled rows, atlases, previews, and packages
 are build and review evidence. Preserve them as provenance, but keep them
 distinct from canonical source art and resample them when a new target
 requires a different mapping.
+
+Preview coverage is progressive and explicit:
+
+- preserve the first useful visual as the Candidate's exact Static original;
+- stage and open it immediately rather than waiting for runtime production;
+- declare only runtime states whose real rows exist;
+- keep missing states absent from navigation, playback, and timing;
+- expose target mechanics such as gaze only when their real review assets
+  exist;
+- require complete target coverage only at the production or release gate that
+  needs it.
+
+The bundled Example remains a separate orientation Candidate. It must never be
+used as a placeholder, fallback row, or implied coverage for project work.
+Its selector label is always `Example.RaincoatCat`, independent of interface
+language.
 
 Changing a Delivery Target may require new state mapping, slot choreography,
 sampling, target QA, and packaging. It must not silently reopen approved
@@ -189,10 +216,11 @@ Previewer audition or Confirm never changes these statuses.
 ## Privacy model
 
 Personal inspiration and active design work are private by default. The public
-repository contains the method, neutral fixtures, schemas, and tools. Private
-inputs, design decisions, generated builds, exports, local settings, names,
-paths, credentials, and identifying metadata must stay outside public Git
-history unless the user explicitly authorizes a reviewed artifact.
+repository contains the method, rights-reviewed public fixtures, schemas, and
+tools. Private inputs, design decisions, generated builds, exports, local
+settings, names, paths, credentials, and identifying metadata must stay outside
+public Git history unless the user explicitly authorizes an exact reviewed
+artifact.
 
 ## Product boundaries
 
@@ -201,6 +229,8 @@ Codex Pet Studio should remain:
 - conversation-first;
 - local and inspectable;
 - resumable across Codex tasks;
+- reviewable from the first static image;
+- truthful about partial runtime coverage;
 - additive rather than destructive;
 - explicit about approval and delivery status;
 - nontechnical for the user;

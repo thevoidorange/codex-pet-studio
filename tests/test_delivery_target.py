@@ -28,7 +28,7 @@ PREVIEW_SCHEMA_PATH = (
 )
 ADAPTER_PATH = ROOT / "previewer" / "target-data.js"
 EXAMPLE_ATLAS_PATH = (
-    ROOT / "previewer" / "sample-assets" / "v002" / "spritesheet.png"
+    ROOT / "examples" / "raincoat-cat" / "spritesheet.png"
 )
 
 
@@ -195,6 +195,10 @@ class DeliveryTargetTests(unittest.TestCase):
         self.assertEqual("screen-clockwise-from-up", directions["coordinateSystem"])
         self.assertIs(True, directions["clockwise"])
         self.assertEqual("idle", directions["neutralStateId"])
+        self.assertEqual(
+            {"row": 0, "column": 6},
+            directions["neutralReferenceSlot"],
+        )
         self.assertEqual(16, len(directions["slots"]))
         self.assertEqual(
             [index * 22.5 for index in range(16)],
@@ -216,7 +220,15 @@ class DeliveryTargetTests(unittest.TestCase):
         look_slots = {
             (slot["row"], slot["column"]) for slot in directions["slots"]
         }
+        neutral_reference_slot = {
+            (
+                directions["neutralReferenceSlot"]["row"],
+                directions["neutralReferenceSlot"]["column"],
+            )
+        }
         self.assertTrue(state_slots.isdisjoint(look_slots))
+        self.assertTrue(state_slots.isdisjoint(neutral_reference_slot))
+        self.assertTrue(look_slots.isdisjoint(neutral_reference_slot))
 
         self.assertEqual(
             {
@@ -268,6 +280,15 @@ class DeliveryTargetTests(unittest.TestCase):
         used_slots.update(
             (slot["row"], slot["column"])
             for slot in self.target["lookDirections"]["slots"]
+        )
+        neutral_reference_slot = self.target["lookDirections"][
+            "neutralReferenceSlot"
+        ]
+        used_slots.add(
+            (
+                neutral_reference_slot["row"],
+                neutral_reference_slot["column"],
+            )
         )
         cell_width = atlas["cellWidthPx"]
         cell_height = atlas["cellHeightPx"]

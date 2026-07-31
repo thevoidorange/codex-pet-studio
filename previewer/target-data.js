@@ -18,6 +18,10 @@ window.PET_DELIVERY_TARGET = {
   "lookDirections": {
     "clockwise": true,
     "coordinateSystem": "screen-clockwise-from-up",
+    "neutralReferenceSlot": {
+      "column": 6,
+      "row": 0
+    },
     "neutralStateId": "idle",
     "slots": [
       {
@@ -127,7 +131,7 @@ window.PET_DELIVERY_TARGET = {
       "webp"
     ]
   },
-  "revision": 1,
+  "revision": 2,
   "runtime": {
     "actionLoops": 3,
     "actionReturnStateId": "idle",

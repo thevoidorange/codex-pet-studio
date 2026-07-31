@@ -12,6 +12,30 @@ SKILL_MD = SKILL / "SKILL.md"
 
 
 class SkillBundleTests(unittest.TestCase):
+    def test_readme_leads_with_the_suite_and_single_paste_start(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        hero = ROOT / "docs" / "assets" / "codex-pet-studio-preview.png"
+        self.assertIn(
+            "complete co-design suite",
+            readme,
+        )
+        self.assertIn("with your own Codex Agent", readme)
+        self.assertIn(
+            "guided agent skills, a live Previewer,\n"
+            "production tooling, and QA in one project.",
+            readme,
+        )
+        self.assertIn(
+            "![Codex Pet Studio Previewer showing Raincoat Cat states, "
+            "animation playback, and Keyframes]"
+            "(docs/assets/codex-pet-studio-preview.png)",
+            readme,
+        )
+        self.assertTrue(hero.is_file(), hero)
+        self.assertIn("## Start a blank Codex task and paste:", readme)
+        self.assertNotIn("## Start in two steps", readme)
+        self.assertNotIn("### 2. Share your inspiration", readme)
+
     def test_skill_frontmatter_and_trigger_cover_all_entry_routes(self) -> None:
         content = SKILL_MD.read_text(encoding="utf-8")
         match = re.match(r"^---\n(?P<frontmatter>.*?)\n---\n", content, re.DOTALL)
@@ -71,8 +95,8 @@ class SkillBundleTests(unittest.TestCase):
         metadata = (SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertIn('display_name: "Codex Pet Studio"', metadata)
         self.assertIn("$pet-studio", metadata)
-        self.assertIn("current project", metadata)
-        self.assertIn("resume", metadata)
+        self.assertIn("immediately open the Previewer", metadata)
+        self.assertIn("preserve existing approvals", metadata)
 
     def test_new_inspiration_route_is_image_first_and_not_questionnaire_first(
         self,
@@ -101,7 +125,10 @@ class SkillBundleTests(unittest.TestCase):
         self.assertIn("not a final\npresentation step", visual)
         self.assertIn("neutral identity and default form", visual)
         self.assertIn("Stop after each visual checkpoint", visual)
-        self.assertIn("before any full\n   questionnaire or pack", qa)
+        self.assertIn(
+            "before any full questionnaire or pack",
+            " ".join(qa.split()),
+        )
         self.assertNotIn(
             "Do not generate until the user approves the Gate 1 reading",
             combined,
@@ -110,6 +137,32 @@ class SkillBundleTests(unittest.TestCase):
             "wait for explicit alignment before image generation",
             creative,
         )
+
+    def test_cold_start_opens_example_then_hands_off_to_semantic_candidate(
+        self,
+    ) -> None:
+        skill = SKILL_MD.read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        review = (SKILL / "references" / "review-workbench.md").read_text(
+            encoding="utf-8"
+        )
+        creative = (SKILL / "references" / "creative-workflow.md").read_text(
+            encoding="utf-8"
+        )
+        qa = (SKILL / "references" / "qa.md").read_text(encoding="utf-8")
+        combined = "\n".join((skill, agents, readme, review, creative, qa))
+
+        for content in (skill, agents, readme, review, creative, qa):
+            self.assertIn("Example.RaincoatCat", content)
+        self.assertIn("immediately after project setup", readme)
+        self.assertIn("Cold-start Previewer handoff", review)
+        self.assertIn("switch the same\nPreviewer session", review)
+        self.assertIn("semantically named Static Candidate", skill)
+        self.assertIn("<semantic-candidate-id>", skill)
+        self.assertIn("not a sequential revision", review)
+        self.assertNotIn("Use sortable IDs such as `v001`", combined)
+        self.assertNotIn("--candidate v001", combined)
 
     def test_checked_in_path_schemas_reject_escape_paths(self) -> None:
         project_schema = json.loads(

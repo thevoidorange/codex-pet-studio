@@ -318,6 +318,122 @@ class StudioCliTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, source)
 
+    def test_review_stage_static_checks_then_atomically_creates_first_candidate(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            source = root / "design" / "first-static.png"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(make_png(640, 480, alpha_mode="opaque"))
+            config_path = root / "build" / "review" / "preview.json"
+            asset_path = (
+                root
+                / "build"
+                / "review"
+                / "candidates"
+                / "v001"
+                / "static"
+                / "original.png"
+            )
+            arguments = (
+                "review",
+                "stage-static",
+                "--root",
+                str(root),
+                "--asset",
+                str(source),
+                "--candidate",
+                "v001",
+                "--display-name",
+                "First Direction",
+                "--pet-name",
+                "Progressive Pet",
+                "--port",
+                "8777",
+                "--json",
+            )
+
+            checked = self.run_cli(*arguments, "--check")
+            checked_payload = json.loads(checked.stdout)
+            self.assertTrue(checked_payload["checkOnly"])
+            self.assertEqual("v001", checked_payload["candidateId"])
+            self.assertEqual(640, checked_payload["width"])
+            self.assertEqual(480, checked_payload["height"])
+            self.assertFalse(config_path.exists())
+            self.assertFalse(asset_path.exists())
+
+            staged = self.run_cli(*arguments)
+            payload = json.loads(staged.stdout)
+            self.assertFalse(payload["checkOnly"])
+            self.assertEqual(source.read_bytes(), asset_path.read_bytes())
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertEqual("Progressive Pet", config["pet"]["name"])
+            self.assertEqual(
+                {
+                    "id": "v001",
+                    "displayName": "First Direction",
+                    "isDefault": True,
+                    "static": {
+                        "assetUrl": "./candidates/v001/static/original.png",
+                        "takes": [],
+                    },
+                    "stateIds": [],
+                    "lookDirectionsAvailable": False,
+                    "frameTakes": [],
+                },
+                config["versions"][0],
+            )
+            query = urllib.parse.parse_qs(
+                urllib.parse.urlsplit(payload["reviewUrl"]).query
+            )
+            self.assertEqual(["../build/review/preview.json"], query["config"])
+            self.assertEqual(["v001"], query["candidate"])
+            self.assertEqual(["static"], query["state"])
+            self.assertEqual(["1"], query["frame"])
+            self.assertEqual(["original"], query["take"])
+
+            duplicate_candidate = self.run_cli(
+                *arguments,
+                expected=1,
+            )
+            self.assertIn(
+                "Candidate 'v001' already exists",
+                duplicate_candidate.stderr,
+            )
+            self.assertEqual(source.read_bytes(), asset_path.read_bytes())
+
+            colliding_asset = (
+                root
+                / "build"
+                / "review"
+                / "candidates"
+                / "v002"
+                / "static"
+                / "original.png"
+            )
+            colliding_asset.parent.mkdir(parents=True, exist_ok=True)
+            colliding_asset.write_bytes(b"existing evidence")
+            asset_collision = self.run_cli(
+                "review",
+                "stage-static",
+                "--root",
+                str(root),
+                "--asset",
+                str(source),
+                "--candidate",
+                "v002",
+                "--json",
+                expected=1,
+            )
+            self.assertIn(
+                "Static Candidate asset already exists",
+                asset_collision.stderr,
+            )
+            self.assertEqual(b"existing evidence", colliding_asset.read_bytes())
+            self.assertEqual(1, len(json.loads(config_path.read_text())["versions"]))
+
     def test_take_help_and_preview_schema_are_available(self) -> None:
         help_result = self.run_cli("take", "--help")
         self.assertIn("add", help_result.stdout)
@@ -331,7 +447,9 @@ class StudioCliTests(unittest.TestCase):
         self.assertNotIn("maximum", frame_group["properties"]["frameIndex"])
         self.assertNotIn("maximum", schema["$defs"]["atlasSlot"]["properties"]["row"])
         self.assertNotIn("maximum", schema["$defs"]["atlasSlot"]["properties"]["column"])
-        asset_pattern = schema["$defs"]["take"]["properties"]["assetUrl"]["pattern"]
+        asset_ref = schema["$defs"]["take"]["properties"]["assetUrl"]["$ref"]
+        self.assertEqual("#/$defs/assetUrl", asset_ref)
+        asset_pattern = schema["$defs"]["assetUrl"]["pattern"]
         self.assertIsNotNone(re.fullmatch(asset_pattern, "./takes/t001.png"))
         for unsafe in (
             "javascript:alert(1)",
@@ -469,7 +587,7 @@ class StudioCliTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertTrue(payload["ok"])
             self.assertEqual("codex-pet-v2", payload["targetId"])
-            self.assertEqual(1, payload["revision"])
+            self.assertEqual(2, payload["revision"])
             self.assertEqual(9, payload["stateCount"])
             self.assertEqual(16, payload["lookDirectionCount"])
             self.assertEqual(1536, payload["atlasWidthPx"])
@@ -478,10 +596,166 @@ class StudioCliTests(unittest.TestCase):
     def test_take_command_validates_the_exact_asset_bytes_it_registers(self) -> None:
         studio = load_studio_module()
         command_source = inspect.getsource(studio.command_take_add_with_context)
-        self.assertIn("read_take_png(", command_source)
-        self.assertNotIn("read_image_file(", command_source)
+        self.assertIn("asset_bytes = read_take_png(asset_source, target)", command_source)
+        self.assertIn(
+            'image_format, width, height, asset_bytes = read_image_file(\n'
+            "            asset_source,\n"
+            '            "Static Take asset",',
+            command_source,
+        )
         self.assertNotIn("read_image_dimensions(", command_source)
         self.assertNotIn("asset_source.read_bytes(", command_source)
+
+    def test_preview_config_accepts_static_and_partial_candidates(self) -> None:
+        studio = load_studio_module()
+        target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+        path = Path("build/review/preview.json")
+        base = {
+            "schemaVersion": 1,
+            "pet": {"name": "Progressive Pet"},
+        }
+
+        static_only = {
+            **base,
+            "versions": [
+                {
+                    "id": "v001",
+                    "static": {
+                        "assetUrl": "./candidates/v001/static/original.png",
+                        "takes": [
+                            {
+                                "id": "t001",
+                                "label": "Take 01",
+                                "assetUrl": "./takes/v001/static/f01/t001.png",
+                            },
+                            {
+                                "id": "t002",
+                                "assetUrl": "./takes/v001/static/f01/t002.png",
+                            },
+                        ],
+                    },
+                    "stateIds": [],
+                    "lookDirectionsAvailable": False,
+                }
+            ],
+        }
+        self.assertIs(
+            studio.validate_preview_config(static_only, path, target),
+            static_only,
+        )
+
+        action_only = {
+            **base,
+            "versions": [
+                {
+                    "id": "v002",
+                    "atlasUrl": "./candidates/v002/spritesheet.png",
+                    "stateIds": ["waving"],
+                    "lookDirectionsAvailable": False,
+                }
+            ],
+        }
+        self.assertIs(
+            studio.validate_preview_config(action_only, path, target),
+            action_only,
+        )
+
+        static_and_partial = {
+            **base,
+            "versions": [
+                {
+                    "id": "v003",
+                    "static": {
+                        "assetUrl": "./candidates/v003/static/original.png",
+                    },
+                    "atlasUrl": "./candidates/v003/spritesheet.png",
+                    "stateIds": ["idle", "waving"],
+                    "frameTakes": [
+                        {
+                            "stateId": "waving",
+                            "frameIndex": 0,
+                            "takes": [
+                                {
+                                    "id": "t001",
+                                    "assetUrl": "./takes/v003/waving/f01/t001.png",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        self.assertIs(
+            studio.validate_preview_config(static_and_partial, path, target),
+            static_and_partial,
+        )
+
+        invalid_cases = (
+            (
+                {
+                    **base,
+                    "versions": [
+                        {
+                            "id": "empty",
+                            "atlasUrl": "./empty.png",
+                            "stateIds": [],
+                        }
+                    ],
+                },
+                "declares no reviewable states or Static study",
+            ),
+            (
+                {
+                    **base,
+                    "versions": [
+                        {
+                            "id": "unknown",
+                            "atlasUrl": "./unknown.png",
+                            "stateIds": ["not-a-state"],
+                        }
+                    ],
+                },
+                "contains unknown states",
+            ),
+            (
+                {
+                    **base,
+                    "versions": [
+                        {
+                            "id": "undeclared-take",
+                            "atlasUrl": "./partial.png",
+                            "stateIds": ["idle"],
+                            "frameTakes": [
+                                {
+                                    "stateId": "waving",
+                                    "frameIndex": 0,
+                                    "takes": [],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                "is not declared",
+            ),
+            (
+                {
+                    **base,
+                    "versions": [
+                        {
+                            "id": "static-gaze",
+                            "static": {"assetUrl": "./static.png"},
+                            "stateIds": [],
+                            "lookDirectionsAvailable": True,
+                        }
+                    ],
+                },
+                "lookDirectionsAvailable requires atlasUrl",
+            ),
+        )
+        for config, message in invalid_cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(studio.StudioError, message):
+                    studio.validate_preview_config(config, path, target)
 
     def test_take_png_requires_decodable_rgba_with_visible_transparency(self) -> None:
         studio = load_studio_module()
@@ -734,6 +1008,111 @@ class StudioCliTests(unittest.TestCase):
             self.assertEqual(new_group["stateId"], "waiting")
             self.assertEqual(new_group["frameIndex"], 5)
             self.assertEqual(new_group["takes"][0]["id"], "t001")
+
+    def test_take_add_registers_a_static_take_without_an_atlas(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            review_root = root / "build" / "review"
+            original_asset = (
+                review_root / "candidates" / "v001" / "static" / "original.png"
+            )
+            original_asset.parent.mkdir(parents=True, exist_ok=True)
+            original_asset.write_bytes(
+                make_png(320, 240, alpha_mode="opaque")
+            )
+            config_path = review_root / "preview.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "pet": {"name": "Static Pet"},
+                        "versions": [
+                            {
+                                "id": "v001",
+                                "displayName": "v001",
+                                "static": {
+                                    "assetUrl": (
+                                        "./candidates/v001/static/original.png"
+                                    ),
+                                    "takes": [],
+                                },
+                                "stateIds": [],
+                                "lookDirectionsAvailable": False,
+                            }
+                        ],
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            source = root / "design" / "takes" / "static-take.png"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(make_png(320, 240, alpha_mode="opaque"))
+            review_url = (
+                "file://"
+                + str(root / "previewer" / "index.html")
+                + "?config=../build/review/preview.json"
+                + "&candidate=v001&state=static&frame=1&take=original"
+            )
+
+            completed = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                review_url,
+                "--asset",
+                str(source),
+                "--json",
+            )
+            result = json.loads(completed.stdout)
+            self.assertEqual("static", result["stateId"])
+            self.assertEqual(1, result["frame"])
+            self.assertEqual(0, result["frameIndex"])
+            self.assertEqual("t001", result["takeId"])
+
+            updated = json.loads(config_path.read_text(encoding="utf-8"))
+            static_takes = updated["versions"][0]["static"]["takes"]
+            self.assertEqual(
+                [
+                    {
+                        "id": "t001",
+                        "label": "Take 01",
+                        "assetUrl": "./takes/v001/static/f01/t001.png",
+                    }
+                ],
+                static_takes,
+            )
+            copied = review_root / "takes" / "v001" / "static" / "f01" / "t001.png"
+            self.assertEqual(source.read_bytes(), copied.read_bytes())
+            query = urllib.parse.parse_qs(
+                urllib.parse.urlsplit(result["reviewUrl"]).query
+            )
+            self.assertEqual(["v001"], query["candidate"])
+            self.assertEqual(["static"], query["state"])
+            self.assertEqual(["1"], query["frame"])
+            self.assertEqual(["t001"], query["take"])
+
+            mismatched = root / "design" / "takes" / "mismatched.png"
+            mismatched.write_bytes(make_png(321, 240, alpha_mode="opaque"))
+            rejected = self.run_cli(
+                "take",
+                "add",
+                "--root",
+                str(root),
+                "--review-url",
+                result["reviewUrl"],
+                "--asset",
+                str(mismatched),
+                "--check",
+                expected=1,
+            )
+            self.assertIn(
+                "Static Take canvas must match the Static original exactly",
+                rejected.stderr,
+            )
 
     def test_take_add_check_is_read_only_and_rejects_bad_context_or_asset(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

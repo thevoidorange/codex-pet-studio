@@ -97,11 +97,22 @@ For every external Previewer config in the current `codex-pet-v2` adapter:
 
 - resolve the real config path inside the current project;
 - reject remote, traversal, symlink-escaped, or fallback-only write targets;
-- validate Candidate and stable state IDs;
+- validate Candidate, Static asset, and stable state IDs;
+- accept a Static-only Candidate, Static plus any exact runtime-state subset,
+  or an atlas Candidate with any exact non-empty state subset;
+- require Static to contain one standalone image with optional Takes and no
+  runtime timing entry;
+- require every declared runtime state to have a real source row, and keep
+  undeclared states absent from navigation, playback, and timing;
 - validate one-based URL frame and zero-based config `frameIndex`;
 - validate Take IDs, asset paths, and selected-target cell dimensions;
 - confirm missing external config invalidates the whole review handoff;
 - confirm bundled example IDs are never used to satisfy failed project context.
+- confirm a cold start opens the bundled selector entry with the exact
+  language-independent label `Example.RaincoatCat` and no Current/status
+  suffix;
+- confirm the first-image handoff restores the exact project Static asset,
+  not a regenerated copy, placeholder, or bundled Example.
 
 For every new Take:
 
@@ -115,8 +126,16 @@ For every new Take:
   Take;
 - audition and Confirm do not approve, promote, package, install, or publish.
 
+For a Static Take, require the same source format and canvas dimensions as the
+Static original. Target-cell geometry applies only to runtime Keyframe Takes.
+
 For Previewer regressions:
 
+- Static-only, one-state, non-Idle one-state, mixed partial-state, and complete
+  Candidates all load without fabricated coverage;
+- Candidate comparison tolerates different truthful state subsets;
+- runtime-only controls disable or hide when their required state or asset is
+  absent;
 - runtime ticks, Auto Orbit, pointer following, and all-state playback do not
   rewrite deliberate review focus;
 - language and compatible Candidate changes preserve supported state;
@@ -136,6 +155,11 @@ For Previewer regressions:
 6. Inspect every directional or asymmetric mechanic required by the target.
 7. Inspect target look or input samples as one coherent ordered system.
 8. Review at the target's minimum, representative, and maximum display sizes.
+
+During progressive review, run these checks only against states that actually
+exist and report missing required target coverage as open work. Before
+production or release, require the selected Delivery Target's complete state
+and mechanic coverage.
 
 Require:
 
@@ -191,11 +215,16 @@ review or explicit user inspection before packaging.
 
 Before releasing a material Skill change, run fresh-context tests for:
 
-1. **New inspiration** — begins with private intake and a concise provisional
-   interpretation, asks no more than one genuinely blocking question, and
-   produces a bounded first static character study before any full
-   questionnaire or pack. The study tests neutral form only, remains
-   unapproved, and the agent stops for visual review.
+1. **New inspiration** — completes setup, starts or reuses the Previewer,
+   opens `Example.RaincoatCat`, and verifies the visible Example before
+   creative production. It then begins private intake with a concise
+   provisional interpretation, asks no more than one genuinely blocking
+   question, and produces a bounded first static character study before any
+   full questionnaire or pack. The agent stages that exact image as a
+   semantically named Static Candidate, validates the project config, switches
+   to its focused project URL, verifies that no bundled Example was
+   substituted, and stops for visual review. The study tests neutral form only
+   and remains unapproved.
 2. **Focused Take request** — resolves a valid review URL, changes one frame,
    preserves neighbors, and returns a focused URL without approval or install.
 3. **Existing pack, package only** — validates and exports the existing pack,
@@ -206,6 +235,11 @@ Before releasing a material Skill change, run fresh-context tests for:
 5. **True blocker** — when a required source is missing or every visual
    direction would be misleading, asks one specific question instead of
    fabricating evidence or starting a questionnaire cascade.
+6. **Progressive coverage** — a Static-only Candidate, a one-state Candidate
+   without Idle, and a partial-state Candidate expose only real assets; missing
+   states, timing rows, and gaze controls do not appear.
+7. **Project re-entry** — reopens the latest valid project focus and never
+   presents the bundled Example as the user's current Candidate.
 
 Pass only when the agent discovers the project Skill, chooses the correct route,
 uses deterministic tools for fragile operations, and reports actual outcomes
