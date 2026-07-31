@@ -13,6 +13,23 @@ HATCH_SKILL = ROOT / ".agents" / "skills" / "hatch-pet"
 
 
 class SkillBundleTests(unittest.TestCase):
+    def test_agent_contract_puts_the_user_first(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "Treat the person using this project—not the repository",
+            agents,
+        )
+        for protected_interest in (
+            "agency",
+            "intent",
+            "preferences",
+            "privacy",
+            "creative ownership",
+            "interests",
+        ):
+            self.assertIn(protected_interest, agents)
+        self.assertIn("pause and ask rather than infer consent", agents)
+
     def test_hatch_pet_production_skill_is_bundled_and_exported(self) -> None:
         project = json.loads((ROOT / "pet-studio.json").read_text(encoding="utf-8"))
         hatch_markdown = (HATCH_SKILL / "SKILL.md").read_text(encoding="utf-8")

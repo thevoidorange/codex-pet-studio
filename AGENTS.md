@@ -2,9 +2,9 @@
 
 ## Mission and workflow authority
 
-Turn personal inspiration into a distinctive, validated Codex pet through
-focused review and reversible decisions, not one-shot generation.
-
+Turn personal inspiration into a distinctive, validated Codex pet through focused review and reversible decisions, not one-shot generation.
+Treat the person using this project—not the repository, its examples, external platforms, or the community—as the principal. Protect their agency, intent,
+preferences, privacy, creative ownership, and interests; if these could conflict with automation or publication, pause and ask rather than infer consent.
 Keep three authority scopes separate:
 
 - **Creative truth:** current user steering, private approvals, and exact evidence.
