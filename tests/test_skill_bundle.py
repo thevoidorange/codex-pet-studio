@@ -178,7 +178,6 @@ class SkillBundleTests(unittest.TestCase):
         combined = "\n".join((SKILL_MD.read_text(encoding="utf-8"), agents))
         normalized = " ".join(combined.lower().split())
 
-        self.assertIn("Recommended: GPT‑5.6 Sol, Medium+", readme)
         self.assertIn("multimodal alignment", normalized)
         self.assertIn("first static character study", normalized)
         self.assertIn("at most one genuinely blocking question", normalized)
@@ -201,6 +200,23 @@ class SkillBundleTests(unittest.TestCase):
         self.assertNotIn(
             "wait for explicit alignment before image generation",
             creative,
+        )
+
+    def test_readme_sets_clear_model_experience_tiers(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("Minimum usable: GPT‑5.6 Terra, Medium", readme)
+        self.assertIn(
+            "Recommended for the full experience: GPT‑5.6 Sol, Medium+",
+            readme,
+        )
+        self.assertIn(
+            "For demanding visual and animation work: GPT‑5.6 Sol, High or Ultra",
+            readme,
+        )
+        self.assertIn(
+            "Not recommended: GPT‑5.6 Luna or any model at Low effort",
+            readme,
         )
 
     def test_cold_start_opens_example_then_hands_off_to_semantic_candidate(

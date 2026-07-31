@@ -26,7 +26,16 @@ the bundled skill to guide one visual decision at a time.
 Beyond access to Codex, the recommended flow requires no terminal, separate Pet Studio backend
 or account, or separate OpenAI API key.
 
-**Recommended: GPT‑5.6 Sol, Medium+**
+## Model guidance
+
+- **Minimum usable: GPT‑5.6 Terra, Medium.**
+- **Recommended for the full experience: GPT‑5.6 Sol, Medium+.**
+- **For demanding visual and animation work: GPT‑5.6 Sol, High or Ultra.**
+- **Not recommended: GPT‑5.6 Luna or any model at Low effort.** They may
+  execute parts of the workflow, but they do not reliably preserve the
+  co-design quality this project is built to deliver.
+
+These are experience recommendations, not technical compatibility gates.
 
 ## What the first session feels like
 
