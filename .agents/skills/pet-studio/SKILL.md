@@ -34,6 +34,8 @@ and the Codex conversation as the editing surface.
   Previewer immediately, open it on the bundled `Example.RaincoatCat`, and
   verify that the Example is visible. Treat it as an orientation surface only,
   never as project evidence.
+- At that verified cold-start handoff, complete the one-time model-guidance
+  report required by the root `AGENTS.md`.
 - As soon as that first reviewable static image exists, preserve the exact
   asset as a Static Candidate, create or update a validated project Previewer
   config, and move the already-running Previewer to a URL focused on that

@@ -36,6 +36,8 @@ or account, or separate OpenAI API key.
   co-design quality this project is built to deliver.
 
 These are experience recommendations, not technical compatibility gates.
+After setup succeeds, your Codex should proactively summarize these
+recommendations once before the first creative decision.
 
 ## What the first session feels like
 

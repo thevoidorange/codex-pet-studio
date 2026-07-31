@@ -204,7 +204,6 @@ class SkillBundleTests(unittest.TestCase):
 
     def test_readme_sets_clear_model_experience_tiers(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
         self.assertIn("Minimum usable: GPT‑5.6 Terra, Medium", readme)
         self.assertIn(
             "Recommended for the full experience: GPT‑5.6 Sol, Medium+",
@@ -216,6 +215,36 @@ class SkillBundleTests(unittest.TestCase):
         )
         self.assertIn(
             "Not recommended: GPT‑5.6 Luna or any model at Low effort",
+            readme,
+        )
+
+    def test_true_cold_start_reports_model_guidance_once(self) -> None:
+        skill = " ".join(SKILL_MD.read_text(encoding="utf-8").split())
+        agents = " ".join(
+            (ROOT / "AGENTS.md").read_text(encoding="utf-8").split()
+        )
+        qa = " ".join(
+            (SKILL / "references" / "qa.md").read_text(encoding="utf-8").split()
+        )
+        readme = " ".join(
+            (ROOT / "README.md").read_text(encoding="utf-8").split()
+        )
+
+        self.assertIn("one-time model-guidance report", skill)
+        self.assertIn("all four README `Model guidance` tiers", agents)
+        self.assertIn("same setup-completion message", agents)
+        self.assertIn("exactly once", agents)
+        self.assertIn("Previewer restarts, task re-entry", agents)
+        self.assertIn("before the first creative decision", agents)
+        self.assertIn(
+            "all four README `Model guidance` tiers in the user's language "
+            "exactly once",
+            qa,
+        )
+        self.assertIn("project re-entry do not repeat them", qa)
+        self.assertIn(
+            "After setup succeeds, your Codex should proactively summarize "
+            "these recommendations once",
             readme,
         )
 

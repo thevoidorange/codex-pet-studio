@@ -217,10 +217,13 @@ Before releasing a material Skill change, run fresh-context tests for:
 
 1. **New inspiration** — completes setup, starts or reuses the Previewer,
    opens `Example.RaincoatCat`, and verifies the visible Example before
-   creative production. It then begins private intake with a concise
-   provisional interpretation, asks no more than one genuinely blocking
-   question, and produces a bounded first static character study before any
-   full questionnaire or pack. The agent stages that exact image as a
+   creative production. In the same setup-completion message, it reports all
+   four README `Model guidance` tiers in the user's language exactly once;
+   repeated setup checks, Previewer restarts, and project re-entry do not
+   repeat them. It then begins private intake with a concise provisional
+   interpretation, asks no more than one genuinely blocking question, and
+   produces a bounded first static character study before any full
+   questionnaire or pack. The agent stages that exact image as a
    semantically named Static Candidate, validates the project config, switches
    to its focused project URL, verifies that no bundled Example was
    substituted, and stops for visual review. The study tests neutral form only
