@@ -318,6 +318,270 @@
     });
   }
 
+  function resolveSafeProjectAssetUrl(path, baseUrl, label) {
+    if (
+      typeof path !== "string" ||
+      !path.trim() ||
+      !/^[A-Za-z0-9._~!$&*+,/:@?%#=-]+$/.test(path.trim())
+    ) {
+      throw new Error(`${label} has an invalid asset URL.`);
+    }
+    const url = new URL(path.trim(), baseUrl);
+    const base = new URL(baseUrl, window.location.href);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.origin !== base.origin ||
+      url.username ||
+      url.password
+    ) {
+      throw new Error(`${label} must use a same-origin HTTP asset URL.`);
+    }
+    return url.href;
+  }
+
+  function atlasCellsForVersion(version) {
+    const cells = new Map();
+    const addCell = (row, column, label) => {
+      if (
+        Number.isInteger(row) &&
+        Number.isInteger(column) &&
+        row >= 0 &&
+        row < deliveryTarget.atlas.rows &&
+        column >= 0 &&
+        column < deliveryTarget.atlas.columns
+      ) {
+        cells.set(`${row}:${column}`, { row, column, label });
+      }
+    };
+    const stateIds = Array.isArray(version.stateIds)
+      ? new Set(version.stateIds)
+      : null;
+    deliveryTarget.states.forEach((state) => {
+      if (stateIds && !stateIds.has(state.id)) return;
+      state.durationsMs.forEach((_duration, index) => {
+        addCell(
+          state.row,
+          state.firstColumn + index,
+          `${version.id}/${state.id}/frame-${index + 1}`,
+        );
+      });
+    });
+    const hasLookDirections =
+      typeof version.lookDirectionsAvailable === "boolean"
+        ? version.lookDirectionsAvailable
+        : !stateIds;
+    if (hasLookDirections) {
+      deliveryTarget.lookDirections.slots.forEach((slot) => {
+        addCell(
+          slot.row,
+          slot.column,
+          `${version.id}/look-${slot.degree}-${slot.key}`,
+        );
+      });
+      const neutral = deliveryTarget.lookDirections.neutralReferenceSlot;
+      addCell(
+        neutral.row,
+        neutral.column,
+        `${version.id}/look-neutral`,
+      );
+    }
+    if (Array.isArray(version.frameTakes)) {
+      version.frameTakes.forEach((group) => {
+        if (!group || !Array.isArray(group.takes)) return;
+        group.takes.forEach((take) => {
+          if (take && take.atlasSlot) {
+            addCell(
+              take.atlasSlot.row,
+              take.atlasSlot.column,
+              `${version.id}/atlas Take ${String(take.id)}`,
+            );
+          }
+        });
+      });
+    }
+    return [...cells.values()];
+  }
+
+  function projectAssetEntries(projectConfig, baseUrl) {
+    const entries = [];
+    projectConfig.versions.forEach((version) => {
+      const versionLabel = `Candidate ${String(version.id)}`;
+      if (version.static && version.static.assetUrl) {
+        entries.push({
+          url: resolveSafeProjectAssetUrl(
+            version.static.assetUrl,
+            baseUrl,
+            `${versionLabel} Static`,
+          ),
+          label: `${versionLabel} Static`,
+          kind: "standalone",
+        });
+        if (Array.isArray(version.static.takes)) {
+          version.static.takes.forEach((take) => {
+            if (!take || !take.assetUrl) return;
+            entries.push({
+              url: resolveSafeProjectAssetUrl(
+                take.assetUrl,
+                baseUrl,
+                `${versionLabel} Static Take ${String(take.id)}`,
+              ),
+              label: `${versionLabel} Static Take ${String(take.id)}`,
+              kind: "standalone",
+            });
+          });
+        }
+      }
+      if (version.atlasUrl) {
+        entries.push({
+          url: resolveSafeProjectAssetUrl(
+            version.atlasUrl,
+            baseUrl,
+            `${versionLabel} atlas`,
+          ),
+          label: `${versionLabel} atlas`,
+          kind: "atlas",
+          cells: atlasCellsForVersion(version),
+        });
+      }
+      if (Array.isArray(version.frameTakes)) {
+        version.frameTakes.forEach((group) => {
+          if (!group || !Array.isArray(group.takes)) return;
+          group.takes.forEach((take) => {
+            if (!take || !take.assetUrl) return;
+            entries.push({
+              url: resolveSafeProjectAssetUrl(
+                take.assetUrl,
+                baseUrl,
+                `${versionLabel} runtime Take ${String(take.id)}`,
+              ),
+              label: `${versionLabel} runtime Take ${String(take.id)}`,
+              kind: "runtime-take",
+            });
+          });
+        });
+      }
+    });
+    return entries;
+  }
+
+  function loadAssetForPreflight(assetUrl, label) {
+    return new Promise((resolve, reject) => {
+      const probe = new Image();
+      probe.decoding = "async";
+      probe.addEventListener("load", () => resolve(probe), { once: true });
+      probe.addEventListener(
+        "error",
+        () => reject(new Error(`${label} could not be decoded.`)),
+        { once: true },
+      );
+      probe.src = assetUrl;
+    });
+  }
+
+  function alphaFacts(imageData) {
+    let hasVisible = false;
+    let hasTransparent = false;
+    for (let index = 3; index < imageData.length; index += 4) {
+      const alpha = imageData[index];
+      hasVisible = hasVisible || alpha > 0;
+      hasTransparent = hasTransparent || alpha < 255;
+      if (hasVisible && hasTransparent) break;
+    }
+    return { hasVisible, hasTransparent };
+  }
+
+  function requireTransparentPixels(context, rect, label) {
+    const pixels = context.getImageData(
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+    ).data;
+    const facts = alphaFacts(pixels);
+    if (!facts.hasVisible) {
+      throw new Error(`${label} is fully transparent.`);
+    }
+    if (!facts.hasTransparent) {
+      throw new Error(
+        `${label} is fully opaque; Previewer only accepts transparent assets.`,
+      );
+    }
+  }
+
+  async function assertTransparentProjectAssets(projectConfig, baseUrl) {
+    const entries = projectAssetEntries(projectConfig, baseUrl);
+    const imageCache = new Map();
+    for (const entry of entries) {
+      let imagePromise = imageCache.get(entry.url);
+      if (!imagePromise) {
+        imagePromise = loadAssetForPreflight(entry.url, entry.label);
+        imageCache.set(entry.url, imagePromise);
+      }
+      const image = await imagePromise;
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d", {
+        alpha: true,
+        willReadFrequently: true,
+      });
+      if (!context) {
+        throw new Error("Previewer could not inspect asset transparency.");
+      }
+      context.drawImage(image, 0, 0);
+      if (entry.kind === "atlas") {
+        const expectedWidth =
+          deliveryTarget.atlas.columns *
+          deliveryTarget.atlas.cellWidthPx;
+        const expectedHeight =
+          deliveryTarget.atlas.rows *
+          deliveryTarget.atlas.cellHeightPx;
+        if (
+          image.naturalWidth !== expectedWidth ||
+          image.naturalHeight !== expectedHeight
+        ) {
+          throw new Error(
+            `${entry.label} must be ${expectedWidth}x${expectedHeight}.`,
+          );
+        }
+        entry.cells.forEach((cell) => {
+          requireTransparentPixels(
+            context,
+            {
+              x: cell.column * deliveryTarget.atlas.cellWidthPx,
+              y: cell.row * deliveryTarget.atlas.cellHeightPx,
+              width: deliveryTarget.atlas.cellWidthPx,
+              height: deliveryTarget.atlas.cellHeightPx,
+            },
+            cell.label,
+          );
+        });
+      } else {
+        if (
+          entry.kind === "runtime-take" &&
+          (image.naturalWidth !== deliveryTarget.atlas.cellWidthPx ||
+            image.naturalHeight !== deliveryTarget.atlas.cellHeightPx)
+        ) {
+          throw new Error(
+            `${entry.label} must be ` +
+              `${deliveryTarget.atlas.cellWidthPx}x` +
+              `${deliveryTarget.atlas.cellHeightPx}.`,
+          );
+        }
+        requireTransparentPixels(
+          context,
+          {
+            x: 0,
+            y: 0,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          },
+          entry.label,
+        );
+      }
+    }
+  }
+
   function withMechanicsOverrides(baseMechanics, projectMechanics) {
     if (!Array.isArray(projectMechanics)) {
       return baseMechanics;
@@ -379,12 +643,27 @@
   async function loadConfig() {
     const configUrl = new URLSearchParams(window.location.search).get("config");
     if (!configUrl) {
-      return {
-        data: bundledConfig,
-        baseUrl: window.location.href,
-        isExternal: false,
-        externalLoadFailed: false,
-      };
+      try {
+        assertReviewableProjectConfig(bundledConfig);
+        await assertTransparentProjectAssets(
+          bundledConfig,
+          window.location.href,
+        );
+        return {
+          data: bundledConfig,
+          baseUrl: window.location.href,
+          isExternal: false,
+          externalLoadFailed: false,
+        };
+      } catch (error) {
+        console.warn("Could not validate bundled preview assets.", error);
+        return {
+          data: bundledConfig,
+          baseUrl: window.location.href,
+          isExternal: false,
+          externalLoadFailed: true,
+        };
+      }
     }
 
     try {
@@ -396,6 +675,11 @@
       const data = await response.json();
       assertCompatibleTarget(data);
       assertReviewableProjectConfig(data);
+      await assertTransparentProjectAssets(data, resolvedUrl.href);
+      await assertTransparentProjectAssets(
+        bundledConfig,
+        window.location.href,
+      );
       return {
         data,
         baseUrl: resolvedUrl.href,

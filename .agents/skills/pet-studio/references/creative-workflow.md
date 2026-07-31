@@ -54,11 +54,13 @@ Every project visual checkpoint is a handoff. Stop after showing it so the user 
 correct or select before the next dependent layer. Combine exact adjacent
 layers only when the user explicitly asks.
 
-The first reviewable static image begins the project Candidate lifecycle. Stage
-that exact asset as the Candidate's one-image Static review slot, create or
-update a validated config, switch the already-running Previewer to its focused
-URL, and verify that it displays the project image rather than the bundled
-Example. Do not wait for an atlas or a complete runtime state set. Read
+The first reviewable static image begins the project Candidate lifecycle.
+Preserve that exact creative source, prepare a transparent derivative with
+`$prepare-transparent-assets`, stage both as the Candidate's one-image Static
+review slot, create or update a validated config, switch the already-running
+Previewer to its focused URL, and verify that it displays the transparent
+project derivative rather than the bundled Example. Do not wait for an atlas
+or a complete runtime state set. Read
 [review-workbench.md](review-workbench.md) for the progressive handoff
 contract.
 
@@ -112,9 +114,9 @@ Separate the source into:
 Offer one concise working reading, then use it to make the smallest useful
 static character study in the same creative round whenever enough direction is
 available. Do not require explicit approval of a prose-only reading before
-image generation. Preserve the exact result as a Static Candidate and open it
-in the Previewer for correction. The study is exploratory evidence, not Gate 1
-approval.
+image generation. Preserve the exact result as Static source evidence, prepare
+its transparent review derivative, and open that derivative in the Previewer
+for correction. The study is exploratory evidence, not Gate 1 approval.
 
 Ask at most one question before that image, and only when the missing answer
 would materially change every viable direction. Otherwise expose the
@@ -173,8 +175,8 @@ the user explicitly made one of those the first visual question.
 Static remains one image with optional Takes. It does not acquire runtime
 timing or become a fabricated Idle loop. When a later default-form image
 supersedes the working study, preserve the older Candidate and stage the exact
-new image as a new Candidate or approved replacement according to the user's
-decision.
+new source plus its prepared transparent derivative as a new Candidate or
+approved replacement according to the user's decision.
 
 ## Gate 4: variable mechanics
 
@@ -303,8 +305,9 @@ claims.
 ## Scope shortcuts
 
 - Existing valid pack, preview only: open the Previewer.
-- First static study only: stage the exact image as Static, validate the
-  project config, open the focused Previewer URL, and stop for review.
+- First static study only: preserve the exact source, prepare and stage its
+  transparent Static derivative, validate the project config, open the focused
+  Previewer URL, and stop for review.
 - Existing approved art, animate it: confirm identity lock, then begin at
   variable mechanics.
 - Existing rows, package only: validate contract and privacy, then stage and

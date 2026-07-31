@@ -16,6 +16,7 @@
       "SECURITY.md",
       ".agents/skills/pet-studio/**",
       ".agents/skills/hatch-pet/**",
+      ".agents/skills/prepare-transparent-assets/**",
       ".github/workflows/**",
       "delivery-targets/**",
       "docs/**",

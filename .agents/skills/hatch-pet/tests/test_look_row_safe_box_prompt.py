@@ -87,6 +87,30 @@ class LookRowSafeBoxPromptTest(unittest.TestCase):
                 self.assertIn("not as pixel-level landmark gates", row_9)
                 self.assertIn("not as pixel-level landmark gates", row_10)
 
+    def test_every_generation_prompt_enforces_the_recorded_matte_contract(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            run_dir = self.prepare_run(temporary_directory)
+            prompt_paths = sorted((run_dir / "prompts").rglob("*.md"))
+
+            self.assertGreaterEqual(len(prompt_paths), 28)
+            for prompt_path in prompt_paths:
+                prompt = prompt_path.read_text(encoding="utf-8")
+                self.assertIn("MATTE CONTRACT", prompt, prompt_path)
+                self.assertIn(
+                    "No gradient, texture, vignette",
+                    prompt,
+                    prompt_path,
+                )
+                self.assertIn(
+                    "cast/contact/drop shadow",
+                    prompt,
+                    prompt_path,
+                )
+                self.assertIn("ambient haze", prompt, prompt_path)
+                self.assertIn("key-colored spill", prompt, prompt_path)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,10 @@
+Prepare Transparent Assets
+
+Portions of this skill are derived from the project-bundled Hatch Pet
+edge-cleanup implementation, licensed under the Apache License, Version 2.0.
+
+Modified for Codex Pet Studio on 2026-07-31 to provide stage-agnostic
+background separation and alpha-edge cleanup for Creature review and
+production assets.
+
+See LICENSE.txt for the full license terms.

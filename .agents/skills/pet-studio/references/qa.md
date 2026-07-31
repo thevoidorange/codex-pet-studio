@@ -102,6 +102,11 @@ For every external Previewer config in the current `codex-pet-v2` adapter:
   or an atlas Candidate with any exact non-empty state subset;
 - require Static to contain one standalone image with optional Takes and no
   runtime timing entry;
+- require every Previewer render asset to contain visible and transparent
+  pixels before any CSS rendering; inspect every reachable atlas cell rather
+  than accepting transparency only in unused cells;
+- require Static source evidence to remain byte-exact and separate from the
+  transparent review derivative referenced by `assetUrl`;
 - require every declared runtime state to have a real source row, and keep
   undeclared states absent from navigation, playback, and timing;
 - validate one-based URL frame and zero-based config `frameIndex`;
@@ -126,8 +131,9 @@ For every new Take:
   Take;
 - audition and Confirm do not approve, promote, package, install, or publish.
 
-For a Static Take, require the same source format and canvas dimensions as the
-Static original. Target-cell geometry applies only to runtime Keyframe Takes.
+For a Static Take, require the same transparent PNG format and canvas
+dimensions as the Static review original. Target-cell geometry applies only to
+runtime Keyframe Takes.
 
 For Previewer regressions:
 
@@ -144,6 +150,8 @@ For Previewer regressions:
   tooltips, accessibility labels, long controls, and narrow layouts;
 - pet assets retain their original color while the interface may remain
   grayscale.
+- opaque, unreadable, fully transparent, wrong-size, or unsafe assets fail the
+  project handoff closed; they never render first and fail later.
 
 ## Motion and target-state QA
 
@@ -183,6 +191,8 @@ For the current `codex-pet-v2` target, require:
 - correct row and used-cell mapping;
 - non-empty used cells and transparent unused cells;
 - clean transparency with no clipped or overlapping sprite;
+- shared `$prepare-transparent-assets` separation and cleanup reports match the
+  exact staged derivative;
 - packaged assets match approved Previewer evidence;
 - project validation passes;
 - privacy check passes;

@@ -47,11 +47,26 @@ Before generating base art, row strips, or repair rows, load and follow the inst
 ${CODEX_HOME:-$HOME/.codex}/skills/.system/imagegen/SKILL.md
 ```
 
+Also read the sibling
+[source matte strategy](../prepare-transparent-assets/references/source-matte-strategy.md)
+before generation. Codex Pet v2 deliberately overrides the general near-white
+preference with the run's recorded chroma key, but it still inherits the
+shared material-safety, uniform-background, clean-padding, no-gradient,
+no-texture, no-shadow, and preflight rules. Do not tune cleanup parameters to
+rescue a source that violates them.
+
 Do not call the Image API, image CLI, or any other image-generation path directly. Let `$imagegen` choose its own built-in-first path and fallback rules. If `$imagegen` says a fallback requires confirmation, ask the user before continuing.
 
 When invoking `$imagegen`, pass the generated pet prompt as the authoritative visual spec. Pet prompts should stay concise, state-specific, sprite-production oriented, and grounded in the listed input images. Keep longer policy and QA rules in this skill and the deterministic review scripts rather than expanding them into every image prompt. Do not wrap prompts in the generic `$imagegen` shared prompt schema.
 
-Use this skill's scripts for deterministic image work only: preparing layout guides and prompts, mirroring approved `running-left`, extracting frames, validating rows, composing the final atlas, and creating contact-sheet plus motion-preview QA media. Parent-owned shell/`jq` steps handle manifest updates, packaging, and cleanup.
+Use this skill's scripts for deterministic image work only: preparing layout
+guides and prompts, mirroring approved `running-left`, extracting frames,
+validating rows, composing the final atlas, and creating contact-sheet plus
+motion-preview QA media. Background separation and alpha-edge cleanup are
+project-wide raster operations owned by the sibling
+`$prepare-transparent-assets` skill; this compiler consumes that shared
+implementation. Parent-owned shell/`jq` steps handle manifest updates,
+packaging, and cleanup.
 
 ## Runtime Dependencies
 
@@ -156,7 +171,17 @@ Non-pixel styles are first-class. Plush, clay, sticker, vector, 3D toy, painterl
 
 Pet rows are processed into transparent `192x208` cells, so every generated pixel must either belong to the pet sprite or be cleanly removable chroma-key background. Prefer pose, expression, and silhouette changes over decorative effects.
 
-The deterministic raster pipeline owns the transparency and chroma-cleanup invariants. Its final edge-local spill-suppression step selects every translucent silhouette-boundary pixel plus opaque boundary pixels whose chroma points toward the known key, then extends clean interior RGB outward through that band in linear light. It preserves alpha exactly, clears hidden RGB under fully transparent pixels, and reports the algorithm and parameters used. The cleanup report plus atlas validator are authoritative for chroma contamination. Once the final report has `ok: true` and atlas validation passes, do not regenerate imagery or add another chroma-cleanup pass.
+The project-wide `$prepare-transparent-assets` raster capability owns the
+background-separation and alpha-edge-cleanup invariants. This compiler invokes
+its final alpha-smoothing and edge-local spill-suppression step once on the
+completed atlas. Cell-isolated smoothing creates a clean antialiased matte;
+spill suppression then selects every translucent silhouette-boundary pixel
+plus opaque boundary pixels whose chroma points toward the known key and
+extends clean interior RGB outward through that band in linear light. It
+clears hidden RGB under fully transparent pixels and reports both operations
+separately. The cleanup report plus atlas validator are authoritative for
+chroma contamination. Once the final report has `ok: true` and atlas
+validation passes, do not regenerate imagery or add another cleanup pass.
 
 Fully transparent pixels are allowed outside the sprite silhouette, in unused cells, and in intentional negative-space openings that are part of the pet's design, such as loops or holes in a ribbon body. Reject any generated or repaired cell with accidental 100%-transparent holes inside a filled body, including horizontal bands, seam rows, scanline-like gaps, sliced-tile boundaries, or "see-through" interior stripes. Inspect suspect cells on a high-contrast background or alpha mask before accepting them; ordinary atlas validation is not enough when the hole is inside the silhouette.
 
@@ -248,6 +273,7 @@ Never use the time target to skip blind direction QA, labeled semantics, continu
 
 ```bash
 SKILL_DIR="<absolute path to the hatch-pet skill directory selected for this run>"
+TRANSPARENCY_SKILL_DIR="$SKILL_DIR/../prepare-transparent-assets"
 "$PYTHON" "$SKILL_DIR/scripts/prepare_pet_run.py" \
   --pet-name "<Name>" \
   --description "<one sentence>" \
@@ -573,11 +599,15 @@ For repair or upgrade of a user-provided 16-cell source that was already approve
 Run the single deterministic edge-local spill-suppression pass on the assembled v2 atlas, then validate and make a contact sheet:
 
 ```bash
-"$PYTHON" "$SKILL_DIR/scripts/despill_chroma_edges.py" \
+"$PYTHON" "$TRANSPARENCY_SKILL_DIR/scripts/clean_alpha_edges.py" \
   "$RUN_DIR/final/spritesheet-extended.png" \
+  --mode chroma \
   --output "$RUN_DIR/final/spritesheet-extended.png" \
   --webp-output "$RUN_DIR/final/spritesheet-extended.webp" \
   --chroma-key "$CHROMA_KEY" \
+  --alpha-blur-radius 0.65 \
+  --cell-width 192 \
+  --cell-height 208 \
   --json-out "$RUN_DIR/qa/chroma-despill-extended.json"
 ```
 

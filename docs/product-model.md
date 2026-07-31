@@ -125,6 +125,8 @@ Studio Core preserves the work that should survive a change of runtime:
 - Behavior Intents and state contrast;
 - Motion Language;
 - Candidates, canonical high-quality source assets, and approval evidence;
+- transparent review derivatives prepared from preserved sources through the
+  stage-agnostic `$prepare-transparent-assets` capability;
 - review history and unresolved QA.
 
 ### Delivery Target
@@ -151,8 +153,9 @@ requires a different mapping.
 
 Preview coverage is progressive and explicit:
 
-- preserve the first useful visual as the Candidate's exact Static original;
-- stage and open it immediately rather than waiting for runtime production;
+- preserve the first useful visual as exact Static source evidence;
+- prepare, stage, and open its transparent review derivative immediately
+  rather than waiting for runtime production;
 - declare only runtime states whose real rows exist;
 - keep missing states absent from navigation, playback, and timing;
 - expose target mechanics such as gaze only when their real review assets

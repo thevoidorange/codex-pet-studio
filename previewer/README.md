@@ -31,17 +31,25 @@ command:
 
 ```bash
 python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
-  --asset path/to/character-study.png \
+  --asset path/to/character-study-source.png \
+  --preview-asset path/to/character-study-transparent.png \
   --candidate <semantic-candidate-id> \
   --default
 ```
 
-It copies the exact PNG or WebP into the ignored review build, creates or
-updates a validated config, and returns a URL focused on the project Static
-asset. Codex chooses a stable semantic ID and natural display name from the
-actual proposal; do not prescribe a sequential `v001`/`v002` convention.
-Switch the already-running Previewer to that URL and verify it before producing
-later creative layers.
+It preserves the exact PNG or WebP source, copies the prepared transparent
+RGBA PNG into the ignored review build, references only the derivative from
+the validated config, and returns a URL focused on that project Static asset.
+Use the project-bundled `$prepare-transparent-assets` skill to create the
+derivative before staging. Codex chooses a stable semantic ID and natural
+display name from the actual proposal; do not prescribe a sequential
+`v001`/`v002` convention. Switch the already-running Previewer to that URL and
+verify it before producing later creative layers.
+
+Before rendering, the browser decodes every declared Static, standalone Take,
+and reachable atlas cell and requires both visible and transparent pixels.
+Opaque, unreadable, unsafe, or wrong-size assets invalidate the project
+handoff instead of rendering first and failing later.
 
 The current Delivery Target contract lives at
 [`delivery-targets/codex-pet-v2.json`](../delivery-targets/codex-pet-v2.json).
@@ -74,7 +82,10 @@ or publish anything.
 
 Unknown or stale values fail closed and are replaced with valid project defaults. URL values are matched only against the loaded config and cannot introduce an arbitrary asset path.
 
-If an explicitly requested external `config` fails to load, the Previewer may show its bundled example as a fallback, but it removes all review-context fields and stops writing them. This prevents a project link from being mistaken for a colliding example Candidate, frame, or Take.
+If an explicitly requested external `config` or any required render asset
+fails preflight, the Previewer shows a project error and hides the review
+workspace. It never substitutes the bundled Example for failed project
+context.
 
 The bundled Example is never project data. Codex must not use it to fill a
 missing project state, replace a failed Static handoff, or claim that project
@@ -159,7 +170,8 @@ taking over the first view or contributing assets to the project.
 
 ## Static Takes
 
-Static Takes are standalone images on the same canvas as the Static original:
+Static Takes are transparent standalone PNGs on the same canvas as the Static
+review original:
 
 ```json
 {

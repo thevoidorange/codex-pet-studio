@@ -209,7 +209,13 @@ Pet Studio owns:
 - row geometry and deterministic atlas assembly;
 - look-direction registration and semantic QA;
 - contact sheets and motion previews;
-- chroma, v2 validation, and final production evidence.
+- v2 validation and final production evidence;
+- orchestration of the single final atlas alpha-edge cleanup through the
+  project-wide `$prepare-transparent-assets` capability.
+
+`$prepare-transparent-assets` owns stage-agnostic background separation,
+alpha smoothing, hidden-RGB cleanup, and edge-color decontamination used by
+Static review, Takes, and production.
 
 Do not synthesize missing production rows or unsupported final cells to bypass
 the compiler contract.
@@ -247,8 +253,8 @@ Require:
 - packaged assets matching approved Previewer evidence;
 - passing project validation and privacy checks.
 
-Use `$hatch-pet` for authoritative row, direction, atlas, chroma, and visual
-QA.
+Use `$hatch-pet` for authoritative row, direction, atlas, and visual QA. Its
+chroma path consumes the shared `$prepare-transparent-assets` implementation.
 
 ## Package, export, install, and publish
 

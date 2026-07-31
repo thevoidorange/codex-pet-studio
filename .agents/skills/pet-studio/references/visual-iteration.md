@@ -20,10 +20,12 @@ presentation step.
 
 - After inspiration arrives, produce a first static character study as soon as
   there is enough direction to make one meaningful.
-- Immediately preserve that exact reviewable image as the Candidate's Static
-  original, stage it through the deterministic review command, and open the
-  focused project Previewer URL. Do not wait for an atlas or nine states, and
-  do not regenerate the image merely to make it previewable.
+- Immediately preserve that exact image as the Candidate's creative source,
+  prepare a transparent same-canvas review derivative through
+  `$prepare-transparent-assets`, stage both through the deterministic review
+  command, and open the focused project Previewer URL. Do not wait for an
+  atlas or nine states, and do not regenerate the image merely to make it
+  previewable.
 - Ask at most one genuinely blocking question first. Do not run a questionnaire
   to completion.
 - Keep the first study small and exploratory. It exists to reveal
@@ -67,6 +69,11 @@ Do not turn an exact edit request into a fresh redesign.
 
 ## Build the visual brief
 
+Before generating or editing a Creature asset, apply the material- and
+palette-aware source matte strategy from `$prepare-transparent-assets`. Put the
+selected matte clause in the actual `$imagegen` prompt; naming a background in
+the brief without constraining the generated source is not enough.
+
 Every visual job must state:
 
 1. **Question** — the one decision this output answers.
@@ -77,7 +84,10 @@ Every visual job must state:
 5. **Continuity evidence** — neighboring frames or related states that may be
    inspected but not edited.
 6. **Anti-goals** — prior failed readings and generic substitutions to avoid.
-7. **Output contract** — count, canvas, background, scale, and comparison
+7. **Material and matte plan** — edge palette, material profile, true-alpha or
+   matte route, exact background clause, intended separation mode, and any
+   review limitation.
+8. **Output contract** — count, canvas, background, scale, and comparison
    layout.
 
 Attach only the references needed for this decision. Label each reference by
@@ -90,11 +100,15 @@ cannot be confused.
 - Use stable neutral IDs rather than descriptive names that bias selection.
 - Prefer three to six options for an open design question.
 - Prefer one new option for a precise edit or Take request.
-- Keep backgrounds, scale, framing, and rendering treatment comparable.
+- Keep scale, framing, and rendering treatment comparable. Keep one background
+  only when it is extraction-safe for every option; otherwise use each
+  option's recorded safe matte and compare the transparent derivatives on the
+  same Previewer backgrounds.
 - Show normal-size views when small-scale readability is part of the decision.
 - Do not mix several independent visual questions into one board.
-- Stage the exact comparison artifact selected for review. A Previewer handoff
-  must point to the project Candidate and visible project asset, never the
+- Preserve the exact comparison source selected for review and stage its
+  transparent derivative. A Previewer handoff must point to the project
+  Candidate and visible project derivative, never an opaque source or the
   bundled Example.
 
 ## Protect identity during editing
@@ -110,8 +124,9 @@ alone is not evidence that the lock survived.
 For a single-frame Take:
 
 - materialize exactly one source slot;
-- preserve the Static original's canvas for Static work or the selected
-  target's cell size and transparent geometry for a runtime Keyframe;
+- preserve the Static source and review original's canvas for Static work or
+  the selected target's cell size and transparent geometry for a runtime
+  Keyframe;
 - use adjacent frames only to understand continuity;
 - produce exactly one standalone result at that same target cell size;
 - never paste the new result into the atlas during audition;

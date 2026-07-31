@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import stat
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / ".agents" / "skills" / "pet-studio"
 SKILL_MD = SKILL / "SKILL.md"
 HATCH_SKILL = ROOT / ".agents" / "skills" / "hatch-pet"
+TRANSPARENCY_SKILL = (
+    ROOT / ".agents" / "skills" / "prepare-transparent-assets"
+)
 
 
 class SkillBundleTests(unittest.TestCase):
@@ -34,11 +38,37 @@ class SkillBundleTests(unittest.TestCase):
         project = json.loads((ROOT / "pet-studio.json").read_text(encoding="utf-8"))
         hatch_markdown = (HATCH_SKILL / "SKILL.md").read_text(encoding="utf-8")
         hatch_license = (HATCH_SKILL / "LICENSE.txt").read_text(encoding="utf-8")
+        transparency_license = (
+            TRANSPARENCY_SKILL / "LICENSE.txt"
+        ).read_text(encoding="utf-8")
+        transparency_notice = (
+            TRANSPARENCY_SKILL / "NOTICE.txt"
+        ).read_text(encoding="utf-8")
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         pet_studio = SKILL_MD.read_text(encoding="utf-8")
 
         self.assertIn(".agents/skills/hatch-pet/**", project["export"]["include"])
+        self.assertIn(
+            ".agents/skills/prepare-transparent-assets/**",
+            project["export"]["include"],
+        )
+        self.assertTrue((TRANSPARENCY_SKILL / "SKILL.md").is_file())
+        self.assertTrue(
+            (
+                TRANSPARENCY_SKILL
+                / "scripts"
+                / "transparency_core.py"
+            ).is_file()
+        )
         self.assertIn("Apache License", hatch_license)
+        self.assertIn("Apache License", transparency_license)
+        self.assertIn("project-bundled Hatch Pet", transparency_notice)
+        self.assertIn("Modified for Codex Pet Studio", transparency_notice)
+        shared_core = (
+            TRANSPARENCY_SKILL / "scripts" / "transparency_core.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Portions are derived", shared_core)
+        self.assertIn("LICENSE.txt and NOTICE.txt", shared_core)
         self.assertIn("project-bundled `$hatch-pet`", agents)
         self.assertIn("project-bundled `$hatch-pet`", pet_studio)
         self.assertIn("Modified for Codex Pet Studio", hatch_markdown)
@@ -70,6 +100,12 @@ class SkillBundleTests(unittest.TestCase):
             ROOT / ".github" / "workflows" / "validate.yml"
         ).read_text(encoding="utf-8")
         self.assertIn("Pillow>=10,<13", workflow)
+        self.assertIn("numpy>=1.26,<3", workflow)
+        self.assertIn(
+            "python -m unittest discover -s "
+            ".agents/skills/prepare-transparent-assets/tests -v",
+            workflow,
+        )
         self.assertIn(
             "python -m unittest discover -s .agents/skills/hatch-pet/tests -v",
             workflow,
@@ -78,6 +114,56 @@ class SkillBundleTests(unittest.TestCase):
             len(list((HATCH_SKILL / "scripts").glob("*.py"))),
             10,
         )
+        despill_mode = (
+            HATCH_SKILL / "scripts" / "despill_chroma_edges.py"
+        ).stat().st_mode
+        self.assertTrue(despill_mode & stat.S_IXUSR)
+
+    def test_material_aware_source_matte_strategy_is_routed_everywhere(
+        self,
+    ) -> None:
+        prepare = (TRANSPARENCY_SKILL / "SKILL.md").read_text(encoding="utf-8")
+        strategy = (
+            TRANSPARENCY_SKILL
+            / "references"
+            / "source-matte-strategy.md"
+        ).read_text(encoding="utf-8")
+        metadata = (
+            TRANSPARENCY_SKILL / "agents" / "openai.yaml"
+        ).read_text(encoding="utf-8")
+        pet_studio = SKILL_MD.read_text(encoding="utf-8")
+        visual = (
+            SKILL / "references" / "visual-iteration.md"
+        ).read_text(encoding="utf-8")
+        hatch = (HATCH_SKILL / "SKILL.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        normalized_prepare = " ".join(prepare.split())
+        self.assertIn("before generating or editing", normalized_prepare)
+        self.assertIn("source-matte-strategy.md", prepare)
+        self.assertIn(
+            "does not change their default parameters",
+            normalized_prepare,
+        )
+        for phrase in (
+            "near-white",
+            "Opaque with white, pale-gray, silver",
+            "Fur, hair, feathers",
+            "Glass, translucent membranes",
+            "Delivery Target override",
+            "No gradient, texture, vignette",
+            "Do not tune alpha power",
+            "white, gray, black, checker",
+        ):
+            self.assertIn(phrase, strategy)
+        self.assertIn("material- and palette-aware source matte", metadata)
+        self.assertIn("$prepare-transparent-assets", metadata)
+        self.assertIn("before generation", pet_studio)
+        self.assertIn("Material and matte plan", visual)
+        self.assertIn("actual `$imagegen` prompt", visual)
+        self.assertIn("overrides the general near-white", hatch)
+        self.assertIn("before generation", agents)
+        self.assertIn("transparent derivative before entry", agents)
 
     def test_readme_leads_with_the_suite_and_single_paste_start(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -123,7 +209,14 @@ class SkillBundleTests(unittest.TestCase):
             self.assertIn(phrase, description)
 
     def test_skill_markdown_links_resolve(self) -> None:
-        markdown_files = [SKILL_MD, *(SKILL / "references").glob("*.md")]
+        markdown_files = [
+            SKILL_MD,
+            *(SKILL / "references").glob("*.md"),
+            HATCH_SKILL / "SKILL.md",
+            *(HATCH_SKILL / "references").glob("*.md"),
+            TRANSPARENCY_SKILL / "SKILL.md",
+            *(TRANSPARENCY_SKILL / "references").glob("*.md"),
+        ]
         for markdown in markdown_files:
             content = markdown.read_text(encoding="utf-8")
             for target in re.findall(r"\]\(([^)]+)\)", content):

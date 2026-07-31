@@ -44,6 +44,8 @@ DEFAULT_EXPORT_INCLUDE = [
     "CODE_OF_CONDUCT.md",
     "SECURITY.md",
     ".agents/skills/pet-studio/**",
+    ".agents/skills/hatch-pet/**",
+    ".agents/skills/prepare-transparent-assets/**",
     ".github/workflows/**",
     "delivery-targets/**",
     "docs/**",
@@ -872,14 +874,16 @@ def paeth_predictor(left: int, above: int, upper_left: int) -> int:
     return upper_left
 
 
-def validate_take_png(
+def validate_transparent_png(
     data: bytes,
     path: Path,
-    target: dict[str, Any],
+    *,
+    expected_size: tuple[int, int] | None,
+    label: str,
 ) -> None:
     signature = b"\x89PNG\r\n\x1a\n"
     if not data.startswith(signature):
-        raise StudioError(f"Take asset must be a PNG file: {path}")
+        raise StudioError(f"{label} must be a PNG file: {path}")
 
     offset = len(signature)
     chunk_index = 0
@@ -890,17 +894,19 @@ def validate_take_png(
     saw_iend = False
     while offset < len(data):
         if len(data) - offset < 12:
-            raise StudioError(f"Take PNG has a truncated chunk header: {path}")
+            raise StudioError(f"{label} has a truncated PNG chunk header: {path}")
         length = struct.unpack(">I", data[offset : offset + 4])[0]
         chunk_type = data[offset + 4 : offset + 8]
         if len(chunk_type) != 4 or any(
             not (65 <= byte <= 90 or 97 <= byte <= 122)
             for byte in chunk_type
         ):
-            raise StudioError(f"Take PNG contains an invalid chunk type: {path}")
+            raise StudioError(f"{label} contains an invalid PNG chunk type: {path}")
         chunk_end = offset + 12 + length
         if chunk_end > len(data):
-            raise StudioError(f"Take PNG has a truncated {chunk_type!r} chunk: {path}")
+            raise StudioError(
+                f"{label} has a truncated PNG {chunk_type!r} chunk: {path}"
+            )
         payload = data[offset + 8 : offset + 8 + length]
         expected_crc = struct.unpack(
             ">I",
@@ -908,30 +914,33 @@ def validate_take_png(
         )[0]
         actual_crc = zlib.crc32(chunk_type + payload) & 0xFFFFFFFF
         if actual_crc != expected_crc:
-            raise StudioError(f"Take PNG has a bad {chunk_type!r} CRC: {path}")
+            raise StudioError(
+                f"{label} PNG has a bad {chunk_type!r} CRC: {path}"
+            )
         if chunk_index == 0 and chunk_type != b"IHDR":
-            raise StudioError(f"Take PNG must start with IHDR: {path}")
+            raise StudioError(f"{label} PNG must start with IHDR: {path}")
         if chunk_type == b"IHDR":
             if chunk_index != 0 or ihdr is not None or length != 13:
-                raise StudioError(f"Take PNG has an invalid IHDR chunk: {path}")
+                raise StudioError(f"{label} PNG has an invalid IHDR chunk: {path}")
             ihdr = payload
         elif chunk_type == b"IDAT":
             if ihdr is None or ended_idat or saw_iend:
-                raise StudioError(f"Take PNG has invalid IDAT ordering: {path}")
+                raise StudioError(f"{label} PNG has invalid IDAT ordering: {path}")
             saw_idat = True
             idat_parts.append(payload)
         elif chunk_type == b"IEND":
             if length != 0 or not saw_idat or saw_iend:
-                raise StudioError(f"Take PNG has an invalid IEND chunk: {path}")
+                raise StudioError(f"{label} PNG has an invalid IEND chunk: {path}")
             saw_iend = True
             if chunk_end != len(data):
-                raise StudioError(f"Take PNG contains bytes after IEND: {path}")
+                raise StudioError(f"{label} PNG contains bytes after IEND: {path}")
         else:
             if saw_idat:
                 ended_idat = True
             if chunk_type and 65 <= chunk_type[0] <= 90:
                 raise StudioError(
-                    f"Take PNG contains unsupported critical chunk {chunk_type!r}: {path}"
+                    f"{label} PNG contains unsupported critical chunk "
+                    f"{chunk_type!r}: {path}"
                 )
         offset = chunk_end
         chunk_index += 1
@@ -939,17 +948,15 @@ def validate_take_png(
             break
 
     if ihdr is None or not saw_idat or not saw_iend:
-        raise StudioError(f"Take PNG is missing IHDR, IDAT, or IEND: {path}")
+        raise StudioError(f"{label} PNG is missing IHDR, IDAT, or IEND: {path}")
     width, height, bit_depth, color_type, compression, filtering, interlace = struct.unpack(
         ">IIBBBBB",
         ihdr,
     )
-    atlas = target["atlas"]
-    cell_width = atlas["cellWidthPx"]
-    cell_height = atlas["cellHeightPx"]
-    if (width, height) != (cell_width, cell_height):
+    if expected_size is not None and (width, height) != expected_size:
         raise StudioError(
-            f"{path}: expected a standalone {cell_width}x{cell_height} frame, "
+            f"{path}: expected a standalone "
+            f"{expected_size[0]}x{expected_size[1]} frame, "
             f"got {width}x{height}."
         )
     if (
@@ -960,7 +967,7 @@ def validate_take_png(
         or interlace != 0
     ):
         raise StudioError(
-            f"Take PNG must be 8-bit, non-interlaced RGBA with standard "
+            f"{label} PNG must be 8-bit, non-interlaced RGBA with standard "
             f"compression and filtering: {path}"
         )
 
@@ -974,14 +981,18 @@ def validate_take_png(
         if len(raw) <= expected_raw_size:
             raw += decompressor.flush(expected_raw_size + 1 - len(raw))
     except zlib.error as exc:
-        raise StudioError(f"Take PNG has invalid compressed scanlines: {path}") from exc
+        raise StudioError(
+            f"{label} PNG has invalid compressed scanlines: {path}"
+        ) from exc
     if (
         len(raw) != expected_raw_size
         or not decompressor.eof
         or decompressor.unconsumed_tail
         or decompressor.unused_data
     ):
-        raise StudioError(f"Take PNG has incomplete or excess scanline data: {path}")
+        raise StudioError(
+            f"{label} PNG has incomplete or excess scanline data: {path}"
+        )
 
     previous = bytearray(row_bytes)
     has_visible_pixel = False
@@ -992,7 +1003,8 @@ def validate_take_png(
         raw_offset += 1
         if filter_type > 4:
             raise StudioError(
-                f"Take PNG row {row_index + 1} uses invalid filter {filter_type}: {path}"
+                f"{label} PNG row {row_index + 1} uses invalid filter "
+                f"{filter_type}: {path}"
             )
         encoded_row = raw[raw_offset : raw_offset + row_bytes]
         raw_offset += row_bytes
@@ -1018,9 +1030,30 @@ def validate_take_png(
         previous = decoded_row
 
     if not has_visible_pixel:
-        raise StudioError(f"Take PNG is fully transparent: {path}")
+        raise StudioError(f"{label} PNG is fully transparent: {path}")
     if not has_transparent_pixel:
-        raise StudioError(f"Take PNG is fully opaque: {path}")
+        raise StudioError(
+            f"{label} PNG is fully opaque: {path}",
+            "Run the project-bundled $prepare-transparent-assets skill before "
+            "registering anything in Previewer.",
+        )
+
+
+def validate_take_png(
+    data: bytes,
+    path: Path,
+    target: dict[str, Any],
+) -> None:
+    atlas = target["atlas"]
+    validate_transparent_png(
+        data,
+        path,
+        expected_size=(
+            atlas["cellWidthPx"],
+            atlas["cellHeightPx"],
+        ),
+        label="Take asset",
+    )
 
 
 def read_take_png(path: Path, target: dict[str, Any]) -> bytes:
@@ -1591,7 +1624,7 @@ def process_is_running(pid: int) -> bool:
 
 
 @contextlib.contextmanager
-def exclusive_take_config_lock(config_path: Path) -> Iterator[None]:
+def exclusive_preview_config_lock(config_path: Path) -> Iterator[None]:
     lock_path = config_path.parent / f".{config_path.name}.take.lock"
     descriptor: int | None = None
     lock_stat: os.stat_result | None = None
@@ -1616,11 +1649,13 @@ def exclusive_take_config_lock(config_path: Path) -> Iterator[None]:
                     pass
                 continue
             raise StudioError(
-                f"Another Take registration is using {config_path}.",
+                f"Another Previewer config writer is using {config_path}.",
                 "Wait for it to finish, then retry. No files were updated.",
             ) from exc
     if descriptor is None:
-        raise StudioError(f"Cannot acquire Take registration lock for {config_path}.")
+        raise StudioError(
+            f"Cannot acquire Previewer config write lock for {config_path}."
+        )
     lock_stat = os.fstat(descriptor)
     try:
         os.write(descriptor, f"{os.getpid()}\n".encode("ascii"))
@@ -1637,6 +1672,10 @@ def exclusive_take_config_lock(config_path: Path) -> Iterator[None]:
                 lock_path.unlink()
         except OSError:
             pass
+
+
+# Backward-compatible internal name used by existing automation and tests.
+exclusive_take_config_lock = exclusive_preview_config_lock
 
 
 def atomic_register_take(
@@ -1715,6 +1754,8 @@ def atomic_register_take(
 def atomic_stage_static_candidate(
     config_path: Path,
     config_value: dict[str, Any],
+    source_path: Path,
+    source_bytes: bytes,
     asset_path: Path,
     asset_bytes: bytes,
     target: dict[str, Any],
@@ -1722,22 +1763,28 @@ def atomic_stage_static_candidate(
     expected_config_bytes: bytes | None,
 ) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path.parent.mkdir(parents=True, exist_ok=True)
     asset_path.parent.mkdir(parents=True, exist_ok=True)
-    asset_temporary: Path | None = None
+    asset_temporaries: list[tuple[Path, Path]] = []
     config_temporary: Path | None = None
-    asset_promoted = False
+    promoted_paths: list[Path] = []
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            prefix=f".{asset_path.name}.tmp-",
-            dir=asset_path.parent,
-            delete=False,
-        ) as handle:
-            asset_temporary = Path(handle.name)
-            handle.write(asset_bytes)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(asset_temporary, 0o644)
+        for destination, payload in (
+            (source_path, source_bytes),
+            (asset_path, asset_bytes),
+        ):
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=f".{destination.name}.tmp-",
+                dir=destination.parent,
+                delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temporary, 0o644)
+            asset_temporaries.append((temporary, destination))
 
         encoded_config = (
             json.dumps(config_value, ensure_ascii=False, indent=2) + "\n"
@@ -1777,26 +1824,29 @@ def atomic_stage_static_candidate(
                 "Reload the project state and retry; no files were updated.",
             )
 
-        try:
-            os.link(asset_temporary, asset_path)
-        except FileExistsError as exc:
-            raise StudioError(
-                f"Static Candidate asset already exists: {asset_path}",
-                "Use a new Candidate id; existing review evidence is never overwritten.",
-            ) from exc
-        asset_promoted = True
-        asset_temporary.unlink()
-        asset_temporary = None
+        for temporary, destination in asset_temporaries:
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as exc:
+                raise StudioError(
+                    f"Static Candidate asset already exists: {destination}",
+                    "Use a new Candidate id; existing review evidence is never overwritten.",
+                ) from exc
+            promoted_paths.append(destination)
+            temporary.unlink()
         os.replace(config_temporary, config_path)
         config_temporary = None
     except Exception:
-        if asset_promoted and asset_path.exists():
-            asset_path.unlink()
+        for promoted_path in promoted_paths:
+            if promoted_path.exists():
+                promoted_path.unlink()
         raise
     finally:
-        for temporary in (asset_temporary, config_temporary):
-            if temporary is not None and temporary.exists():
+        for temporary, _destination in asset_temporaries:
+            if temporary.exists():
                 temporary.unlink()
+        if config_temporary is not None and config_temporary.exists():
+            config_temporary.unlink()
 
 
 def validate_pet_dir(
@@ -2332,6 +2382,26 @@ def command_doctor(args: argparse.Namespace) -> int:
             ),
         }
     )
+    transparency_path = (
+        root
+        / ".agents"
+        / "skills"
+        / "prepare-transparent-assets"
+        / "SKILL.md"
+    )
+    checks.append(
+        {
+            "name": "prepare-transparent-assets",
+            "ok": True,
+            "warning": not transparency_path.is_file(),
+            "detail": (
+                str(transparency_path)
+                if transparency_path.is_file()
+                else "missing project transparency skill; required before "
+                "opaque assets enter Previewer"
+            ),
+        }
+    )
     ok = all(item["ok"] for item in checks)
     payload = {"ok": ok, "root": str(root), "checks": checks}
     if args.json:
@@ -2498,9 +2568,35 @@ def command_review_stage_static(args: argparse.Namespace) -> int:
     asset_source = raw_asset_path.resolve()
     image_format, width, height, asset_bytes = read_image_file(
         asset_source,
-        "Static Candidate asset",
+        "Static Candidate source",
     )
-    extension = "png" if image_format == "PNG" else "webp"
+    source_extension = "png" if image_format == "PNG" else "webp"
+
+    raw_preview_path = (
+        Path(args.preview_asset).expanduser()
+        if args.preview_asset
+        else raw_asset_path
+    )
+    if raw_preview_path.is_symlink():
+        raise StudioError(
+            f"Static preview asset must not be a symlink: {raw_preview_path}"
+        )
+    preview_source = raw_preview_path.resolve()
+    if not preview_source.is_file():
+        raise StudioError(
+            f"Static preview asset is not a regular file: {preview_source}"
+        )
+    preview_bytes = read_regular_file_bytes(
+        preview_source,
+        "Static preview asset",
+        MAX_SCAN_BYTES,
+    )
+    validate_transparent_png(
+        preview_bytes,
+        preview_source,
+        expected_size=(width, height),
+        label="Static preview asset",
+    )
 
     raw_config_path = Path(args.config)
     config_path = (
@@ -2549,18 +2645,35 @@ def command_review_stage_static(args: argparse.Namespace) -> int:
         )
 
     candidate_segment = safe_take_candidate_segment(candidate_id)
+    source_destination = contained_path(
+        config_path.parent
+        / "candidates"
+        / candidate_segment
+        / "static"
+        / f"source.{source_extension}",
+        root / "build",
+        "Static Candidate source",
+    )
     asset_destination = contained_path(
         config_path.parent
         / "candidates"
         / candidate_segment
         / "static"
-        / f"original.{extension}",
+        / "original.png",
         root / "build",
-        "Static Candidate asset",
+        "Static Candidate preview asset",
     )
-    if asset_destination.exists() or asset_destination.is_symlink():
+    existing_destination = next(
+        (
+            destination
+            for destination in (source_destination, asset_destination)
+            if destination.exists() or destination.is_symlink()
+        ),
+        None,
+    )
+    if existing_destination is not None:
         raise StudioError(
-            f"Static Candidate asset already exists: {asset_destination}",
+            f"Static Candidate asset already exists: {existing_destination}",
             "Use a new Candidate id; existing review evidence is never overwritten.",
         )
     asset_url = os.path.relpath(
@@ -2624,22 +2737,28 @@ def command_review_stage_static(args: argparse.Namespace) -> int:
     )
 
     if not args.check:
-        atomic_stage_static_candidate(
-            config_path,
-            preview_config,
-            asset_destination,
-            asset_bytes,
-            target,
-            expected_config_bytes=expected_config_bytes,
-        )
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with exclusive_preview_config_lock(config_path):
+            atomic_stage_static_candidate(
+                config_path,
+                preview_config,
+                source_destination,
+                asset_bytes,
+                asset_destination,
+                preview_bytes,
+                target,
+                expected_config_bytes=expected_config_bytes,
+            )
 
     result = {
         "ok": True,
         "checkOnly": bool(args.check),
         "candidateId": candidate_id,
-        "imageFormat": image_format,
+        "sourceImageFormat": image_format,
+        "previewImageFormat": "PNG",
         "width": width,
         "height": height,
+        "sourceAsset": str(source_destination),
         "asset": str(asset_destination),
         "assetUrl": asset_url,
         "config": str(config_path),
@@ -2651,9 +2770,10 @@ def command_review_stage_static(args: argparse.Namespace) -> int:
         action = "validated" if args.check else "staged"
         print(
             f"OK: {action} Static Candidate {candidate_id!r} — "
-            f"{image_format} {width}x{height}"
+            f"transparent PNG {width}x{height}"
         )
         print(f"  config: {config_path}")
+        print(f"  source: {source_destination}")
         print(f"  asset: {asset_destination}")
         print(f"  review: {review_url}")
     return 0
@@ -2769,7 +2889,7 @@ def command_take_add(args: argparse.Namespace) -> int:
         MAX_PREVIEW_CONFIG_BYTES,
     )
     validate_http_config_binding(context, local_config_bytes)
-    with exclusive_take_config_lock(context.config_path):
+    with exclusive_preview_config_lock(context.config_path):
         return command_take_add_with_context(
             args,
             root,
@@ -2883,6 +3003,12 @@ def command_take_add_with_context(
             asset_source,
             "Static Take asset",
         )
+        validate_transparent_png(
+            asset_bytes,
+            asset_source,
+            expected_size=None,
+            label="Static Take asset",
+        )
         if image_format != original_format or (width, height) != (
             original_width,
             original_height,
@@ -2892,7 +3018,7 @@ def command_take_add_with_context(
                 f"expected {original_format} {original_width}x{original_height}, "
                 f"got {image_format} {width}x{height}."
             )
-        extension = "png" if image_format == "PNG" else "webp"
+        extension = "png"
     else:
         asset_bytes = read_take_png(asset_source, target)
         extension = "png"
@@ -3135,7 +3261,14 @@ def build_parser() -> argparse.ArgumentParser:
     review_stage_static_parser.add_argument(
         "--asset",
         required=True,
-        help="PNG or WebP Static image to copy into the private review build",
+        help="original PNG or WebP source to preserve in the private review build",
+    )
+    review_stage_static_parser.add_argument(
+        "--preview-asset",
+        help=(
+            "transparent RGBA PNG produced by $prepare-transparent-assets; "
+            "defaults to --asset only when that file already qualifies"
+        ),
     )
     review_stage_static_parser.add_argument(
         "--candidate",
@@ -3229,7 +3362,10 @@ def build_parser() -> argparse.ArgumentParser:
     take_add_parser.add_argument(
         "--asset",
         required=True,
-        help="standalone PNG/WebP matching Static, or target-sized RGBA PNG for a runtime Keyframe",
+        help=(
+            "transparent RGBA PNG matching the Static canvas or the target-sized "
+            "runtime Keyframe"
+        ),
     )
     take_add_parser.add_argument(
         "--id",

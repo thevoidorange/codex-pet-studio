@@ -74,33 +74,42 @@ spritesheet, animation, or all nine Codex Pet states.
 
 When the first reviewable static image exists:
 
-1. Preserve that exact image as the Candidate's Static original. Do not
+1. Preserve that exact image as the Candidate's creative source. Do not
    regenerate or reinterpret it merely to make it Previewer-compatible.
-2. Use the deterministic staging command:
+2. Use `$prepare-transparent-assets` to create a same-canvas transparent RGBA
+   PNG review derivative. Background separation and alpha-edge cleanup are
+   deterministic preparation, not a creative redraw.
+3. Use the deterministic staging command:
 
    ```bash
    python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
-     --asset <path-to-exact-png-or-webp> \
+     --asset <path-to-exact-source-png-or-webp> \
+     --preview-asset <path-to-transparent-rgba-png> \
      --candidate <semantic-candidate-id> \
      --default
    ```
 
-   The command atomically copies the exact asset under the ignored review
-   build, creates or updates `build/review/preview.json`, validates the result,
-   and returns the focused URL. Let Codex choose a stable semantic Candidate ID
-   and natural display name from the actual proposal. Do not prescribe a
-   `v001`/`v002` sequence; Candidates may be parallel or represent completely
-   different pets. Use `--display-name` or `--pet-name` only when real
-   project-facing names are known.
-3. Expect the generated review layout to follow:
+   The command atomically preserves the exact source and transparent review
+   derivative under the ignored review build, references only the derivative
+   in `build/review/preview.json`, validates the result, and returns the
+   focused URL. Let Codex choose a stable semantic Candidate ID and natural
+   display name from the actual proposal. Do not prescribe a `v001`/`v002`
+   sequence; Candidates may be parallel or represent completely different
+   pets. Use `--display-name` or `--pet-name` only when real project-facing
+   names are known.
+4. Expect the generated review layout to follow:
 
    ```text
    build/review/
    ├── preview.json
-   └── candidates/<semantic-candidate-id>/static/original.png
+   └── candidates/<semantic-candidate-id>/static/
+       ├── source.<png-or-webp>
+       └── original.png
    ```
 
-4. Confirm that the generated config names the project Candidate and declares
+   `source.*` is exact private evidence. `original.png` is the transparent
+   review original used by `take=original`.
+5. Confirm that the generated config names the project Candidate and declares
    no runtime coverage yet:
 
    ```json
@@ -129,16 +138,18 @@ When the first reviewable static image exists:
    }
    ```
 
-5. Start or reuse the local Previewer server and open the returned equivalent
+6. Start or reuse the local Previewer server and open the returned equivalent
    of:
 
    ```text
    /previewer/?config=../build/review/preview.json&candidate=<semantic-candidate-id>&state=static&frame=1&take=original
    ```
 
-6. Verify that the visible image is the exact project asset and that the
-   selected Candidate is the project Candidate, not the bundled Example.
-7. Stop for review before producing the next dependent creative layer.
+7. Verify that the visible image is the prepared transparent project
+   derivative and that the preserved source bytes still match the creative
+   source. Confirm that the selected Candidate is the project Candidate, not
+   the bundled Example.
+8. Stop for review before producing the next dependent creative layer.
 
 On re-entry, reopen the latest valid project-focused URL before resuming work.
 If the config or asset is invalid, repair or report that project handoff.
@@ -166,8 +177,9 @@ Rules:
 - Validate Candidate, state, frame, and Take against the successfully loaded
   config before restoring focus.
 - Treat `state=static&frame=1` as the Candidate's standalone Static slot.
-- Treat `take=original` as the Static original or source atlas frame for the
-  selected slot.
+- Treat `take=original` as the transparent Static review original or source
+  atlas frame for the selected slot. It is not the preserved opaque Static
+  source.
 - Treat a valid Take ID as the current visual reference, not approval.
 - Keep the URL stable during runtime frame ticks, Auto Orbit, pointer movement,
   all-state playback, language changes, and compatible Candidate switches.
@@ -220,14 +232,16 @@ Static has exactly one slot, so its only valid URL frame is `frame=1`.
 ## Create an additive Take
 
 1. Resolve the exact Candidate, state, Keyframe, and selected source.
-2. For Static, load the exact standalone original or auditioned Take and
-   preserve its format and canvas dimensions. For runtime work, extract or
-   load only that one target-cell-sized source frame.
+2. For Static, load the exact transparent review original or auditioned Take
+   and preserve its PNG format and canvas dimensions. Resolve the preserved
+   creative source separately when it is needed as generation evidence. For
+   runtime work, extract or load only that one target-cell-sized source frame.
 3. Read identity locks and the user's requested delta.
-4. Generate one standalone same-slot asset under the private
-   `design/takes/<candidate>/<state>/fNN/` working directory. Runtime Takes
-   retain target-cell geometry; Static Takes retain the Static original's
-   canvas.
+4. Generate one standalone same-slot source under the private
+   `design/takes/<candidate>/<state>/fNN/` working directory, then use
+   `$prepare-transparent-assets` to create the PNG registered for review.
+   Runtime Takes retain target-cell geometry; Static Takes retain the Static
+   review original's canvas.
 5. Keep source atlas, existing Takes, neighboring frames, and unrelated config
    semantically unchanged.
 6. Register the Take through the deterministic CLI:
@@ -245,9 +259,10 @@ The command owns:
 - atomic config update;
 - output of a focused review URL.
 
-The CLI copies the review asset into generated `build/takes/` staging. The
-private working source remains under `design/`; neither location is part of a
-public export unless a separate allowlist explicitly includes it.
+The CLI copies only the transparent review derivative into generated
+`build/takes/` staging. The private working source remains under `design/`;
+neither location is part of a public export unless a separate allowlist
+explicitly includes it.
 
 Do not hand-edit a Take registration when the command is available.
 

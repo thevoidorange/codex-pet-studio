@@ -106,6 +106,12 @@ soon as one exists. It helps you:
 The Previewer is intentionally read-only. It does not generate, upload, save,
 package, install, or publish assets.
 
+Every asset that enters the Previewer is a transparent review or runtime
+derivative. Codex preserves the exact creative source separately, then uses
+the bundled `prepare-transparent-assets` skill for background separation,
+smooth alpha, hidden-RGB cleanup, and edge-color decontamination. This shared
+step applies to Static, Takes, and production—not only the final hatch.
+
 Clicking a Take only auditions it. Previewer Confirm remembers a temporary
 choice for that browser session. To approve a visual decision, say so in the
 Codex conversation; Codex records the exact asset and the details that must
@@ -203,20 +209,23 @@ Start the local Previewer with:
 python3 .agents/skills/pet-studio/scripts/studio.py preview
 ```
 
-To stage the first exact static image as a reviewable Candidate:
+To preserve the first exact source and stage its prepared transparent
+derivative as a reviewable Candidate:
 
 ```bash
 python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
   --asset path/to/character-study.png \
+  --preview-asset path/to/character-study-transparent.png \
   --candidate <semantic-candidate-id> \
   --default
 ```
 
-The command copies the review asset into the ignored local build, creates or
-updates a validated Previewer config, and returns the focused project URL.
-Codex chooses the Candidate ID and display name from the actual idea. Candidate
-names are semantic, not sequential release numbers: two Candidates may be
-different directions or entirely different pets.
+The command copies the exact source and transparent review derivative into the
+ignored local build, references only the derivative from the validated
+Previewer config, and returns the focused project URL. Codex chooses the
+Candidate ID and display name from the actual idea. Candidate names are
+semantic, not sequential release numbers: two Candidates may be different
+directions or entirely different pets.
 
 The core Studio CLI and Previewer are intentionally inspectable and
 dependency-free. Final pet production uses Codex's built-in image generation
@@ -231,6 +240,9 @@ those separately. Useful entry points:
   rules
 - [Pet Studio Skill](.agents/skills/pet-studio/SKILL.md) — the detailed
   creative, review, production, and QA method
+- [Prepare Transparent Assets Skill](.agents/skills/prepare-transparent-assets/SKILL.md)
+  — shared background separation and alpha-edge cleanup for every review and
+  production stage
 - [Hatch Pet Skill](.agents/skills/hatch-pet/SKILL.md) — the bundled
   deterministic Codex Pet v2 production compiler and validator
 - [Previewer](previewer/) — the bilingual read-only review workbench
@@ -245,10 +257,16 @@ targets should be added only after they work end to end.
 ## License
 
 Repository code, documentation, and templates are available under the
-[MIT License](LICENSE). The bundled Hatch Pet skill remains available under
-its included [Apache License 2.0](.agents/skills/hatch-pet/LICENSE.txt). It is a
-vendored OpenAI skill snapshot modified for project-local, build-first use; its
-license and modification notice are preserved in that subtree.
+[MIT License](LICENSE), except for the two bundled skill subtrees noted here.
+The bundled Hatch Pet skill remains available under its included
+[Apache License 2.0](.agents/skills/hatch-pet/LICENSE.txt). It is a vendored
+OpenAI skill snapshot modified for project-local, build-first use; its license
+and modification notice are preserved in that subtree. The shared Prepare
+Transparent Assets skill includes refactored Hatch Pet edge-cleanup code and
+is available under its included
+[Apache License 2.0](.agents/skills/prepare-transparent-assets/LICENSE.txt);
+its [modification notice](.agents/skills/prepare-transparent-assets/NOTICE.txt)
+is preserved in that subtree.
 
 That license does not grant rights to third-party characters, trademarks,
 photographs, or reference material. Generated pet assets may require their own

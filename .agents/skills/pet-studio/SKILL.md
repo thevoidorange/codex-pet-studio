@@ -38,9 +38,11 @@ and the Codex conversation as the editing surface.
   report required by the root `AGENTS.md`, preserving the README's published
   order.
 - As soon as that first reviewable static image exists, preserve the exact
-  asset as a Static Candidate, create or update a validated project Previewer
-  config, and move the already-running Previewer to a URL focused on that
-  image. Do not wait for an atlas, animation, or all nine runtime states.
+  source, prepare a transparent review derivative with the project-bundled
+  `$prepare-transparent-assets` skill, create or update a validated project
+  Previewer config, and move the already-running Previewer to a URL focused on
+  that derivative. Do not wait for an atlas, animation, or all nine runtime
+  states.
 - Ask at most one genuinely blocking question before the first visual.
   Otherwise make restrained, visible assumptions and let the user correct the
   image.
@@ -50,6 +52,12 @@ and the Codex conversation as the editing surface.
 - Use `$imagegen` for visual generation and editing. For the current
   `codex-pet-v2` target, use the project-bundled `$hatch-pet` skill as the
   authoritative production compiler and validator.
+- Use the project-bundled `$prepare-transparent-assets` skill before generation
+  to choose a material- and palette-aware source matte, and after generation to
+  prepare every Static, Take, or atlas asset before it enters Previewer. Read
+  its
+  [source matte strategy](../prepare-transparent-assets/references/source-matte-strategy.md).
+  This is shared preprocessing, not a production-only hatch-pet step.
 - Never install or publish unless the user explicitly requests that action.
 
 ## Re-enter and route
@@ -66,7 +74,7 @@ begins. If no target is recorded, the current repository supports
 
 | User situation | Route |
 | --- | --- |
-| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, start or reuse the Previewer, open the bundled `Example.RaincoatCat`, and verify that it renders. Record a concise provisional reading, then produce the smallest useful static character study as soon as there is enough direction. Stage that exact image as a semantically named Static Candidate, validate its config, switch the Previewer to its focused URL, and verify that the visible asset belongs to the project. Do not wait for a complete questionnaire, prose-only Gate 1 approval, an atlas, or nine states. |
+| New inspiration or an undeveloped idea | Run idempotent `init` and `doctor`, start or reuse the Previewer, open the bundled `Example.RaincoatCat`, and verify that it renders. Record a concise provisional reading, then produce the smallest useful static character study as soon as there is enough direction. Preserve that exact source, prepare a transparent derivative with `$prepare-transparent-assets`, stage both as a semantically named Static Candidate, validate its config, switch the Previewer to its focused URL, and verify that the visible asset belongs to the project. Do not wait for a complete questionnaire, prose-only Gate 1 approval, an atlas, or nine states. |
 | Existing approved character or partial project | State what is locked and open, reopen the latest valid project review focus when available, then resume at the first unresolved creative decision. Do not restart ideation or fill missing work with Example assets. |
 | Feedback on one Previewer Keyframe or Take | Resolve the exact review context and use the single-frame Take workflow. Do not reopen unrelated gates. |
 | Existing pack maintenance | Validate provenance and scope, preserve passing rows, and repair only the affected production unit. Return to a creative gate only when identity, state meaning, or motion language changes. |
@@ -79,7 +87,8 @@ For the first-image handoff, prefer the deterministic command:
 
 ```bash
 python3 .agents/skills/pet-studio/scripts/studio.py review stage-static \
-  --asset <path-to-exact-png-or-webp> \
+  --asset <path-to-exact-source-png-or-webp> \
+  --preview-asset <path-to-transparent-rgba-png> \
   --candidate <semantic-candidate-id> \
   --default
 ```
@@ -100,9 +109,10 @@ For each creative round:
 3. Produce the smallest visual comparison that can answer the question. If
    form, mechanism, acting, emotion, or motion is being decided, prose alone is
    not a completed round.
-4. Stage the exact review artifact in the current Candidate and open or refresh
-   its focused Previewer URL. A first still uses `state=static`; later runtime
-   work exposes only the states that actually exist.
+4. Preserve the exact source, stage its prepared transparent review derivative
+   in the current Candidate, and open or refresh its focused Previewer URL. A
+   first still uses `state=static`; later runtime work exposes only the states
+   that actually exist.
 5. Review at realistic desktop size when readability matters.
 6. Record the selection, rejection reasons, remaining open variables, and next
    dependent decision.
@@ -130,9 +140,10 @@ and
   Candidates may represent different characters, pets, or creative directions.
   Let the project's Codex choose a stable semantic ID and natural display name
   from the actual proposal.
-- **Static** — one standalone character-study image plus optional Takes. It is
-  a review surface before runtime sampling, not a runtime state, Keyframe row,
-  timing entry, or fabricated one-frame animation.
+- **Static** — one standalone transparent character-study derivative plus
+  optional transparent Takes, with its exact creative source preserved
+  separately. It is a review surface before runtime sampling, not a runtime
+  state, Keyframe row, timing entry, or fabricated one-frame animation.
 - **Keyframe** — one named visual time sample. In the current target's
   Candidate, it maps to one fixed runtime slot inside one state row.
 - **Take** — one additive visual alternative for one exact Candidate and
@@ -172,10 +183,11 @@ When the user refers to “this,” “this frame,” or asks for another Take:
 4. Apply only the requested delta and every current identity/mechanism lock.
    For a bare “another Take,” make a restrained same-brief variation unless the
    intended difference is genuinely ambiguous.
-5. Generate exactly one standalone image at the source slot's dimensions. Do
-   not change the Static original, source atlas, current Take, adjacent frames,
-   or unrelated config.
-6. Register it atomically with
+5. Generate exactly one standalone image at the source slot's dimensions,
+   preserve that source, and prepare a transparent PNG derivative through
+   `$prepare-transparent-assets`. Do not change the Static source, review
+   original, source atlas, current Take, adjacent frames, or unrelated config.
+6. Register only the transparent derivative atomically with
    `python3 .agents/skills/pet-studio/scripts/studio.py take add --help`.
 7. Validate the refreshed config and asset, then return the focused URL with
    the new Take auditioned, not approved.

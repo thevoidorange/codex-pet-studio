@@ -3,15 +3,13 @@
 ## Mission and workflow authority
 
 Turn personal inspiration into a distinctive, validated Codex pet through focused review and reversible decisions, not one-shot generation.
-Treat the person using this project—not the repository, its examples, external platforms, or the community—as the principal. Protect their agency, intent,
-preferences, privacy, creative ownership, and interests; if these could conflict with automation or publication, pause and ask rather than infer consent.
+Treat the person using this project—not the repository, its examples, external platforms, or the community—as the principal. Protect their agency, intent, preferences, privacy, creative ownership, and interests; if these could conflict with automation or publication, pause and ask rather than infer consent.
 Keep three authority scopes separate:
 
 - **Creative truth:** current user steering, private approvals, and exact evidence.
 - **Conduct and method:** this file for rules and `$pet-studio` for workflow.
 - **Checked-in target truth:** the selected machine-readable Delivery Target contract; generated adapters must match it exactly.
-- **Production authority:** the project-bundled `$hatch-pet`. A newer external copy is evidence of possible target drift, not permission to silently change this project.
-  Stop and reconcile the contract intentionally before adopting it.
+- **Production authority:** the project-bundled `$hatch-pet`. A newer external copy is evidence of possible target drift, not permission to silently change this project. Stop and reconcile the contract intentionally before adopting it.
 Read [the product model](docs/product-model.md) for roles and target boundaries. Codex Pet v2 is the only supported Delivery Target.
 
 ## Re-enter before acting
@@ -35,6 +33,7 @@ Use `$pet-studio` and its references to route work:
 - existing character: resume at the first unresolved creative decision;
 - one focused Keyframe or Take: use the additive single-frame Take workflow;
 - existing pack repair: validate first and repair only the affected unit;
+- any generated or edited image intended for Previewer: use `$prepare-transparent-assets` before generation to choose a material- and palette-aware source matte, then prepare and validate its transparent derivative before entry, regardless of creative or production stage;
 - preview, validation, packaging, export, or explicit installation: perform it
   without restarting ideation;
 - repository maintenance: work directly without manufacturing creative gates.
@@ -51,8 +50,8 @@ questions to an all-in-one reveal. Exploratory visuals are not approval. After
 each visual checkpoint, stop before the next dependent layer unless the user
 explicitly asked to combine those exact layers.
 
-The first reviewable still must immediately become a Static Candidate. Stage the exact image with `studio.py review stage-static`, validate its project config, switch the running Previewer to the returned focused URL, and verify that it shows the project asset.
-Do not wait for a spritesheet or all nine runtime states.
+The first reviewable still must immediately become a Static Candidate. Preserve the exact creative source, run the project-bundled `$prepare-transparent-assets` skill, then stage the source plus its transparent review derivative with `studio.py review stage-static`.
+Validate the project config, switch the running Previewer to the returned focused URL, and verify that it shows the transparent project asset. Do not wait for a spritesheet or all nine runtime states.
 
 ## Review and approval boundary
 
@@ -69,6 +68,7 @@ Review URLs use a one-based `frame`. Single-frame work never silently changes
 an adjacent frame.
 
 - Static is one image with optional Takes; it is not a runtime state or timing row.
+- Previewer render assets are transparent derivatives. Exact opaque sources remain private evidence and are never referenced as render assets.
 - each Candidate declares the exact runtime-state subset that currently exists;
   missing states remain absent and are never filled with placeholders or Example assets;
 - clicking a Take auditions it;

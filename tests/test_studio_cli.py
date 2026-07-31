@@ -5,6 +5,7 @@ import http.server
 import importlib.util
 import inspect
 import json
+import os
 import re
 import struct
 import subprocess
@@ -346,7 +347,18 @@ class StudioCliTests(unittest.TestCase):
             source = root / "design" / "first-static.png"
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_bytes(make_png(640, 480, alpha_mode="opaque"))
+            preview = root / "design" / "first-static-transparent.png"
+            preview.write_bytes(make_png(640, 480, alpha_mode="mixed"))
             config_path = root / "build" / "review" / "preview.json"
+            source_asset_path = (
+                root
+                / "build"
+                / "review"
+                / "candidates"
+                / "v001"
+                / "static"
+                / "source.png"
+            )
             asset_path = (
                 root
                 / "build"
@@ -363,6 +375,8 @@ class StudioCliTests(unittest.TestCase):
                 str(root),
                 "--asset",
                 str(source),
+                "--preview-asset",
+                str(preview),
                 "--candidate",
                 "v001",
                 "--display-name",
@@ -381,12 +395,18 @@ class StudioCliTests(unittest.TestCase):
             self.assertEqual(640, checked_payload["width"])
             self.assertEqual(480, checked_payload["height"])
             self.assertFalse(config_path.exists())
+            self.assertFalse(source_asset_path.exists())
             self.assertFalse(asset_path.exists())
 
             staged = self.run_cli(*arguments)
             payload = json.loads(staged.stdout)
             self.assertFalse(payload["checkOnly"])
-            self.assertEqual(source.read_bytes(), asset_path.read_bytes())
+            self.assertEqual(source.read_bytes(), source_asset_path.read_bytes())
+            self.assertEqual(preview.read_bytes(), asset_path.read_bytes())
+            self.assertEqual(
+                str(source_asset_path.resolve()),
+                payload["sourceAsset"],
+            )
             config = json.loads(config_path.read_text(encoding="utf-8"))
             self.assertEqual("Progressive Pet", config["pet"]["name"])
             self.assertEqual(
@@ -421,7 +441,8 @@ class StudioCliTests(unittest.TestCase):
                 "Candidate 'v001' already exists",
                 duplicate_candidate.stderr,
             )
-            self.assertEqual(source.read_bytes(), asset_path.read_bytes())
+            self.assertEqual(source.read_bytes(), source_asset_path.read_bytes())
+            self.assertEqual(preview.read_bytes(), asset_path.read_bytes())
 
             colliding_asset = (
                 root
@@ -441,6 +462,8 @@ class StudioCliTests(unittest.TestCase):
                 str(root),
                 "--asset",
                 str(source),
+                "--preview-asset",
+                str(preview),
                 "--candidate",
                 "v002",
                 "--json",
@@ -452,6 +475,63 @@ class StudioCliTests(unittest.TestCase):
             )
             self.assertEqual(b"existing evidence", colliding_asset.read_bytes())
             self.assertEqual(1, len(json.loads(config_path.read_text())["versions"]))
+
+            lock_path = (
+                config_path.parent
+                / f".{config_path.name}.take.lock"
+            )
+            locked_config = config_path.read_bytes()
+            lock_path.write_text(f"{os.getpid()}\n", encoding="ascii")
+            try:
+                locked_stage = self.run_cli(
+                    "review",
+                    "stage-static",
+                    "--root",
+                    str(root),
+                    "--asset",
+                    str(source),
+                    "--preview-asset",
+                    str(preview),
+                    "--candidate",
+                    "v004",
+                    "--json",
+                    expected=1,
+                )
+            finally:
+                lock_path.unlink(missing_ok=True)
+            self.assertIn(
+                "Another Previewer config writer",
+                locked_stage.stderr,
+            )
+            self.assertEqual(locked_config, config_path.read_bytes())
+            self.assertFalse(
+                (
+                    config_path.parent
+                    / "candidates"
+                    / "v004"
+                ).exists()
+            )
+
+            opaque_without_preview = self.run_cli(
+                "review",
+                "stage-static",
+                "--root",
+                str(root),
+                "--asset",
+                str(source),
+                "--candidate",
+                "v003",
+                "--json",
+                expected=1,
+            )
+            self.assertIn(
+                "Static preview asset PNG is fully opaque",
+                opaque_without_preview.stderr,
+            )
+            self.assertIn(
+                "$prepare-transparent-assets",
+                opaque_without_preview.stderr,
+            )
 
     def test_take_help_and_preview_schema_are_available(self) -> None:
         help_result = self.run_cli("take", "--help")
@@ -1038,7 +1118,7 @@ class StudioCliTests(unittest.TestCase):
             )
             original_asset.parent.mkdir(parents=True, exist_ok=True)
             original_asset.write_bytes(
-                make_png(320, 240, alpha_mode="opaque")
+                make_png(320, 240, alpha_mode="mixed")
             )
             config_path = review_root / "preview.json"
             config_path.write_text(
@@ -1067,7 +1147,7 @@ class StudioCliTests(unittest.TestCase):
             )
             source = root / "design" / "takes" / "static-take.png"
             source.parent.mkdir(parents=True, exist_ok=True)
-            source.write_bytes(make_png(320, 240, alpha_mode="opaque"))
+            source.write_bytes(make_png(320, 240, alpha_mode="mixed"))
             review_url = (
                 "file://"
                 + str(root / "previewer" / "index.html")
@@ -1115,7 +1195,7 @@ class StudioCliTests(unittest.TestCase):
             self.assertEqual(["t001"], query["take"])
 
             mismatched = root / "design" / "takes" / "mismatched.png"
-            mismatched.write_bytes(make_png(321, 240, alpha_mode="opaque"))
+            mismatched.write_bytes(make_png(321, 240, alpha_mode="mixed"))
             rejected = self.run_cli(
                 "take",
                 "add",
@@ -1499,7 +1579,7 @@ class StudioCliTests(unittest.TestCase):
                     str(source),
                     expected=1,
                 )
-            self.assertIn("Another Take registration", result.stderr)
+            self.assertIn("Another Previewer config writer", result.stderr)
             self.assertEqual(config_path.read_bytes(), before)
             self.assertFalse((config_path.parent / "takes").exists())
 

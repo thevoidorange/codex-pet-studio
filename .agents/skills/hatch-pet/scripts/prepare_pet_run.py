@@ -509,6 +509,17 @@ def brand_inspiration_line(args: argparse.Namespace) -> str:
     )
 
 
+def chroma_matte_contract(chroma_name: str, chroma_key: str) -> str:
+    return (
+        "MATTE CONTRACT: use one perfectly uniform flat pure "
+        f"{chroma_name} {chroma_key} chroma-key background across the entire "
+        "canvas. No gradient, texture, vignette, horizon, scenery, floor, "
+        "lighting variation, cast/contact/drop shadow, background glow, ambient "
+        f"haze, or key-colored spill. Keep {chroma_key} and close colors out of "
+        "the pet, props, highlights, and effects."
+    )
+
+
 def base_pet_prompt(args: argparse.Namespace) -> str:
     pet_notes = args.pet_notes or "the pet shown in the reference image(s)"
     style_contract = resolved_style_contract(args.style_preset, args.style_notes)
@@ -516,12 +527,15 @@ def base_pet_prompt(args: argparse.Namespace) -> str:
     brand_block = f"\nBrand inspiration: {brand_line}\n" if brand_line else "\n"
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     return f"""Create one clean full-body reference sprite for Codex pet {args.display_name}.
 
 Pet identity: {pet_notes}.
 Style: {style_contract}
 {brand_block}
-Place a single centered pose on a perfectly flat pure {chroma_name} {chroma_key} chroma-key background. Keep the full pet visible, compact, readable at 192x208, and easy to animate. Preserve approved reference identity cues. No scenery, text, borders, checkerboard transparency, shadows, glows, detached effects, or extra props. Keep {chroma_key} and close colors out of the pet, props, highlights, and effects."""
+{matte_contract}
+
+Place a single centered pose with clean padding. Keep the full pet visible, compact, readable at 192x208, and easy to animate. Preserve approved reference identity cues. No text, borders, checkerboard transparency, detached effects, or extra props."""
 
 
 def row_prompt(args: argparse.Namespace, state: str, row: int, frames: int, purpose: str) -> str:
@@ -529,13 +543,16 @@ def row_prompt(args: argparse.Namespace, state: str, row: int, frames: int, purp
     style_contract = resolved_style_contract(args.style_preset, args.style_notes)
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     state_prompt = STATE_PROMPTS[state]
     state_requirements = "\n".join(f"- {line}" for line in STATE_REQUIREMENTS[state])
     return f"""Create one horizontal animation strip for Codex pet `{args.pet_id}`, state `{state}`.
 
 Use the attached canonical base for identity. Use the attached layout guide only for slot count, spacing, centering, and padding; do not draw the guide.
 
-Output exactly {frames} full-body frames in one left-to-right row on flat pure {chroma_name} {chroma_key}. Treat the row as {frames} invisible equal-width slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
+Output exactly {frames} full-body frames in one left-to-right row. Treat the row as {frames} invisible equal-width slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
+
+{matte_contract}
 
 Identity: same pet in every frame: {pet_notes}. Preserve silhouette, face, proportions, markings, palette, material, style, and props.
 Style: {style_contract}
@@ -555,11 +572,14 @@ def retry_row_prompt(
     pet_notes = args.pet_notes or "the canonical base pet"
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     state_prompt = STATE_PROMPTS[state]
     state_requirements = "\n".join(f"- {line}" for line in STATE_REQUIREMENTS[state])
-    return f"""Create Codex pet row `{state}` for `{args.pet_id}`: exactly {frames} full-body frames in one horizontal strip on flat pure {chroma_name} {chroma_key}.
+    return f"""Create Codex pet row `{state}` for `{args.pet_id}`: exactly {frames} full-body frames in one horizontal strip.
 
 Use the attached canonical base for identity and the layout guide only for spacing. Same pet in every frame: {pet_notes}. Preserve silhouette, face, palette, material, proportions, markings, and props.
+
+{matte_contract}
 
 Keep apparent pet scale and baseline stable within the row unless the state itself intentionally changes vertical position, such as `jumping`.
 
@@ -661,6 +681,7 @@ def look_row_prompt(
     direction_list = ", ".join(directions)
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     reference_instruction = (
         "The approved cardinal strip is authoritative for the up, screen-right, down, "
         "and screen-left pose families. Interpolate the intermediate directions as "
@@ -684,7 +705,9 @@ Output exactly 8 complete full-body frames in this exact left-to-right order: {d
 
 {look_row_layout_contract()}
 
-Place one centered pose in each invisible equal-width slot on flat pure {chroma_name} {chroma_key}. Change only the natural parts needed to express gaze: eyes, eyelids, head, face, neck, upper body, appendages, and constrained prop follow-through. Keep identity, silhouette, materials, palette, markings, and props consistent.
+{matte_contract}
+
+Place one centered pose in each invisible equal-width slot. Change only the natural parts needed to express gaze: eyes, eyelids, head, face, neck, upper body, appendages, and constrained prop follow-through. Keep identity, silhouette, materials, palette, markings, and props consistent.
 
 {look_row_boundary_contract(row)}
 
@@ -701,6 +724,7 @@ def retry_look_row_prompt(
     direction_list = ", ".join(directions)
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     return f"""Create Codex v2 pet look row {row} for `{args.pet_id}` as exactly 8 full-body frames in this order: {direction_list}.
 
 Use the canonical base, standard contact sheet, layout guide, approved four-cardinal strip, and `qa/look-mechanics.md`. Draw the complete eight-pose row as one coherent animation family, interpolating even 22.5-degree steps between the cardinal pose families. Keep the same pet identity, face construction, materials, palette, markings, and props. Each direction must read correctly at pet size and join continuously at the 000 and 180 boundaries.
@@ -713,12 +737,15 @@ Use the canonical base, standard contact sheet, layout guide, approved four-card
 
 {look_row_pre_return_check(row)}
 
-Use a flat pure {chroma_name} {chroma_key} background. One complete unclipped pose per invisible slot. No whole-sprite rotation, replacement eyes, labels, guide marks, shadows, glows, scenery, detached effects, or {chroma_key} colors in the pet."""
+{matte_contract}
+
+One complete unclipped pose per invisible slot. No whole-sprite rotation, replacement eyes, labels, guide marks, glows, detached effects, or {chroma_key} colors in the pet."""
 
 
 def look_cardinal_prompt(args: argparse.Namespace) -> str:
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     return f"""Create one horizontal four-cardinal anchor strip for Codex pet `{args.pet_id}`.
 
 Use the attached canonical base, completed standard contact sheet, and layout guide for exact identity, style, scale, baseline, face construction, materials, palette, markings, props, and spacing. Read `qa/look-mechanics.md` and use the pet's natural gaze mechanism.
@@ -727,7 +754,9 @@ Output exactly four centered complete full-body poses in this exact left-to-righ
 
 For `000`, keep the face broadly frontal and point the eyes and natural head mechanism toward the TOP edge. For `090`, put the nose tip, pupils, face surface, or natural aiming feature on the screen-right side of the head center. For `180`, keep the face broadly frontal and point toward the BOTTOM edge. For `270`, apply the inverse screen-left landmark rule. Every cardinal must be unmistakable without labels.
 
-Place one pose in each invisible equal-width slot on a flat pure {chroma_name} {chroma_key} background with generous padding. Keep scale, feet/base, lower body, and registration consistent across all four slots.
+{matte_contract}
+
+Place one pose in each invisible equal-width slot with generous padding. Keep scale, feet/base, lower body, and registration consistent across all four slots.
 
 Do not rotate, skew, or tilt the whole sprite to fake gaze. Do not add replacement eyes, labels, degree text, arrows, boxes, guide marks, shadows, scenery, detached effects, or chroma-key colors inside the pet."""
 
@@ -739,6 +768,7 @@ def look_cardinal_repair_prompt(
 ) -> str:
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
+    matte_contract = chroma_matte_contract(chroma_name, chroma_key)
     screen_rule = {
         "000": "Keep the face broadly frontal and point the eyes and natural head mechanism toward the TOP edge.",
         "090": "Put the nose tip, pupils, face surface, or natural aiming feature on the screen-right side of the head center.",
@@ -749,7 +779,9 @@ def look_cardinal_repair_prompt(
 
 Use the canonical base, completed standard contact sheet, approved cardinal-strip cells, and `qa/look-mechanics.md` for identity, scale, registration, and pet-specific gaze mechanics. {screen_rule} Screen coordinates are viewer-relative.
 
-Output one centered complete full-body pose on a flat pure {chroma_name} {chroma_key} background with generous padding. Keep the feet/base and lower body registered to the approved anchors. The requested cardinal must be unmistakable at final 192x208 display size.
+{matte_contract}
+
+Output one centered complete full-body pose with generous padding. Keep the feet/base and lower body registered to the approved anchors. The requested cardinal must be unmistakable at final 192x208 display size.
 
 Do not rotate, skew, or tilt the whole sprite to fake gaze. Do not add replacement eyes, labels, arrows, guide marks, shadows, scenery, detached effects, or chroma-key colors inside the pet."""
 

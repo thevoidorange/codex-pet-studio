@@ -5,11 +5,27 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
-import re
+import sys
 from pathlib import Path
 
 from PIL import Image
+
+SHARED_SCRIPTS = (
+    Path(__file__).resolve().parents[2]
+    / "prepare-transparent-assets"
+    / "scripts"
+)
+if not (SHARED_SCRIPTS / "transparency_core.py").is_file():
+    raise RuntimeError(
+        "Missing project-bundled $prepare-transparent-assets dependency: "
+        f"{SHARED_SCRIPTS}"
+    )
+sys.path.insert(0, str(SHARED_SCRIPTS))
+from transparency_core import (  # noqa: E402
+    TransparencyError,
+    parse_hex_color as shared_parse_hex_color,
+    remove_chroma_background,
+)
 
 CELL_WIDTH = 192
 CELL_HEIGHT = 208
@@ -37,9 +53,10 @@ def parse_states(raw: str) -> list[str]:
 
 
 def parse_hex_color(value: str) -> tuple[int, int, int]:
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-        raise SystemExit(f"invalid chroma key color: {value}; expected #RRGGBB")
-    return tuple(int(value[index : index + 2], 16) for index in (1, 3, 5))
+    try:
+        return shared_parse_hex_color(value)
+    except TransparencyError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def load_chroma_key(decoded_dir: Path, override: str | None) -> tuple[int, int, int]:
@@ -52,31 +69,6 @@ def load_chroma_key(decoded_dir: Path, override: str | None) -> tuple[int, int, 
         if isinstance(chroma_key, dict) and isinstance(chroma_key.get("hex"), str):
             return parse_hex_color(chroma_key["hex"])
     return parse_hex_color("#00FF00")
-
-
-def color_distance(
-    red: int,
-    green: int,
-    blue: int,
-    key: tuple[int, int, int],
-) -> float:
-    return math.sqrt((red - key[0]) ** 2 + (green - key[1]) ** 2 + (blue - key[2]) ** 2)
-
-
-def remove_chroma_background(
-    image: Image.Image,
-    chroma_key: tuple[int, int, int],
-    threshold: float,
-) -> Image.Image:
-    rgba = image.convert("RGBA")
-    pixels = rgba.load()
-    for y in range(rgba.height):
-        for x in range(rgba.width):
-            red, green, blue, alpha = pixels[x, y]
-            if color_distance(red, green, blue, chroma_key) <= threshold:
-                pixels[x, y] = (0, 0, 0, 0)
-    return rgba
-
 
 def fit_to_cell(image: Image.Image) -> Image.Image:
     bbox = image.getbbox()

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare Transparent Assets"
+  short_description: "Plan mattes, remove backgrounds, and clean alpha edges"
+  default_prompt: "Use $prepare-transparent-assets to choose a material- and palette-aware source matte, then prepare this image for transparent review."

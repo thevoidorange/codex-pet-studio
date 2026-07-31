@@ -732,6 +732,57 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn("refreshMechanicsTakeFrames();", invalidate_take)
         self.assertIn(".icon-button:disabled", self.css)
 
+    def test_all_render_assets_are_preflighted_for_transparency(self) -> None:
+        self.assertIn(
+            "async function assertTransparentProjectAssets(",
+            self.app,
+        )
+        self.assertIn(
+            "function projectAssetEntries(projectConfig, baseUrl)",
+            self.app,
+        )
+        self.assertIn(
+            "function atlasCellsForVersion(version)",
+            self.app,
+        )
+        self.assertIn(
+            "function requireTransparentPixels(context, rect, label)",
+            self.app,
+        )
+        self.assertIn(
+            "Previewer only accepts transparent assets",
+            self.app,
+        )
+        self.assertIn(
+            "entry.cells.forEach((cell) =>",
+            self.app,
+        )
+        self.assertIn(
+            "`${version.id}/look-${slot.degree}-${slot.key}`",
+            self.app,
+        )
+        load_config = self.app.split(
+            "async function loadConfig() {",
+            1,
+        )[1].split(
+            "function normalizeConfig(",
+            1,
+        )[0]
+        self.assertEqual(
+            3,
+            load_config.count("await assertTransparentProjectAssets("),
+        )
+        data_preflight = load_config.index(
+            "await assertTransparentProjectAssets(data"
+        )
+        self.assertLess(
+            data_preflight,
+            load_config.index(
+                "externalLoadFailed: false",
+                data_preflight,
+            ),
+        )
+
     def test_candidate_and_take_copy_is_localized(self) -> None:
         self.assertIn('version: "Candidate"', self.i18n)
         self.assertIn('version: "方案"', self.i18n)
