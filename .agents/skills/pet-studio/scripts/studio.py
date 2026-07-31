@@ -2197,10 +2197,12 @@ def command_init(args: argparse.Namespace) -> int:
     if config_path.exists() and not args.force:
         config = load_config(root)
         created = ensure_local_workspace(root)
-        print(f"OK: Pet Studio project already initialized at {root}")
         if created:
+            print(f"OK: initialized local Pet Studio workspace at {root}")
+            print("  reused checked-in project configuration")
             print(f"  created local workspace files: {len(created)}")
         else:
+            print(f"OK: Pet Studio project already initialized at {root}")
             print("  local workspace is ready")
     else:
         config = default_config(root, args.name, args.project_id)

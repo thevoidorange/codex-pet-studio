@@ -306,6 +306,20 @@ class StudioCliTests(unittest.TestCase):
             preview = self.run_cli("preview", "--root", str(root), "--check")
             self.assertIn("/previewer/", preview.stdout)
 
+    def test_init_existing_public_config_reports_local_workspace_setup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "pet-studio.json").write_bytes(
+                (REPO_ROOT / "pet-studio.json").read_bytes()
+            )
+            (root / "templates").mkdir()
+            result = self.run_cli("init", "--root", str(root))
+            self.assertIn("initialized local Pet Studio workspace", result.stdout)
+            self.assertIn("reused checked-in project configuration", result.stdout)
+            self.assertNotIn("already initialized", result.stdout)
+            self.assertTrue((root / ".pet-studio-private.json").is_file())
+
     def test_preview_server_has_no_timing_write_api(self) -> None:
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertIn(
