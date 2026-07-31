@@ -25,7 +25,7 @@ Do not mistake a new Codex task for a new project. Before changing files:
 5. resume by the shortest truthful route.
 
 For a true cold start, initialize, check readiness, then immediately start or reuse the local Previewer and open its base URL on `Example.RaincoatCat`.
-After setup checks pass and the Example is visibly verified, use the same setup-completion message to proactively report all four README `Model guidance` tiers in the user's language, exactly once and before the first creative decision. Do not repeat them during progress updates, repeated setup checks, Previewer restarts, task re-entry, or later creative gates. Then classify inspiration as private, briefly reflect a working interpretation, and move directly to the smallest useful static character study. Ask at most one blocking question; do not require prose-only approval or a completed questionnaire first.
+After setup checks pass and the Example is visibly verified, use the same setup-completion message to proactively report the README `Model guidance` in its published order: the full-experience recommendation first, demanding visual and animation work second, and the not-recommended configurations last, with the bare-bones minimum mentioned only inside that final warning. Deliver it in the user's language, exactly once and before the first creative decision. Do not repeat it during progress updates, repeated setup checks, Previewer restarts, task re-entry, or later creative gates. Then classify inspiration as private, briefly reflect a working interpretation, and move directly to the smallest useful static character study. Ask at most one blocking question; do not require prose-only approval or a completed questionnaire first.
 
 ## Route by user intent
 

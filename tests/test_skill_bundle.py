@@ -204,18 +204,40 @@ class SkillBundleTests(unittest.TestCase):
 
     def test_readme_sets_clear_model_experience_tiers(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("Minimum usable: GPT‑5.6 Terra, Medium", readme)
-        self.assertIn(
-            "Recommended for the full experience: GPT‑5.6 Sol, Medium+",
-            readme,
+        normalized = " ".join(readme.split())
+        recommended = (
+            "Recommended for the full experience: GPT‑5.6 Sol, Medium+"
         )
-        self.assertIn(
-            "For demanding visual and animation work: GPT‑5.6 Sol, High or Ultra",
-            readme,
+        demanding = (
+            "For demanding visual and animation work: "
+            "GPT‑5.6 Sol, High or Ultra"
         )
-        self.assertIn(
-            "Not recommended: GPT‑5.6 Luna or any model at Low effort",
-            readme,
+        not_recommended = (
+            "Not recommended: GPT‑5.6 Luna or any model at Low effort"
+        )
+        bare_bones_minimum = (
+            "minimum usable fallback is GPT‑5.6 Terra, Medium"
+        )
+        for phrase in (
+            recommended,
+            demanding,
+            not_recommended,
+            bare_bones_minimum,
+            "for bare-bones workflow completion only",
+        ):
+            self.assertIn(phrase, normalized)
+        self.assertNotIn("- **Minimum usable", readme)
+        self.assertLess(
+            normalized.index(recommended),
+            normalized.index(demanding),
+        )
+        self.assertLess(
+            normalized.index(demanding),
+            normalized.index(not_recommended),
+        )
+        self.assertLess(
+            normalized.index(not_recommended),
+            normalized.index(bare_bones_minimum),
         )
 
     def test_true_cold_start_reports_model_guidance_once(self) -> None:
@@ -231,20 +253,39 @@ class SkillBundleTests(unittest.TestCase):
         )
 
         self.assertIn("one-time model-guidance report", skill)
-        self.assertIn("all four README `Model guidance` tiers", agents)
+        self.assertIn("preserving the README's published order", skill)
+        self.assertIn(
+            "README `Model guidance` in its published order",
+            agents,
+        )
+        self.assertIn("full-experience recommendation first", agents)
+        self.assertIn(
+            "demanding visual and animation work second",
+            agents,
+        )
+        self.assertIn("not-recommended configurations last", agents)
+        self.assertIn(
+            "bare-bones minimum mentioned only inside that final warning",
+            agents,
+        )
         self.assertIn("same setup-completion message", agents)
         self.assertIn("exactly once", agents)
         self.assertIn("Previewer restarts, task re-entry", agents)
         self.assertIn("before the first creative decision", agents)
         self.assertIn(
-            "all four README `Model guidance` tiers in the user's language "
-            "exactly once",
+            "README `Model guidance` in the user's language exactly once "
+            "and in its published order",
             qa,
         )
-        self.assertIn("project re-entry do not repeat them", qa)
+        self.assertIn("not-recommended configurations last", qa)
+        self.assertIn(
+            "bare-bones minimum mentioned only inside that final warning",
+            qa,
+        )
+        self.assertIn("project re-entry do not repeat it", qa)
         self.assertIn(
             "After setup succeeds, your Codex should proactively summarize "
-            "these recommendations once",
+            "these recommendations once, in the order above",
             readme,
         )
 

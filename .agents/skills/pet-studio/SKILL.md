@@ -35,7 +35,8 @@ and the Codex conversation as the editing surface.
   verify that the Example is visible. Treat it as an orientation surface only,
   never as project evidence.
 - At that verified cold-start handoff, complete the one-time model-guidance
-  report required by the root `AGENTS.md`.
+  report required by the root `AGENTS.md`, preserving the README's published
+  order.
 - As soon as that first reviewable static image exists, preserve the exact
   asset as a Static Candidate, create or update a validated project Previewer
   config, and move the already-running Previewer to a URL focused on that

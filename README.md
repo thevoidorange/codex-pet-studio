@@ -28,16 +28,15 @@ or account, or separate OpenAI API key.
 
 ## Model guidance
 
-- **Minimum usable: GPT‑5.6 Terra, Medium.**
 - **Recommended for the full experience: GPT‑5.6 Sol, Medium+.**
 - **For demanding visual and animation work: GPT‑5.6 Sol, High or Ultra.**
-- **Not recommended: GPT‑5.6 Luna or any model at Low effort.** They may
-  execute parts of the workflow, but they do not reliably preserve the
-  co-design quality this project is built to deliver.
+- **Not recommended: GPT‑5.6 Luna or any model at Low effort.** The minimum
+  usable fallback is GPT‑5.6 Terra, Medium, for bare-bones workflow completion
+  only.
 
 These are experience recommendations, not technical compatibility gates.
 After setup succeeds, your Codex should proactively summarize these
-recommendations once before the first creative decision.
+recommendations once, in the order above, before the first creative decision.
 
 ## What the first session feels like
 
