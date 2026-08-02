@@ -24,6 +24,65 @@ SPEC.loader.exec_module(CORE)
 
 
 class TransparencyCoreTests(unittest.TestCase):
+    def test_existing_saturated_matte_uses_border_and_corner_evidence(self) -> None:
+        image = Image.new("RGB", (160, 160), "#FF00FF")
+        for y in range(36, 124):
+            for x in range(36, 124):
+                if x < 66:
+                    color = (0, 255, 0)
+                elif x < 96:
+                    color = (255, 255, 0)
+                else:
+                    color = (255, 127, 0)
+                image.putpixel((x, y), color)
+
+        report = CORE.detect_existing_saturated_matte(image)
+
+        self.assertEqual("high", report["confidence"])
+        self.assertEqual("#FF00FF", report["candidate_hex"])
+        self.assertEqual(4, report["evidence"]["corner_matches"])
+        self.assertGreaterEqual(
+            min(report["evidence"]["edge_coverage"].values()),
+            0.75,
+        )
+
+    def test_low_chroma_border_stays_outside_saturated_matte_detection(
+        self,
+    ) -> None:
+        image = Image.new("RGB", (128, 128), "#F4F4F1")
+        for y in range(32, 96):
+            for x in range(32, 96):
+                image.putpixel((x, y), (32, 64, 128))
+
+        report = CORE.detect_existing_saturated_matte(image)
+
+        self.assertEqual("none", report["confidence"])
+        self.assertIn("not a saturated matte", report["reason"])
+
+    def test_existing_alpha_stays_outside_saturated_matte_detection(self) -> None:
+        image = Image.new("RGBA", (128, 128), (255, 0, 255, 0))
+        for y in range(24, 104):
+            for x in range(24, 104):
+                image.putpixel((x, y), (20, 80, 180, 255))
+
+        report = CORE.detect_existing_saturated_matte(image)
+
+        self.assertEqual("none", report["confidence"])
+        self.assertIn("already contains alpha", report["reason"])
+
+    def test_subject_crossing_one_edge_does_not_receive_high_confidence(
+        self,
+    ) -> None:
+        image = Image.new("RGB", (128, 128), "#FF00FF")
+        for y in range(0, 128):
+            for x in range(0, 20):
+                image.putpixel((x, y), (32, 48, 96))
+
+        report = CORE.detect_existing_saturated_matte(image)
+
+        self.assertEqual("medium", report["confidence"])
+        self.assertLess(report["evidence"]["edge_coverage"]["left"], 0.75)
+
     def test_chroma_key_is_inclusive_and_preserves_other_alpha(self) -> None:
         image = Image.new("RGBA", (3, 1))
         image.putdata(

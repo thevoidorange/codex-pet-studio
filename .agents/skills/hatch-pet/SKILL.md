@@ -149,7 +149,12 @@ After validating rows 0–8, write qa/look-mechanics.md, then generate and appro
 
 ### Visual Provenance And Grounding
 
-After selecting a visual output, the parent agent copies that exact image into the job's `decoded/` path, runs its required incremental checks, and only then marks the job complete in `imagegen-jobs.json`. Do not write helper scripts that populate row outputs. The deterministic Python scripts may only process already-generated visual outputs.
+After selecting and visually checking an output, the parent agent completes its
+active claim through `manage_imagegen_jobs.py`; the manager atomically copies
+that exact image into the job's `decoded/` path and records completion. Run the
+required deterministic checks immediately, before polling or claiming newly
+unblocked dependents. Reset a failed job explicitly before repair. Do not write
+other helper scripts that populate row outputs or edit lifecycle fields.
 
 Only the base job may be prompt-only. Every row-strip job generated through `$imagegen` must use the input images listed in `imagegen-jobs.json`, including the canonical base reference created after the selected base output is copied. Treat any row generation without attached grounding images as invalid.
 
@@ -285,18 +290,40 @@ TRANSPARENCY_SKILL_DIR="$SKILL_DIR/../prepare-transparent-assets"
   --brand-brief "<optional compact researched brand cue sentence>" \
   --brand-source "https://example.com/source" \
   --style-preset auto \
-  --style-notes "<optional freeform style notes>" \
-  --force
+  --style-notes "<optional freeform style notes>"
 ```
 
 All arguments above are optional except any flags needed to express user constraints. For text-only requests, pass the concept through `--pet-notes` and omit `--reference`; `prepare_pet_run.py` will infer a name, description, chroma key, and output directory as needed.
 For brand-only requests, run the discovery worker first, save the markdown brief, then pass the brief path through `--brand-discovery-file`, `avatar_seed` through `--pet-notes`, `brand_name` through `--brand-name`, `brand_brief` through `--brand-brief`, and each source URL through repeated `--brand-source`.
 
-2. Inspect `imagegen-jobs.json` for the next ready `$imagegen` jobs. A job is ready when its `status` is not `complete` and every id in `depends_on` is already complete. Prefer reading the manifest directly with `jq` or the editor instead of adding helper scripts for status display:
+Preparation detects a high-confidence existing saturated matte from flat
+border/corner evidence and reuses it. Medium-confidence matte evidence requires
+an explicit `--chroma-key`. A source matte, explicit key, or matte declaration
+in request/style text that conflicts with another one fails before any run
+write. `pet_request.json#/chroma_key` is the canonical key for prompts,
+extraction, despill, and QA; `imagegen-jobs.json` stores only a pointer and the
+contract fingerprint. `--force` may refresh an unchanged contract, but it
+preserves completed job lifecycle and cannot reset progressed generation. Use
+the explicit job reset command below for that.
+
+2. Inspect resumable job state and claim only ready work through the atomic
+state manager:
 
 ```bash
-jq '.jobs[] | {id, kind, status, depends_on, prompt_file, retry_prompt_file, input_images, output_path, derivation_policy}' /absolute/path/to/run/imagegen-jobs.json
+RUN_DIR=/absolute/path/to/run
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" status
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" ready
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" \
+  claim --job "$JOB_ID" --worker-id "$WORKER_ID"
 ```
+
+Save the returned claim token. `ready` skips complete rows, respects
+dependencies, backoff, and currently available concurrency slots, and blocks
+an output whose file exists without a recorded completion until it is
+explicitly reconciled. `claim` enforces the same slot limit. A crashed worker
+claim is recovered when its finite lease expires; that interrupted attempt
+still counts toward the job maximum. The manager reads schema-v1 manifests and
+writes schema v2 only on a state transition.
 
 3. Generate visual jobs with lightweight workers by default:
 
@@ -311,30 +338,47 @@ jq '.jobs[] | {id, kind, status, depends_on, prompt_file, retry_prompt_file, inp
 
 Keep up to three generation workers active whenever three independent jobs are ready and worker capacity permits. Backfill an available slot immediately instead of waiting for a fixed wave to finish. Use two or one worker when the dependency graph exposes fewer ready jobs. Do not exceed three generation workers without explicit user direction.
 
-For each ready visual job, invoke `$imagegen` with the prompt file listed in `imagegen-jobs.json`, every listed input image with its role label, and the default built-in `image_gen` path unless `$imagegen` itself routes otherwise. The parent agent must keep its own image handling minimal: do not open every generated base or row in the parent rollout. Workers return only the selected source path and a one-sentence QA note; the parent records the selected source path in the manifest.
+For each claimed visual job, invoke `$imagegen` with the prompt file returned by
+the claim, every listed input image with its role label, and the default built-in
+`image_gen` path unless `$imagegen` itself routes otherwise. The parent agent
+must keep its own image handling minimal: do not open every generated base or
+row in the parent rollout. Workers return only the selected source path and a
+one-sentence QA note; the parent passes that source and claim token to the state
+manager.
 
 `prepare_pet_run.py` creates matching layout guides under `references/layout-guides/` for the nine standard rows, two look rows, and four-cardinal strip, and both look rows. Visual jobs attach the matching guide as a layout-only input so the model can follow the correct frame count, spacing, centering, and safe padding. Treat these guides as invisible construction references: generated strips must not include visible boxes, borders, center marks, labels, guide colors, or the guide background.
 
 When generating row strips, keep the identity lock in the row prompt authoritative. Preserve the same style, face, markings, palette, materials, prop design, body proportions, and silhouette from the canonical base. Row jobs attach the layout guide and canonical base by default; the decoded base is kept in the run folder for deterministic processing rather than sent as a redundant generation input.
 
-If `$imagegen` returns a transport-level `Bad Request` for a row, retry that same row once with its generated `retry_prompt_file`. The retry prompt preserves the row id, frame count, chroma key, canonical-base identity, and state action. Keep the canonical base attached. If the retry still fails, stop and report the failing row and prompt paths instead of switching to any other generation path.
+Record every generation result through the state manager. A transport failure
+such as 408, 429, 5xx, or network reset retries the exact same prompt and inputs
+with finite backoff; it never switches to `retry_prompt_file`. A request-shape
+failure may use that job's retry prompt once. After two consecutive transport
+failures, the manager reduces and enforces concurrency `1`; after the third
+attempt, the job becomes terminal and requires an operator decision.
 
-4. After selecting a generated output for a job, copy it into the decoded output path. For `base`, also create the canonical identity reference:
+```bash
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" \
+  fail --job "$JOB_ID" --claim-token "$CLAIM_TOKEN" \
+  --category transport --code http_408 --message "request body read timed out"
+```
+
+4. After selecting and visually checking a generated output, complete its
+claim. The manager validates and atomically copies the image into the declared
+decoded path; for `base`, it also writes the canonical identity reference:
 
 ```bash
 RUN_DIR=/absolute/path/to/run
 JOB_ID=<job-id>
 SOURCE=/absolute/path/to/generated-output.png
-OUTPUT_REL=$(jq -r --arg id "$JOB_ID" '.jobs[] | select(.id == $id) | .output_path' "$RUN_DIR/imagegen-jobs.json")
-mkdir -p "$(dirname "$RUN_DIR/$OUTPUT_REL")"
-cp "$SOURCE" "$RUN_DIR/$OUTPUT_REL"
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" \
+  complete --job "$JOB_ID" --claim-token "$CLAIM_TOKEN" --source "$SOURCE"
 ```
 
-```bash
-if [ "$JOB_ID" = "base" ]; then mkdir -p "$RUN_DIR/references"; cp "$RUN_DIR/$OUTPUT_REL" "$RUN_DIR/references/canonical-base.png"; fi
-```
-
-For every standard `row-strip` job, immediately extract and inspect only that row before marking the job complete. This overlaps deterministic QA and any repair with generation of other ready rows instead of waiting for all nine rows:
+For every completed standard `row-strip` job, immediately extract and inspect
+only that row before polling more ready work. This overlaps deterministic QA
+and any repair with generation of other independent rows instead of waiting for
+all nine rows:
 
 ```bash
 ROW_QA_DIR="$RUN_DIR/qa/rows/$JOB_ID"
@@ -352,7 +396,8 @@ ROW_QA_DIR="$RUN_DIR/qa/rows/$JOB_ID"
 
 Treat errors as an immediate repair request. Inspect warnings before accepting the row; do not defer a known clipping, component, or extraction problem to final atlas QA. Chroma cleanup belongs to the deterministic post-assembly despill pass and must not trigger row regeneration. If the only failure is component extraction and the source strip itself has stable scale and placement, use the existing `stable-slots` correction with `--allow-stable-slots` instead of regenerating imagery.
 
-For `look-cardinals`, extract and validate all four anchors before marking the job complete:
+For `look-cardinals`, extract and validate all four anchors immediately after
+the generated strip is completed, before polling its dependents:
 
 ```bash
 CHROMA_KEY=$(jq -r '.chroma_key.hex' "$RUN_DIR/pet_request.json")
@@ -366,16 +411,27 @@ CHROMA_KEY=$(jq -r '.chroma_key.hex' "$RUN_DIR/pet_request.json")
   --output "$RUN_DIR/decoded/look-anchors-approved.png"
 ```
 
-Approve the four extracted anchors semantically at final pet size. If one cardinal fails, regenerate that individual anchor with `prompts/look-anchor-repairs/<degree>.md`, replace only its extracted file, and rerun `compose_cardinal_anchor_strip.py`. Both final look rows use the approved cardinal strip, and row 10 additionally uses completed row 9. Mark the job complete only after its required deterministic and visual checks pass:
+Approve the four extracted anchors semantically at final pet size. If one cardinal fails, regenerate that individual anchor with `prompts/look-anchor-repairs/<degree>.md`, replace only its extracted file, and rerun `compose_cardinal_anchor_strip.py`. Both final look rows use the approved cardinal strip, and row 10 additionally uses completed row 9. If post-completion deterministic QA fails, reset that job explicitly (and use `--cascade` only when progressed dependents must also be reset), then repair or regenerate it:
 
 ```bash
-UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-TMP_MANIFEST=$(mktemp)
-jq --arg id "$JOB_ID" --arg source "$SOURCE" --arg at "$UPDATED_AT" '(.jobs[] | select(.id == $id)) += {status: "complete", source_path: $source, completed_at: $at}' "$RUN_DIR/imagegen-jobs.json" > "$TMP_MANIFEST"
-mv "$TMP_MANIFEST" "$RUN_DIR/imagegen-jobs.json"
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" \
+  reset --job "$JOB_ID" --reason "<specific QA failure>"
 ```
 
-After `decoded/look-anchors-approved.png` exists and all four cardinals have passed semantic review, mark `look-cardinals` complete. Row 9 then becomes ready immediately.
+Never edit lifecycle fields with `jq`. If a declared output exists but its
+completion write was interrupted, inspect it and run `reconcile`; apply it only
+after confirming the file belongs to that job. Reset archives material outputs
+under `recovery-archive/` instead of deleting them.
+
+```bash
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" reconcile
+"$PYTHON" "$SKILL_DIR/scripts/manage_imagegen_jobs.py" --run-dir "$RUN_DIR" \
+  reconcile --apply --job "$JOB_ID"
+```
+
+Do not poll row 9 until `decoded/look-anchors-approved.png` exists and all four
+cardinals have passed semantic review. Reset `look-cardinals` if that gate
+fails; otherwise row 9 remains legitimately ready.
 
 If the copied source is under `${CODEX_HOME:-$HOME/.codex}/generated_images`, delete the original generated file after the decoded copy exists:
 
@@ -497,7 +553,11 @@ After copying row 9 into `decoded/look-row-9.png`, register and edge-check it wi
   --registration-manifest-output "$RUN_DIR/qa/look-row-9-registration.json"
 ```
 
-Inspect the eight registered cells at normal pet size in `000` through `157.5` order. Record the row-9 semantic and adjacent-continuity review, resynthesize the complete row for any hard failure, and mark `look-row-9` complete only after this check passes. That completion makes row 10 ready in `imagegen-jobs.json`.
+Inspect the eight registered cells at normal pet size in `000` through `157.5`
+order. Record the row-9 semantic and adjacent-continuity review and reset then
+resynthesize the complete row for any hard failure. Even though generation
+completion makes row 10 technically ready, do not poll or claim row 10 until
+this row-9 gate passes.
 
 Generate only the additional look-direction visuals with `$imagegen`:
 
@@ -734,10 +794,10 @@ Use lightweight workers unless the user specifically prohibits delegation.
 Parent responsibilities:
 
 - run the brand discovery worker before preparation when the user provides a bare brand/product/company/prospect name
-- prepare the run and inspect `imagegen-jobs.json`
+- prepare the run and inspect/claim work through `manage_imagegen_jobs.py`
 - assign the base job, all standard rows, the four-cardinal strip, coherent look rows, blind direction QA, and final contact-sheet QA to lightweight workers
-- copy selected worker outputs into their decoded paths and mark jobs complete in `imagegen-jobs.json`
-- create `references/canonical-base.png` from the selected base output
+- complete selected worker outputs through the state manager
+- let the state manager create `references/canonical-base.png` from the selected base output
 - run the approved `running-left` mirror derivation when appropriate
 - write the pet-specific look mechanics plan after standard-row QA
 - approve the cardinal semantics and compose `decoded/look-anchors-approved.png`
@@ -840,7 +900,7 @@ Input images:
 - <absolute path> — <role>
 - <absolute path> — <role>
 
-Use $imagegen only. Read the row prompt and attach every listed input image. For a `look-row-strip` job, also read and obey `qa/look-mechanics.md`; use the approved cardinal strip for direction meaning and draw all eight cells together as one coherent family with even intermediate steps. Never paste, reuse, or independently restyle individual cells. If imagegen returns Bad Request, retry once with the retry prompt and the same input images.
+Use $imagegen only. Read the claimed prompt and attach every listed input image. For a `look-row-strip` job, also read and obey `qa/look-mechanics.md`; use the approved cardinal strip for direction meaning and draw all eight cells together as one coherent family with even intermediate steps. Never paste, reuse, or independently restyle individual cells. Do not retry inside the worker: return a concrete failure so the parent records it through the state manager, which decides whether the exact prompt or one request-repair prompt is eligible.
 
 Before returning, visually check: exact frame count, same pet identity as canonical base, flat chroma background, complete separated unclipped poses, and no detached effects or guide marks. For a `look-row-strip`, verify there are eight separated pose groups in the required left-to-right order, neighboring poses do not overlap, no foreground is cropped at the outer canvas edge, and the generated family keeps a consistent scale and baseline. Exact cell cropping, shared-scale normalization, recentering, and final-cell edge validation happen deterministically after generation. The prompt's transparency and effects rules are mandatory: no detached effects, no wave marks for `waving`, no speed lines or dust for directional running rows, no literal foot-running for the non-directional `running` row, and only attached opaque sprite-like tears/smoke/stars when allowed by the state prompt.
 
@@ -911,7 +971,11 @@ repair_notes=<short row-specific notes, or none>
 
 ## Repair Workflow
 
-If frame inspection or final visual QA fails, read `qa/review.json`, regenerate the smallest failing row, copy the replacement row into the same decoded output path, and keep that job marked complete with the new `source_path` and `completed_at`. Repair the failed row, not the whole sheet.
+If frame inspection or final visual QA fails, read `qa/review.json`, explicitly
+reset the smallest failing job through the state manager, reclaim it, and
+complete the selected replacement through the same manager. Repair the failed
+row, not the whole sheet. Use `--cascade` only when progressed dependents also
+need an intentional reset.
 
 ## Rules
 
@@ -931,7 +995,7 @@ If frame inspection or final visual QA fails, read `qa/review.json`, regenerate 
 - If one look direction fails, strengthen the containing row's direction instructions and resynthesize the complete row. Do not patch the final cell directly, even when deterministic assembly supports individual-cell input.
 - Deterministically register each coherent look row, then run final-cell edge diagnostics and explicit labeled semantics immediately after generation, before expensive final atlas assembly. Run blind horizontal-and-vertical axis QA as soon as both coherent rows exist.
 - Never substitute locally drawn, tiled, transformed, or code-generated row strips for missing `$imagegen` outputs.
-- Only mark a visual job complete after its selected output has been copied into the decoded output path.
+- Only complete a visual job through the state manager with its active claim token and selected source.
 - Never mark a failed coherent row, diagnostic iteration, or one-off repair cell as packaging eligible.
 - Do not rely on generated images for exact atlas geometry; use this skill's deterministic image scripts.
 - Use the chroma key stored in `pet_request.json`; do not force a fixed green screen.

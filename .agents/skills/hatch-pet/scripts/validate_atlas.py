@@ -34,6 +34,9 @@ ROW_BY_INDEX = {
     10: ("look-180-to-337.5", 8),
 }
 EXTENDED_NEUTRAL_LOOK_FRAME = (0, 6)
+STANDARD_INTERMEDIATE_PHASE = "standard-intermediate"
+FINAL_V2_PHASE = "codex-pet-v2-final"
+LEGACY_FINAL_V2_PHASE = "final-v2"
 
 
 def parse_hex_color(value: str) -> tuple[int, int, int]:
@@ -135,8 +138,25 @@ def main() -> None:
     parser.add_argument("--allow-near-opaque-used-cells", action="store_true")
     parser.add_argument("--allow-chroma-leak", action="store_true")
     parser.add_argument("--allow-chroma-fringe", action="store_true")
-    parser.add_argument("--require-v2", action="store_true")
+    parser.add_argument(
+        "--phase",
+        choices=(STANDARD_INTERMEDIATE_PHASE, FINAL_V2_PHASE, LEGACY_FINAL_V2_PHASE),
+        help="artifact phase to validate (default: codex-pet-v2-final)",
+    )
+    parser.add_argument(
+        "--require-v2",
+        action="store_true",
+        help="compatibility alias for --phase codex-pet-v2-final",
+    )
     args = parser.parse_args()
+
+    if args.require_v2 and args.phase == STANDARD_INTERMEDIATE_PHASE:
+        parser.error("--require-v2 conflicts with --phase standard-intermediate")
+    artifact_phase = args.phase or FINAL_V2_PHASE
+    if artifact_phase == LEGACY_FINAL_V2_PHASE:
+        artifact_phase = FINAL_V2_PHASE
+    if args.require_v2:
+        artifact_phase = FINAL_V2_PHASE
 
     atlas_path = Path(args.atlas).expanduser().resolve()
     chroma_key = parse_hex_color(args.chroma_key)
@@ -156,18 +176,15 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     expected_heights = (
-        {EXTENDED_ATLAS_HEIGHT}
-        if args.require_v2
-        else {
-            ATLAS_HEIGHT,
-            EXTENDED_ATLAS_HEIGHT,
-        }
+        {ATLAS_HEIGHT}
+        if artifact_phase == STANDARD_INTERMEDIATE_PHASE
+        else {EXTENDED_ATLAS_HEIGHT}
     )
     if image.width != ATLAS_WIDTH or image.height not in expected_heights:
         expected = (
-            f"{ATLAS_WIDTH}x{EXTENDED_ATLAS_HEIGHT} for a v2 pet"
-            if args.require_v2
-            else f"{ATLAS_WIDTH}x{ATLAS_HEIGHT} or {ATLAS_WIDTH}x{EXTENDED_ATLAS_HEIGHT}"
+            f"{ATLAS_WIDTH}x{ATLAS_HEIGHT} for a standard-intermediate atlas"
+            if artifact_phase == STANDARD_INTERMEDIATE_PHASE
+            else f"{ATLAS_WIDTH}x{EXTENDED_ATLAS_HEIGHT} for a codex-pet-v2-final pet"
         )
         errors.append(f"expected {expected}, got {image.width}x{image.height}")
 
@@ -179,7 +196,9 @@ def main() -> None:
 
     row_count = image.height // CELL_HEIGHT
     is_extended_atlas = image.height == EXTENDED_ATLAS_HEIGHT
-    for row_index in range(row_count):
+    # Geometry errors must remain structured diagnostics.  Never index beyond
+    # the known contract rows when a malformed atlas is taller than expected.
+    for row_index in range(min(row_count, len(ROW_BY_INDEX))):
         state, frame_count = ROW_BY_INDEX[row_index]
         for column_index in range(COLUMNS):
             left = column_index * CELL_WIDTH
@@ -252,7 +271,7 @@ def main() -> None:
             errors.append(message)
 
     alpha_count = alpha_nonzero_count(image)
-    if alpha_count == ATLAS_WIDTH * ATLAS_HEIGHT:
+    if alpha_count == image.width * image.height:
         message = "atlas is fully opaque; custom pets require a transparent sprite background"
         if args.allow_opaque:
             warnings.append(message)
@@ -267,6 +286,9 @@ def main() -> None:
 
     result = {
         "ok": not errors,
+        "artifact_kind": "runtime-atlas",
+        "artifact_phase": artifact_phase,
+        "delivery_ready": not errors and artifact_phase == FINAL_V2_PHASE,
         "file": str(atlas_path),
         "format": source_format,
         "mode": source_mode,
@@ -278,6 +300,16 @@ def main() -> None:
         "transparent_rgb_residue_pixels": transparent_rgb_residue,
         "errors": errors,
         "warnings": warnings,
+        "next_step": (
+            "Fix the listed validation errors and rerun validation for this phase."
+            if errors
+            else (
+                "Run studio.py review stage-runtime for review-only playback, or "
+                "complete real look rows 9-10 with assemble_extended_atlas.py."
+                if artifact_phase == STANDARD_INTERMEDIATE_PHASE
+                else "Proceed to packaging only after required visual QA passes."
+            )
+        ),
         "cells": cells,
     }
 

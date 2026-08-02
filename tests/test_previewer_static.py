@@ -281,7 +281,7 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertNotIn("syncContext", self.app)
 
         load_config = self.app.split(
-            "async function loadConfig() {",
+            "async function loadConfig(requestedReviewContext) {",
             1,
         )[1].split(
             "function normalizeConfig(",
@@ -289,6 +289,8 @@ class PreviewerStaticTests(unittest.TestCase):
         )[0]
         self.assertIn("externalLoadFailed: false", load_config)
         self.assertIn("externalLoadFailed: true", load_config)
+        self.assertIn("selectedCandidateId", load_config)
+        self.assertIn("activeDiagnostic", load_config)
         boot = self.app.split(
             "async function boot() {",
             1,
@@ -296,13 +298,14 @@ class PreviewerStaticTests(unittest.TestCase):
             "\n  boot();",
             1,
         )[0]
-        self.assertIn("if (loaded.externalLoadFailed) {", boot)
-        self.assertIn("elements.configError.hidden = false;", boot)
-        self.assertIn("elements.workspace.hidden = true;", boot)
+        self.assertIn("if (loaded.globalDiagnostic) {", boot)
+        self.assertIn("if (loaded.activeDiagnostic) {", boot)
+        self.assertIn("showDiagnostic(loaded.globalDiagnostic", boot)
+        self.assertIn("showDiagnostic(loaded.activeDiagnostic", boot)
         self.assertIn("return;", boot)
         self.assertIn("restoreReviewContextFromUrl(requestedReviewContext);", boot)
         self.assertLess(
-            boot.index("if (loaded.externalLoadFailed) {"),
+            boot.index("if (loaded.globalDiagnostic) {"),
             boot.index("restoreReviewContextFromUrl(requestedReviewContext);"),
         )
 
@@ -458,6 +461,34 @@ class PreviewerStaticTests(unittest.TestCase):
         self.assertIn('staticTakes: "Static Image & Takes"', self.i18n)
         self.assertIn('static: "静态形象"', self.i18n)
         self.assertIn('staticTakes: "静态图与 Takes"', self.i18n)
+
+    def test_standard_intermediate_atlas_is_visibly_review_only(self) -> None:
+        self.assertIn('id="atlasPhaseBadge"', self.html)
+        self.assertIn(
+            'const STANDARD_INTERMEDIATE_PHASE = "standard-intermediate";',
+            self.app,
+        )
+        self.assertNotIn("function atlasRowsForVersion(version) {", self.app)
+        self.assertIn(
+            "version.atlasPhase === STANDARD_INTERMEDIATE_PHASE",
+            self.app,
+        )
+        self.assertIn(
+            "if (version.atlasPhase === STANDARD_INTERMEDIATE_PHASE) return false;",
+            self.app,
+        )
+        self.assertIn('t("ui.atlasPhaseReviewOnly")', self.app)
+        self.assertIn('atlasPhaseReviewOnly: "8×9 · REVIEW ONLY"', self.i18n)
+        self.assertIn('atlasPhaseReviewOnly: "8×9 · 仅供审阅"', self.i18n)
+        self.assertIn('code: "ATLAS_PHASE_MISMATCH"', self.app)
+        self.assertIn(
+            "deliveryTarget.atlas.rows *\n          deliveryTarget.atlas.cellHeightPx",
+            self.app,
+        )
+        self.assertIn(
+            "`${config.sprite.columns * 100}% ${config.sprite.rows * 100}%`",
+            self.app,
+        )
 
     def test_bundled_example_is_the_sanitized_raincoat_cat_pack(self) -> None:
         version_id = "example-raincoat-cat"
@@ -734,11 +765,11 @@ class PreviewerStaticTests(unittest.TestCase):
 
     def test_all_render_assets_are_preflighted_for_transparency(self) -> None:
         self.assertIn(
-            "async function assertTransparentProjectAssets(",
+            "async function assertTransparentCandidateAssets(",
             self.app,
         )
         self.assertIn(
-            "function projectAssetEntries(projectConfig, baseUrl)",
+            "function projectAssetEntries(\n    version,",
             self.app,
         )
         self.assertIn(
@@ -746,11 +777,11 @@ class PreviewerStaticTests(unittest.TestCase):
             self.app,
         )
         self.assertIn(
-            "function requireTransparentPixels(context, rect, label)",
+            "function requireTransparentPixels(context, rect, entry, field = entry.field)",
             self.app,
         )
         self.assertIn(
-            "Previewer only accepts transparent assets",
+            'code: "ASSET_FULLY_OPAQUE"',
             self.app,
         )
         self.assertIn(
@@ -762,26 +793,65 @@ class PreviewerStaticTests(unittest.TestCase):
             self.app,
         )
         load_config = self.app.split(
-            "async function loadConfig() {",
+            "async function loadConfig(requestedReviewContext) {",
             1,
         )[1].split(
             "function normalizeConfig(",
             1,
         )[0]
-        self.assertEqual(
-            3,
-            load_config.count("await assertTransparentProjectAssets("),
-        )
-        data_preflight = load_config.index(
-            "await assertTransparentProjectAssets(data"
-        )
-        self.assertLess(
-            data_preflight,
-            load_config.index(
-                "externalLoadFailed: false",
-                data_preflight,
-            ),
-        )
+        self.assertIn("const result = await inspectCandidate(selected", load_config)
+        self.assertNotIn("assertTransparentProjectAssets", self.app)
+        background = self.app.split(
+            "function startBackgroundCandidateDiagnostics(loaded) {",
+            1,
+        )[1].split("function resolveAssetUrl(", 1)[0]
+        self.assertIn("loaded.backgroundCandidates.map", background)
+        self.assertIn("Promise.allSettled(jobs)", background)
+        self.assertIn("trustedBundled: true", background)
+        self.assertIn("ASSET_PREFLIGHT_TIMEOUT_MS", self.app)
+
+    def test_candidate_isolation_has_typed_safe_diagnostics(self) -> None:
+        self.assertIn('role="alert"', self.html)
+        self.assertIn('tabindex="-1"', self.html)
+        for field in (
+            "configErrorConfig",
+            "configErrorCandidate",
+            "configErrorField",
+            "configErrorCode",
+            "configErrorExpected",
+            "configErrorActual",
+            "configErrorNextStep",
+        ):
+            self.assertIn(f'id="{field}"', self.html)
+        for code in (
+            "TARGET_MISMATCH",
+            "UNSAFE_ASSET_URL",
+            "DUPLICATE_STATE_ID",
+            "UNKNOWN_STATE_ID",
+            "ASSET_FULLY_OPAQUE",
+            "ATLAS_GEOMETRY_MISMATCH",
+        ):
+            self.assertIn(code, self.app)
+        self.assertIn("PROJECT_ASSET_URL_PATTERN", self.app)
+        self.assertIn("candidateUnavailableReasonSuffix", self.app)
+        self.assertIn('${unavailable ? "disabled" : ""}', self.app)
+        self.assertIn("safeConfigReference", self.app)
+        self.assertIn('if (resolved.protocol === "file:")', self.app)
+        self.assertIn('t("ui.localPreviewConfig")', self.app)
+        self.assertIn("sanitizedUrlFact", self.app)
+        self.assertIn('return "[local file]";', self.app)
+        self.assertIn('"[local path]"', self.app)
+        self.assertIn("DIAGNOSTIC_FACT_MAX_LENGTH", self.app)
+        self.assertIn("escapeHtml(safeFact(activeVersionId))", self.app)
+        self.assertIn('value="" selected disabled', self.app)
+        self.assertIn("Promise.allSettled(jobs)", self.app)
+        self.assertIn('candidateErrorTitle: "Candidate Preview Unavailable"', self.i18n)
+        self.assertIn('candidateErrorTitle: "当前方案暂不可预览"', self.i18n)
+
+    def test_legacy_candidate_ids_remain_compatible(self) -> None:
+        self.assertNotIn("CANDIDATE_ID_PATTERN", self.app)
+        self.assertIn('typeof version.id !== "string"', self.app)
+        self.assertIn("!version.id.trim()", self.app)
 
     def test_candidate_and_take_copy_is_localized(self) -> None:
         self.assertIn('version: "Candidate"', self.i18n)

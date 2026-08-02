@@ -112,6 +112,20 @@ the bundled `prepare-transparent-assets` skill for background separation,
 smooth alpha, hidden-RGB cleanup, and edge-color decontamination. This shared
 step applies to Static, Takes, and production—not only the final hatch.
 
+Before generation, Studio also checks whether a source already has a clear,
+flat saturated matte. A high-confidence matte is reused; ambiguous or
+conflicting source/style/request keys stop before any generation files are
+written. This contract chooses the background strategy without changing the
+alpha or edge-cleanup algorithm.
+
+Longer animation runs are resumable by row. Completed rows remain complete;
+timeouts and other transient transport failures receive finite same-input
+retries and backoff; after two consecutive transport failures, the manager
+enforces one active generation slot instead of three. Interrupted claims and
+orphaned outputs are surfaced for explicit recovery. Pet Studio does not
+provide or replace the external image generation backend—it preserves local
+progress when that backend or an Agent call is interrupted.
+
 Clicking a Take only auditions it. Previewer Confirm remembers a temporary
 choice for that browser session. To approve a visual decision, say so in the
 Codex conversation; Codex records the exact asset and the details that must
@@ -226,6 +240,25 @@ Previewer config, and returns the focused project URL. Codex chooses the
 Candidate ID and display name from the actual idea. Candidate names are
 semantic, not sequential release numbers: two Candidates may be different
 directions or entirely different pets.
+
+When real animation rows exist, grow that same Candidate with the official
+runtime review bridge instead of copying an atlas or editing Previewer JSON by
+hand:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-runtime \
+  --atlas path/to/spritesheet.png \
+  --candidate <semantic-candidate-id> \
+  --states all
+```
+
+The command validates the declared state cells and transparency, preserves the
+existing Static, stages the source and review asset atomically, and returns a
+Candidate-focused URL. A standard 8x9 atlas is explicitly
+`standard-intermediate`: Studio creates a review-only 8x11 projection without
+changing the source. It is never delivery-ready and still needs real look rows.
+A complete 8x11 atlas is accepted as final only when the real look cells and
+neutral reference are present. Do not pad an intermediate with empty rows.
 
 The core Studio CLI and Previewer are intentionally inspectable and
 dependency-free. Final pet production uses Codex's built-in image generation

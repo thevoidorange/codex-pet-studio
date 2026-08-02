@@ -70,6 +70,13 @@
           "minLength": 1,
           "pattern": "\\S"
         },
+        "atlasPhase": {
+          "type": "string",
+          "enum": [
+            "standard-intermediate",
+            "codex-pet-v2-final"
+          ]
+        },
         "static": {
           "$ref": "#/$defs/staticStudy"
         },
@@ -154,6 +161,52 @@
             "required": [
               "static"
             ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "atlasPhase"
+            ],
+            "properties": {
+              "atlasPhase": {
+                "const": "standard-intermediate"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "atlasUrl",
+              "lookDirectionsAvailable"
+            ],
+            "properties": {
+              "lookDirectionsAvailable": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "atlasPhase"
+            ],
+            "properties": {
+              "atlasPhase": {
+                "const": "codex-pet-v2-final"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "atlasUrl",
+              "lookDirectionsAvailable"
+            ],
+            "properties": {
+              "lookDirectionsAvailable": {
+                "const": true
+              }
+            }
           }
         }
       ],

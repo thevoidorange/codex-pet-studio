@@ -17,6 +17,44 @@ window.PET_PREVIEW_I18N = {
         configErrorTitle: "Project Preview Unavailable",
         configErrorBody:
           "The project Previewer config could not be loaded. Ask your coding agent to restage the current Candidate and reopen its focused Previewer URL.",
+        candidateErrorTitle: "Candidate Preview Unavailable",
+        diagnosticScopeGlobal: "PROJECT CONFIGURATION",
+        diagnosticScopeCandidate: "CANDIDATE VALIDATION",
+        globalDiagnosticSummary:
+          "This project cannot be opened until its project-level contract is repaired.",
+        candidateDiagnosticSummary:
+          "Candidate {candidate} failed closed. Other valid Candidates remain available.",
+        diagnosticConfig: "Config",
+        localPreviewConfig: "Local Previewer config",
+        diagnosticCandidate: "Candidate",
+        diagnosticField: "Field",
+        diagnosticCode: "Error code",
+        diagnosticExpected: "Expected",
+        diagnosticActual: "Actual",
+        diagnosticNextStep: "Next step",
+        diagnosticNextRestage:
+          "Restage this Candidate from its validated source and reopen the focused URL.",
+        diagnosticNextTarget:
+          "Regenerate the Previewer config for the currently selected Delivery Target.",
+        diagnosticNextConfig:
+          "Repair or regenerate the project Previewer config, then reload this URL.",
+        diagnosticNextSafeUrl:
+          "Use a config-relative asset path inside the staged Candidate directory.",
+        diagnosticNextStates:
+          "Declare only unique state IDs from the active Delivery Target.",
+        diagnosticNextAtlas:
+          "Rebuild or restage the atlas with the required target geometry and real declared rows.",
+        diagnosticNextTransparency:
+          "Prepare and restage a transparent derivative before opening it in Previewer.",
+        diagnosticNextCandidate:
+          "Open a focused URL for a Candidate that is present in this config.",
+        candidateUnavailableSuffix: " — unavailable",
+        candidateUnavailableReasonSuffix: " — unavailable · {code}",
+        candidateCheckingSuffix: " — checking",
+        notAvailable: "Not available",
+        atlasPhaseReviewOnly: "8×9 · REVIEW ONLY",
+        atlasPhaseReviewOnlyTitle:
+          "Standard intermediate atlas. Gaze directions are unavailable until real look rows are assembled into the final 8×11 atlas.",
         static: "Static",
         staticListAria: "Static character study",
         states: "States",
@@ -435,6 +473,44 @@ window.PET_PREVIEW_I18N = {
         configErrorTitle: "项目预览暂不可用",
         configErrorBody:
           "项目的 Previewer 配置未能加载。请让你的编程 Agent 重新登记当前方案，并打开它对应的 Previewer 链接。",
+        candidateErrorTitle: "当前方案暂不可预览",
+        diagnosticScopeGlobal: "项目配置",
+        diagnosticScopeCandidate: "方案校验",
+        globalDiagnosticSummary:
+          "这是项目级契约错误；修复前不会加载项目中的任何方案。",
+        candidateDiagnosticSummary:
+          "方案 {candidate} 已严格停止渲染；其他通过校验的方案仍可使用。",
+        diagnosticConfig: "配置",
+        localPreviewConfig: "本地 Previewer 配置",
+        diagnosticCandidate: "方案",
+        diagnosticField: "字段",
+        diagnosticCode: "错误代码",
+        diagnosticExpected: "预期",
+        diagnosticActual: "实际",
+        diagnosticNextStep: "下一步",
+        diagnosticNextRestage:
+          "请从已校验的源文件重新登记这个方案，再打开它的聚焦链接。",
+        diagnosticNextTarget:
+          "请按当前选中的 Delivery Target 重新生成 Previewer 配置。",
+        diagnosticNextConfig:
+          "请修复或重新生成项目 Previewer 配置，然后刷新当前链接。",
+        diagnosticNextSafeUrl:
+          "请使用位于已登记方案目录内、相对于配置文件的资源路径。",
+        diagnosticNextStates:
+          "请只声明当前 Delivery Target 中存在且不重复的状态 ID。",
+        diagnosticNextAtlas:
+          "请按目标尺寸和真实已声明行重新构建或登记图集。",
+        diagnosticNextTransparency:
+          "请先制作透明衍生图并重新登记，再在 Previewer 中打开。",
+        diagnosticNextCandidate:
+          "请打开当前配置中确实存在的方案对应的聚焦链接。",
+        candidateUnavailableSuffix: " — 不可用",
+        candidateUnavailableReasonSuffix: " — 不可用 · {code}",
+        candidateCheckingSuffix: " — 校验中",
+        notAvailable: "不可用",
+        atlasPhaseReviewOnly: "8×9 · 仅供审阅",
+        atlasPhaseReviewOnlyTitle:
+          "这是标准中间图集；完成真实视线行并组装为最终 8×11 图集前，不提供视线方向预览。",
         static: "静态形象",
         staticListAria: "静态形象方案",
         states: "状态",

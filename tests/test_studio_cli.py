@@ -4,6 +4,7 @@ import contextlib
 import http.server
 import importlib.util
 import inspect
+import io
 import json
 import os
 import re
@@ -134,6 +135,74 @@ def make_png(
     return result
 
 
+def make_runtime_atlas_png(
+    row_count: int,
+    *,
+    state_ids: tuple[str, ...],
+    include_look_directions: bool = False,
+    fully_opaque_cell: tuple[int, int] | None = None,
+) -> bytes:
+    target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+    atlas = target["atlas"]
+    width = atlas["columns"] * atlas["cellWidthPx"]
+    height = row_count * atlas["cellHeightPx"]
+    rows = [bytearray(width * 4) for _ in range(height)]
+    color = bytes((48, 72, 96, 255))
+
+    def paint_cell(row: int, column: int, fully_opaque: bool = False) -> None:
+        if fully_opaque:
+            left = column * atlas["cellWidthPx"]
+            right = left + atlas["cellWidthPx"]
+            top = row * atlas["cellHeightPx"]
+            bottom = top + atlas["cellHeightPx"]
+        else:
+            left = column * atlas["cellWidthPx"] + 40
+            right = left + 80
+            top = row * atlas["cellHeightPx"] + 40
+            bottom = top + 100
+        pixel_row = color * (right - left)
+        for y in range(top, bottom):
+            rows[y][left * 4 : right * 4] = pixel_row
+
+    selected = set(state_ids)
+    for state in target["states"]:
+        if state["id"] not in selected:
+            continue
+        for frame_index in range(len(state["durationsMs"])):
+            column = state["firstColumn"] + frame_index
+            paint_cell(
+                state["row"],
+                column,
+                fully_opaque_cell == (state["row"], column),
+            )
+
+    if include_look_directions:
+        for slot in target["lookDirections"]["slots"]:
+            paint_cell(slot["row"], slot["column"])
+        neutral = target["lookDirections"]["neutralReferenceSlot"]
+        paint_cell(neutral["row"], neutral["column"])
+
+    scanlines = b"".join(b"\x00" + bytes(row) for row in rows)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(
+            b"IHDR",
+            struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0),
+        )
+        + png_chunk(b"IDAT", zlib.compress(scanlines, level=9))
+        + png_chunk(b"IEND", b"")
+    )
+
+
+def make_runtime_atlas_webp(png_bytes: bytes) -> bytes:
+    from PIL import Image
+
+    output = io.BytesIO()
+    with Image.open(io.BytesIO(png_bytes)) as image:
+        image.save(output, format="WEBP", lossless=True, exact=True)
+    return output.getvalue()
+
+
 def make_header_only_png(width: int, height: int) -> bytes:
     return (
         b"\x89PNG\r\n\x1a\n"
@@ -228,6 +297,30 @@ class StudioCliTests(unittest.TestCase):
         pet_schema.parent.mkdir(parents=True, exist_ok=True)
         pet_schema.write_bytes(PET_SCHEMA.read_bytes())
         self.run_cli("target", "sync", "--root", str(root))
+
+    def stage_static_candidate(
+        self,
+        root: Path,
+        candidate_id: str = "runtime-candidate",
+    ) -> Path:
+        source = root / "design" / f"{candidate_id}-source.png"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(make_png(64, 64, alpha_mode="opaque"))
+        preview = root / "design" / f"{candidate_id}-transparent.png"
+        preview.write_bytes(make_png(64, 64, alpha_mode="mixed"))
+        self.run_cli(
+            "review",
+            "stage-static",
+            "--root",
+            str(root),
+            "--asset",
+            str(source),
+            "--preview-asset",
+            str(preview),
+            "--candidate",
+            candidate_id,
+        )
+        return root / "build" / "review" / "preview.json"
 
     def write_pet(self, root: Path, image: bytes, suffix: str = "png", version: int = 2) -> Path:
         pet_dir = root / "build" / "pet"
@@ -533,6 +626,252 @@ class StudioCliTests(unittest.TestCase):
                 opaque_without_preview.stderr,
             )
 
+    def test_review_stage_runtime_projects_intermediate_then_stages_final(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            config_path = self.stage_static_candidate(root)
+            original_config = json.loads(config_path.read_text(encoding="utf-8"))
+            original_static = original_config["versions"][0]["static"]
+
+            intermediate = root / "design" / "standard-intermediate.png"
+            intermediate_bytes = make_runtime_atlas_png(
+                9,
+                state_ids=("idle", "waving"),
+            )
+            intermediate.write_bytes(intermediate_bytes)
+            arguments = (
+                "review",
+                "stage-runtime",
+                "--root",
+                str(root),
+                "--atlas",
+                str(intermediate),
+                "--candidate",
+                "runtime-candidate",
+                "--states",
+                "waving,idle",
+                "--focus-state",
+                "waving",
+                "--port",
+                "8777",
+                "--json",
+            )
+
+            before = config_path.read_bytes()
+            checked = json.loads(self.run_cli(*arguments, "--check").stdout)
+            self.assertTrue(checked["checkOnly"])
+            self.assertEqual("standard-intermediate", checked["atlasPhase"])
+            self.assertTrue(checked["reviewOnly"])
+            self.assertTrue(checked["projected"])
+            self.assertEqual(["idle", "waving"], checked["stateIds"])
+            self.assertEqual(1872, checked["sourceHeight"])
+            self.assertEqual(2288, checked["reviewHeight"])
+            self.assertEqual(before, config_path.read_bytes())
+            self.assertFalse(
+                (
+                    root
+                    / "build"
+                    / "review"
+                    / "candidates"
+                    / "runtime-candidate"
+                    / "runtime"
+                ).exists()
+            )
+
+            staged = json.loads(self.run_cli(*arguments).stdout)
+            source_asset = Path(staged["sourceAsset"])
+            review_asset = Path(staged["asset"])
+            self.assertEqual(intermediate_bytes, source_asset.read_bytes())
+            review_bytes = review_asset.read_bytes()
+            self.assertEqual((1536, 2288), struct.unpack(">II", review_bytes[16:24]))
+            candidate = json.loads(config_path.read_text(encoding="utf-8"))["versions"][0]
+            self.assertEqual(original_static, candidate["static"])
+            self.assertEqual("standard-intermediate", candidate["atlasPhase"])
+            self.assertEqual(["idle", "waving"], candidate["stateIds"])
+            self.assertFalse(candidate["lookDirectionsAvailable"])
+            query = urllib.parse.parse_qs(
+                urllib.parse.urlsplit(staged["reviewUrl"]).query
+            )
+            self.assertEqual(["runtime-candidate"], query["candidate"])
+            self.assertEqual(["waving"], query["state"])
+            self.assertEqual(["1"], query["frame"])
+            self.assertEqual(["original"], query["take"])
+
+            target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+            target_state_ids = tuple(state["id"] for state in target["states"])
+            final = root / "design" / "final-v2.png"
+            final_bytes = make_runtime_atlas_png(
+                11,
+                state_ids=target_state_ids,
+                include_look_directions=True,
+            )
+            final.write_bytes(final_bytes)
+            final_payload = json.loads(
+                self.run_cli(
+                    "review",
+                    "stage-runtime",
+                    "--root",
+                    str(root),
+                    "--atlas",
+                    str(final),
+                    "--candidate",
+                    "runtime-candidate",
+                    "--states",
+                    "all",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual("codex-pet-v2-final", final_payload["atlasPhase"])
+            self.assertFalse(final_payload["reviewOnly"])
+            self.assertFalse(final_payload["projected"])
+            self.assertTrue(final_payload["lookDirectionsAvailable"])
+            self.assertEqual(final_bytes, Path(final_payload["sourceAsset"]).read_bytes())
+            self.assertEqual(final_bytes, Path(final_payload["asset"]).read_bytes())
+            self.assertTrue(review_asset.is_file())
+            final_candidate = json.loads(config_path.read_text(encoding="utf-8"))["versions"][0]
+            self.assertEqual(original_static, final_candidate["static"])
+            self.assertEqual("codex-pet-v2-final", final_candidate["atlasPhase"])
+            self.assertEqual(list(target_state_ids), final_candidate["stateIds"])
+            self.assertTrue(final_candidate["lookDirectionsAvailable"])
+
+    def test_review_stage_runtime_rejects_invalid_phase_states_and_lock(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            config_path = self.stage_static_candidate(root)
+            target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+            target_state_ids = tuple(state["id"] for state in target["states"])
+
+            intermediate = root / "design" / "standard-intermediate.png"
+            intermediate.write_bytes(
+                make_runtime_atlas_png(9, state_ids=("idle",))
+            )
+            base = (
+                "review",
+                "stage-runtime",
+                "--root",
+                str(root),
+                "--atlas",
+                str(intermediate),
+                "--candidate",
+                "runtime-candidate",
+            )
+            duplicate = self.run_cli(
+                *base,
+                "--states",
+                "idle,idle",
+                "--check",
+                expected=1,
+            )
+            self.assertIn("duplicate state ids", duplicate.stderr)
+            unknown = self.run_cli(
+                *base,
+                "--states",
+                "not-a-state",
+                "--check",
+                expected=1,
+            )
+            self.assertIn("unknown state ids", unknown.stderr)
+
+            padded = root / "design" / "padded-final.png"
+            padded.write_bytes(
+                make_runtime_atlas_png(11, state_ids=target_state_ids)
+            )
+            padded_result = self.run_cli(
+                *base[:5],
+                str(padded),
+                *base[6:],
+                "--states",
+                "all",
+                "--check",
+                expected=1,
+            )
+            self.assertIn("look-", padded_result.stderr)
+            self.assertIn("fully transparent", padded_result.stderr)
+
+            opaque = root / "design" / "opaque-cell.png"
+            opaque.write_bytes(
+                make_runtime_atlas_png(
+                    9,
+                    state_ids=("idle",),
+                    fully_opaque_cell=(0, 0),
+                )
+            )
+            opaque_result = self.run_cli(
+                *base[:5],
+                str(opaque),
+                *base[6:],
+                "--states",
+                "idle",
+                "--check",
+                expected=1,
+            )
+            self.assertIn("idle/frame-1 is fully opaque", opaque_result.stderr)
+
+            locked_config = config_path.read_bytes()
+            lock_path = config_path.parent / f".{config_path.name}.take.lock"
+            lock_path.write_text(f"{os.getpid()}\n", encoding="ascii")
+            try:
+                locked = self.run_cli(
+                    *base,
+                    "--states",
+                    "idle",
+                    expected=1,
+                )
+            finally:
+                lock_path.unlink(missing_ok=True)
+            self.assertIn("Another Previewer config writer", locked.stderr)
+            self.assertEqual(locked_config, config_path.read_bytes())
+            self.assertFalse(
+                (
+                    root
+                    / "build"
+                    / "review"
+                    / "candidates"
+                    / "runtime-candidate"
+                    / "runtime"
+                ).exists()
+            )
+
+    def test_runtime_transaction_removes_only_its_new_directories_on_cas_failure(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            config_path = self.stage_static_candidate(root)
+            studio = load_studio_module()
+            target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+            config_value, before = studio.load_preview_config(config_path, target)
+            runtime_dir = (
+                config_path.parent
+                / "candidates"
+                / "runtime-candidate"
+                / "runtime"
+            )
+            source = runtime_dir / "source-probe.png"
+            asset = runtime_dir / "review-probe.png"
+
+            with self.assertRaisesRegex(studio.StudioError, "changed during Runtime staging"):
+                studio.atomic_stage_runtime_candidate(
+                    config_path,
+                    config_value,
+                    ((source, b"source"), (asset, b"review")),
+                    target,
+                    expected_config_bytes=b"stale-config",
+                )
+
+            self.assertEqual(before, config_path.read_bytes())
+            self.assertFalse(source.exists())
+            self.assertFalse(asset.exists())
+            self.assertFalse(runtime_dir.exists())
+            self.assertTrue(runtime_dir.parent.is_dir())
+
     def test_take_help_and_preview_schema_are_available(self) -> None:
         help_result = self.run_cli("take", "--help")
         self.assertIn("add", help_result.stdout)
@@ -542,6 +881,10 @@ class StudioCliTests(unittest.TestCase):
         target_ref = schema["properties"]["deliveryTarget"]
         self.assertEqual(["id", "revision"], target_ref["required"])
         frame_group = schema["$defs"]["frameTakeGroup"]
+        self.assertEqual(
+            ["standard-intermediate", "codex-pet-v2-final"],
+            schema["$defs"]["candidate"]["properties"]["atlasPhase"]["enum"],
+        )
         self.assertNotIn("oneOf", frame_group)
         self.assertNotIn("maximum", frame_group["properties"]["frameIndex"])
         self.assertNotIn("maximum", schema["$defs"]["atlasSlot"]["properties"]["row"])
@@ -911,10 +1254,21 @@ class StudioCliTests(unittest.TestCase):
                     studio.validate_take_asset_url(unsafe, "assetUrl")
 
     def test_validate_png_and_webp_v2(self) -> None:
-        for suffix, image in (
-            ("png", make_png(1536, 2288)),
-            ("webp", make_webp_vp8x(1536, 2288)),
-        ):
+        target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+        state_ids = tuple(state["id"] for state in target["states"])
+        png = make_runtime_atlas_png(
+            11,
+            state_ids=state_ids,
+            include_look_directions=True,
+        )
+        images = [("png", png)]
+        try:
+            images.append(("webp", make_runtime_atlas_webp(png)))
+        except ModuleNotFoundError:
+            # The repository CLI remains dependency-free for PNG.  The
+            # bundled production runtime exercises WebP pixel validation.
+            pass
+        for suffix, image in images:
             with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 self.initialize(root)
@@ -924,6 +1278,21 @@ class StudioCliTests(unittest.TestCase):
                 self.assertEqual(payload["width"], 1536)
                 self.assertEqual(payload["height"], 2288)
                 self.assertEqual(payload["format"].casefold(), suffix)
+                self.assertTrue(payload["pixelValidated"])
+
+    def test_validate_rejects_transparent_look_row_padding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            target = json.loads(DELIVERY_TARGET.read_text(encoding="utf-8"))
+            state_ids = tuple(state["id"] for state in target["states"])
+            self.write_pet(
+                root,
+                make_runtime_atlas_png(11, state_ids=state_ids),
+            )
+            result = self.run_cli("validate", "--root", str(root), expected=1)
+            self.assertIn("look-", result.stderr)
+            self.assertIn("fully transparent", result.stderr)
 
     def test_validate_rejects_v1_and_bad_dimensions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1587,7 +1956,19 @@ class StudioCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.initialize(root)
-            self.write_pet(root, make_png(1536, 2288))
+            target_contract = json.loads(
+                DELIVERY_TARGET.read_text(encoding="utf-8")
+            )
+            self.write_pet(
+                root,
+                make_runtime_atlas_png(
+                    11,
+                    state_ids=tuple(
+                        state["id"] for state in target_contract["states"]
+                    ),
+                    include_look_directions=True,
+                ),
+            )
             missing = subprocess.run(
                 [sys.executable, str(SCRIPT), "install", "--root", str(root)],
                 text=True,

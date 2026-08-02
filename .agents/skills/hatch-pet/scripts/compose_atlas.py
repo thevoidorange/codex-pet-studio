@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Compose or normalize a Codex pet spritesheet atlas."""
+"""Compose the standard-intermediate 8x9 Codex pet runtime atlas."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from PIL import Image
@@ -27,6 +28,12 @@ ROW_SPECS = [
     ("review", 8, 6),
 ]
 IMAGE_SUFFIXES = {".png", ".webp", ".jpg", ".jpeg"}
+ARTIFACT_KIND = "runtime-atlas"
+ARTIFACT_PHASE = "standard-intermediate"
+NEXT_STEP = (
+    "Run studio.py review stage-runtime for review-only playback, or complete "
+    "real look rows 9-10 with assemble_extended_atlas.py."
+)
 
 
 def image_files(path: Path) -> list[Path]:
@@ -141,6 +148,7 @@ def main() -> None:
     source.add_argument("--frames-root")
     parser.add_argument("--output", required=True)
     parser.add_argument("--webp-output")
+    parser.add_argument("--json-out")
     parser.add_argument(
         "--resize-source",
         action="store_true",
@@ -160,9 +168,37 @@ def main() -> None:
         Path(args.output).expanduser().resolve(),
         Path(args.webp_output).expanduser().resolve() if args.webp_output else None,
     )
-    print(f"wrote {Path(args.output).expanduser().resolve()}")
+    output = Path(args.output).expanduser().resolve()
+    webp_output = (
+        Path(args.webp_output).expanduser().resolve()
+        if args.webp_output
+        else None
+    )
+    result = {
+        "ok": True,
+        "artifact_kind": ARTIFACT_KIND,
+        "artifact_phase": ARTIFACT_PHASE,
+        "delivery_ready": False,
+        "columns": COLUMNS,
+        "rows": ROWS,
+        "width": ATLAS_WIDTH,
+        "height": ATLAS_HEIGHT,
+        "output": str(output),
+        "webp_output": str(webp_output) if webp_output else None,
+        "next_step": NEXT_STEP,
+    }
+    if args.json_out:
+        json_path = Path(args.json_out).expanduser().resolve()
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {output}")
     if args.webp_output:
-        print(f"wrote {Path(args.webp_output).expanduser().resolve()}")
+        print(f"wrote {webp_output}")
+    print(
+        f"phase: {ARTIFACT_PHASE} — {COLUMNS}x{ROWS}, "
+        f"{ATLAS_WIDTH}x{ATLAS_HEIGHT}, review-only; not packageable"
+    )
+    print(f"next: {NEXT_STEP}")
 
 
 if __name__ == "__main__":

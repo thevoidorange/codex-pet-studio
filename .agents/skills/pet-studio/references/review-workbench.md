@@ -156,12 +156,33 @@ If the config or asset is invalid, repair or report that project handoff.
 Never substitute the bundled Example, fabricate a placeholder, or claim that a
 private image cannot be previewed merely because no atlas exists.
 
-As animation work begins, add `atlasUrl` and an exact `stateIds` subset to the
-same Candidate. A subset may contain one state. Missing states remain absent
-from state navigation, playback, and timing surfaces. Add a state only when its
-real row exists. Set `lookDirectionsAvailable` only when that review asset
-exists. Complete target coverage is a later production requirement, not a
-Previewer startup requirement.
+As animation work begins, grow the same Candidate through the deterministic
+runtime bridge rather than copying assets or editing JSON:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-runtime \
+  --atlas <path-to-transparent-runtime-png> \
+  --candidate <semantic-candidate-id> \
+  --states <all-or-comma-separated-real-state-ids>
+```
+
+Use `--check --json` for a zero-write plan. On success the command preserves
+Static and existing Takes, stages content-addressed source and review assets,
+sets the exact `stateIds`, and returns a focused URL. A subset may contain one
+state. Missing states remain absent from navigation, playback, and timing.
+
+An 8x9 source is `standard-intermediate`. The bridge preserves it exactly and
+creates an internal transparent 8x11 projection only for review; the Candidate
+is marked review-only and has no look directions. A complete 8x11 source is
+`codex-pet-v2-final` only after every real look cell and the neutral reference
+pass pixel validation. Never hand-pad an intermediate or treat a projection as
+packaging evidence. Complete target coverage is a later production gate.
+
+Candidate failure is scoped. A focused or default Candidate remains
+fail-closed and never falls back to another Candidate or the bundled Example.
+An invalid sibling stays visible as unavailable with a safe diagnostic, but it
+does not block a healthy focus. Global schema, target, and asset-boundary
+failures still block the whole project.
 
 ## URL contract
 

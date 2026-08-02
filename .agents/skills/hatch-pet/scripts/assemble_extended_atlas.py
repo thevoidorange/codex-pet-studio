@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble a standard Codex pet atlas plus 16 look-direction frames."""
+"""Assemble the codex-pet-v2-final atlas with 16 real look directions."""
 
 from __future__ import annotations
 
@@ -61,6 +61,11 @@ IMAGE_SUFFIXES = {".png", ".webp", ".jpg", ".jpeg"}
 MIN_DETACHED_COMPONENT_PIXELS = 128
 DEFAULT_EDGE_MARGIN = 2
 DEFAULT_EDGE_PIXEL_THRESHOLD = 24
+ARTIFACT_KIND = "runtime-atlas"
+ARTIFACT_PHASE = "codex-pet-v2-final"
+NEXT_STEP = (
+    "Run validate_atlas.py --phase codex-pet-v2-final before packaging."
+)
 
 
 class CellGeometry:
@@ -488,6 +493,10 @@ def paste_neutral_cell(
 
 def write_manifest(path: Path, atlas_path: Path) -> None:
     manifest = {
+        "artifactKind": ARTIFACT_KIND,
+        "artifactPhase": ARTIFACT_PHASE,
+        "deliveryReady": False,
+        "nextStep": NEXT_STEP,
         "spritesheetPath": atlas_path.name,
         "spritesheetLayout": {
             "columns": COLUMNS,
@@ -641,6 +650,11 @@ def main() -> None:
             manifest_output, Path(args.webp_output or args.output).expanduser().resolve()
         )
         print(f"wrote {manifest_output}")
+    print(
+        f"phase: {ARTIFACT_PHASE} — {COLUMNS}x{EXTENDED_ROWS}, "
+        f"{ATLAS_WIDTH}x{EXTENDED_ATLAS_HEIGHT}; validation required"
+    )
+    print(f"next: {NEXT_STEP}")
 
 
 if __name__ == "__main__":

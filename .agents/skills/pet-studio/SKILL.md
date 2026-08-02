@@ -100,6 +100,24 @@ deliberately. Use the returned project-focused URL. Read
 [review-workbench.md](references/review-workbench.md) for candidate updates,
 safe URL restoration, and progressive runtime coverage.
 
+When a transparent runtime atlas exists for that same Candidate, use the
+official bridge:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-runtime \
+  --atlas <path-to-transparent-rgba-png> \
+  --candidate <existing-semantic-candidate-id> \
+  --states <all-or-comma-separated-real-state-ids>
+```
+
+Run it with `--check` first when the input or config provenance is uncertain.
+The command preserves Static evidence, writes source plus review assets and
+config atomically, and returns a focused Candidate/state URL. It infers the
+artifact phase from validated pixels: 8x9 becomes a review-only
+`standard-intermediate` projection; a real-look 8x11 atlas becomes
+`codex-pet-v2-final`. Never edit `atlasUrl`/`stateIds` manually or pad an atlas
+with empty rows.
+
 ## Use one decision loop
 
 For each creative round:
@@ -230,6 +248,12 @@ duplicate an available row, synthesize a placeholder, or borrow the bundled
 Example to imply coverage. Static remains independently reviewable while
 runtime states accumulate. Require complete target coverage only at the
 production or release gate that actually needs it.
+
+Candidate validation is scoped but never permissive. Project-level schema,
+Delivery Target, and asset-boundary failures block the project. The focused or
+default Candidate must pass its own structural and asset checks before render.
+An invalid sibling may be diagnosed and disabled without blocking a healthy
+focus; never silently switch to another Candidate or the bundled Example.
 
 ## Produce, maintain, and release
 

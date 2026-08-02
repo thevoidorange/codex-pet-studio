@@ -10,9 +10,46 @@
   </head>
   <body>
     <main class="app-shell">
-      <section id="configError" class="config-error" role="alert" hidden>
-        <h1 data-i18n="ui.configErrorTitle"></h1>
-        <p data-i18n="ui.configErrorBody"></p>
+      <section
+        id="configError"
+        class="config-error"
+        role="alert"
+        tabindex="-1"
+        hidden
+      >
+        <p id="configErrorScope" class="eyebrow"></p>
+        <h1 id="configErrorTitle"></h1>
+        <p id="configErrorSummary"></p>
+        <dl class="diagnostic-facts">
+          <div>
+            <dt data-i18n="ui.diagnosticConfig"></dt>
+            <dd id="configErrorConfig"></dd>
+          </div>
+          <div id="configErrorCandidateRow">
+            <dt data-i18n="ui.diagnosticCandidate"></dt>
+            <dd id="configErrorCandidate"></dd>
+          </div>
+          <div id="configErrorFieldRow">
+            <dt data-i18n="ui.diagnosticField"></dt>
+            <dd id="configErrorField"></dd>
+          </div>
+          <div>
+            <dt data-i18n="ui.diagnosticCode"></dt>
+            <dd id="configErrorCode"></dd>
+          </div>
+          <div id="configErrorExpectedRow">
+            <dt data-i18n="ui.diagnosticExpected"></dt>
+            <dd id="configErrorExpected"></dd>
+          </div>
+          <div id="configErrorActualRow">
+            <dt data-i18n="ui.diagnosticActual"></dt>
+            <dd id="configErrorActual"></dd>
+          </div>
+          <div>
+            <dt data-i18n="ui.diagnosticNextStep"></dt>
+            <dd id="configErrorNextStep"></dd>
+          </div>
+        </dl>
       </section>
 
       <header id="topbar" class="topbar">
@@ -131,7 +168,10 @@
               <span></span>
             </div>
             <div class="stage-status" aria-live="polite">
-              <span id="stageModeLabel"></span>
+              <span class="stage-mode-status">
+                <span id="stageModeLabel"></span>
+                <span id="atlasPhaseBadge" class="atlas-phase-badge" hidden></span>
+              </span>
               <span id="frameReadout"></span>
             </div>
           </div>

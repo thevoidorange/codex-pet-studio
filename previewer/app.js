@@ -10,9 +10,15 @@
   const PREVIEW_SIZE_INITIAL_PX = 160;
   const LOOK_ORBIT_STEP_MS = 120;
   const TOUR_PROGRESS_STEP_MS = 160;
+  const ASSET_PREFLIGHT_TIMEOUT_MS = 8000;
+  const STANDARD_INTERMEDIATE_PHASE = "standard-intermediate";
+  const FINAL_V2_PHASE = "codex-pet-v2-final";
+  const DIAGNOSTIC_FACT_MAX_LENGTH = 180;
+  const URL_FACT_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"']+/gi;
   const KEYFRAME_COLUMNS = 4;
   const ORIGINAL_TAKE_ID = "original";
   const STATIC_STATE_ID = "static";
+  const PROJECT_ASSET_URL_PATTERN = /^(?:\.\/)?(?!\.\.(?:\/|$))[A-Za-z0-9._~-]+(?:\/(?!\.\.(?:\/|$))[A-Za-z0-9._~-]+)*$/;
   const REVIEW_CONTEXT_PARAMS = Object.freeze({
     candidate: "candidate",
     state: "state",
@@ -23,8 +29,23 @@
   const elements = {
     animationControls: document.querySelector("#animationControls"),
     animationTab: document.querySelector("#animationTab"),
+    atlasPhaseBadge: document.querySelector("#atlasPhaseBadge"),
     autoPlayStatesToggle: document.querySelector("#autoPlayStatesToggle"),
     configError: document.querySelector("#configError"),
+    configErrorActual: document.querySelector("#configErrorActual"),
+    configErrorActualRow: document.querySelector("#configErrorActualRow"),
+    configErrorCandidate: document.querySelector("#configErrorCandidate"),
+    configErrorCandidateRow: document.querySelector("#configErrorCandidateRow"),
+    configErrorCode: document.querySelector("#configErrorCode"),
+    configErrorConfig: document.querySelector("#configErrorConfig"),
+    configErrorExpected: document.querySelector("#configErrorExpected"),
+    configErrorExpectedRow: document.querySelector("#configErrorExpectedRow"),
+    configErrorField: document.querySelector("#configErrorField"),
+    configErrorFieldRow: document.querySelector("#configErrorFieldRow"),
+    configErrorNextStep: document.querySelector("#configErrorNextStep"),
+    configErrorScope: document.querySelector("#configErrorScope"),
+    configErrorSummary: document.querySelector("#configErrorSummary"),
+    configErrorTitle: document.querySelector("#configErrorTitle"),
     directionList: document.querySelector("#directionList"),
     directionTarget: document.querySelector("#directionTarget"),
     endlessModeButton: document.querySelector("#endlessModeButton"),
@@ -76,6 +97,9 @@
 
   let config = null;
   let configBaseUrl = window.location.href;
+  let activeDiagnostic = null;
+  let configReference = "";
+  const candidateAvailability = new Map();
   let reviewContextReady = false;
   let reviewFocus = {
     candidateId: "",
@@ -232,6 +256,112 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  class PreviewDiagnosticError extends Error {
+    constructor(diagnostic, cause = null) {
+      super(diagnostic.code);
+      this.name = "PreviewDiagnosticError";
+      this.diagnostic = diagnostic;
+      this.cause = cause;
+    }
+  }
+
+  function boundedDiagnosticFact(value) {
+    if (value.length <= DIAGNOSTIC_FACT_MAX_LENGTH) return value;
+    return `${value.slice(0, DIAGNOSTIC_FACT_MAX_LENGTH - 1)}…`;
+  }
+
+  function sanitizedUrlFact(value) {
+    try {
+      const url = new URL(value);
+      if (url.protocol === "file:") return "[local file]";
+      if (!["http:", "https:"].includes(url.protocol)) {
+        return "[external URL]";
+      }
+      const sensitivePath =
+        /^\/(?:Users|home|private|tmp|Volumes)(?:\/|$)/i.test(
+          url.pathname,
+        ) || /^\/var\/folders(?:\/|$)/i.test(url.pathname);
+      return (
+        `${url.protocol}//${url.host}` +
+        `${sensitivePath ? "/[local path]" : url.pathname}` +
+        `${url.search ? "?…" : ""}`
+      );
+    } catch {
+      return "[invalid URL]";
+    }
+  }
+
+  function safeFact(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const urls = [];
+    let text = Array.isArray(value) ? value.join(", ") : String(value);
+    text = text
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(URL_FACT_PATTERN, (url) => {
+        const index = urls.push(sanitizedUrlFact(url)) - 1;
+        return `DIAGNOSTIC_URL_${index}_TOKEN`;
+      })
+      .replace(
+        /(^|[\s([{=:'"])(\/(?!\/)[^\s<>"'`;,)\]}]*)/g,
+        (_match, prefix) => `${prefix}[local path]`,
+      )
+      .replace(/\b[A-Za-z]:\\[^\s<>"'`;,)\]}]*/g, "[local path]");
+    urls.forEach((url, index) => {
+      text = text.replace(`DIAGNOSTIC_URL_${index}_TOKEN`, url);
+    });
+    return boundedDiagnosticFact(text);
+  }
+
+  function makeDiagnostic({
+    scope,
+    code,
+    candidateId = "",
+    field = "",
+    expected = "",
+    actual = "",
+    nextStepKey = "ui.diagnosticNextRestage",
+  }) {
+    return Object.freeze({
+      scope,
+      code,
+      configRef: configReference || "preview config",
+      candidateId: safeFact(candidateId),
+      field: safeFact(field),
+      expected: safeFact(expected),
+      actual: safeFact(actual),
+      nextStepKey,
+    });
+  }
+
+  function failDiagnostic(facts, cause = null) {
+    throw new PreviewDiagnosticError(makeDiagnostic(facts), cause);
+  }
+
+  function diagnosticFromError(error, fallback) {
+    if (error instanceof PreviewDiagnosticError) return error.diagnostic;
+    return makeDiagnostic(fallback);
+  }
+
+  function safeConfigReference(url) {
+    try {
+      const resolved = new URL(url, window.location.href);
+      if (resolved.protocol === "file:") return t("ui.localPreviewConfig");
+      if (!["http:", "https:"].includes(resolved.protocol)) {
+        return "preview config";
+      }
+      const sensitivePath =
+        /^\/(?:Users|home|private|tmp|Volumes)(?:\/|$)/i.test(
+          resolved.pathname,
+        ) || /^\/var\/folders(?:\/|$)/i.test(resolved.pathname);
+      return boundedDiagnosticFact(
+        `${sensitivePath ? "/[local path]" : resolved.pathname}` +
+          `${resolved.search ? "?…" : ""}`,
+      );
+    } catch {
+      return "preview config";
+    }
+  }
+
   function targetBackedConfig() {
     if (
       !deliveryTarget ||
@@ -281,50 +411,300 @@
       requested.id !== deliveryTarget.id ||
       requested.revision !== deliveryTarget.revision
     ) {
-      throw new Error(
-        `Preview config requires unsupported Delivery Target ${String(
-          requested.id,
-        )} revision ${String(requested.revision)}.`,
-      );
+      failDiagnostic({
+        scope: "global",
+        code: "TARGET_MISMATCH",
+        field: "deliveryTarget",
+        expected: `${deliveryTarget.id} revision ${deliveryTarget.revision}`,
+        actual: `${safeFact(requested.id)} revision ${safeFact(requested.revision)}`,
+        nextStepKey: "ui.diagnosticNextTarget",
+      });
     }
   }
 
-  function assertReviewableProjectConfig(projectConfig) {
+  function declaredCandidateAssetReferences(version) {
+    const references = [];
+    const add = (value, field) => {
+      if (value !== undefined && value !== null) references.push({ value, field });
+    };
+    add(version && version.atlasUrl, "atlasUrl");
+    if (version && version.static) {
+      add(version.static.assetUrl, "static.assetUrl");
+      if (Array.isArray(version.static.takes)) {
+        version.static.takes.forEach((take, index) => {
+          add(take && take.assetUrl, `static.takes[${index}].assetUrl`);
+        });
+      }
+    }
+    if (version && Array.isArray(version.frameTakes)) {
+      version.frameTakes.forEach((group, groupIndex) => {
+        if (!group || !Array.isArray(group.takes)) return;
+        group.takes.forEach((take, takeIndex) => {
+          if (take && Object.prototype.hasOwnProperty.call(take, "assetUrl")) {
+            add(
+              take.assetUrl,
+              `frameTakes[${groupIndex}].takes[${takeIndex}].assetUrl`,
+            );
+          }
+        });
+      });
+    }
+    return references;
+  }
+
+  function assertSafeProjectAssetReference(reference, candidateId) {
+    if (
+      typeof reference.value !== "string" ||
+      !PROJECT_ASSET_URL_PATTERN.test(reference.value)
+    ) {
+      failDiagnostic({
+        scope: "global",
+        code: "UNSAFE_ASSET_URL",
+        candidateId,
+        field: `Candidate ${candidateId}.${reference.field}`,
+        expected: "a config-relative path without .., query, or fragment",
+        actual: "unsafe or invalid asset reference",
+        nextStepKey: "ui.diagnosticNextSafeUrl",
+      });
+    }
+  }
+
+  function assertProjectEnvelope(projectConfig, { trustedBundled = false } = {}) {
     if (
       !projectConfig ||
+      projectConfig.schemaVersion !== 1 ||
+      !projectConfig.pet ||
+      typeof projectConfig.pet.name !== "string" ||
+      !projectConfig.pet.name.trim() ||
       !Array.isArray(projectConfig.versions) ||
       projectConfig.versions.length === 0
     ) {
-      throw new Error("Project Previewer config has no Candidates.");
+      failDiagnostic({
+        scope: "global",
+        code: "CONFIG_INVALID",
+        field: "schemaVersion, pet, or versions",
+        expected: "schemaVersion 1 with a named pet and at least one Candidate",
+        actual: "missing or invalid project config fields",
+        nextStepKey: "ui.diagnosticNextRestage",
+      });
     }
-    projectConfig.versions.forEach((version) => {
-      const hasStatic =
-        version &&
-        version.static &&
-        typeof version.static.assetUrl === "string" &&
-        Boolean(version.static.assetUrl.trim());
-      const hasAtlas =
-        version &&
-        typeof version.atlasUrl === "string" &&
-        Boolean(version.atlasUrl.trim());
+    assertCompatibleTarget(projectConfig);
+    const ids = new Set();
+    projectConfig.versions.forEach((version, index) => {
       if (
         !version ||
         typeof version.id !== "string" ||
-        !version.id.trim() ||
-        (!hasStatic && !hasAtlas)
+        !version.id.trim()
       ) {
-        throw new Error("Project Previewer config has an invalid Candidate.");
+        failDiagnostic({
+          scope: "global",
+          code: "CONFIG_INVALID",
+          field: `versions[${index}].id`,
+          expected: "a unique non-empty Candidate id",
+          actual: "missing or invalid Candidate id",
+        });
+      }
+      if (ids.has(version.id)) {
+        failDiagnostic({
+          scope: "global",
+          code: "DUPLICATE_CANDIDATE_ID",
+          candidateId: version.id,
+          field: `versions[${index}].id`,
+          expected: "a unique Candidate id",
+          actual: version.id,
+        });
+      }
+      ids.add(version.id);
+      if (!trustedBundled) {
+        declaredCandidateAssetReferences(version).forEach((reference) =>
+          assertSafeProjectAssetReference(reference, version.id),
+        );
       }
     });
   }
 
-  function resolveSafeProjectAssetUrl(path, baseUrl, label) {
+  function assertReviewableCandidate(version) {
+    const candidateId = version.id;
+    const hasStatic = Boolean(
+      version.static &&
+        typeof version.static.assetUrl === "string" &&
+        version.static.assetUrl,
+    );
+    const hasAtlas =
+      typeof version.atlasUrl === "string" && Boolean(version.atlasUrl);
+    if (!hasStatic && !hasAtlas) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "CANDIDATE_INVALID",
+        candidateId,
+        field: `Candidate ${candidateId}`,
+        expected: "a Static asset or runtime atlas",
+        actual: "no reviewable asset",
+      });
+    }
+    if (version.stateIds !== undefined) {
+      if (
+        !Array.isArray(version.stateIds) ||
+        version.stateIds.some((stateId) => typeof stateId !== "string")
+      ) {
+        failDiagnostic({
+          scope: "candidate",
+          code: "INVALID_STATE_IDS",
+          candidateId,
+          field: `Candidate ${candidateId}.stateIds`,
+          expected: "an array of Delivery Target state ids",
+          actual: "invalid stateIds",
+          nextStepKey: "ui.diagnosticNextStates",
+        });
+      }
+      const uniqueIds = new Set(version.stateIds);
+      if (uniqueIds.size !== version.stateIds.length) {
+        failDiagnostic({
+          scope: "candidate",
+          code: "DUPLICATE_STATE_ID",
+          candidateId,
+          field: `Candidate ${candidateId}.stateIds`,
+          expected: "each state exactly once",
+          actual: version.stateIds,
+          nextStepKey: "ui.diagnosticNextStates",
+        });
+      }
+      const knownIds = new Set(deliveryTarget.states.map((state) => state.id));
+      const unknownIds = version.stateIds.filter((stateId) => !knownIds.has(stateId));
+      if (unknownIds.length) {
+        failDiagnostic({
+          scope: "candidate",
+          code: "UNKNOWN_STATE_ID",
+          candidateId,
+          field: `Candidate ${candidateId}.stateIds`,
+          expected: [...knownIds],
+          actual: unknownIds,
+          nextStepKey: "ui.diagnosticNextStates",
+        });
+      }
+      if (version.stateIds.length > 0 && !hasAtlas) {
+        failDiagnostic({
+          scope: "candidate",
+          code: "MISSING_ATLAS",
+          candidateId,
+          field: `Candidate ${candidateId}.atlasUrl`,
+          expected: "an atlas for declared runtime states",
+          actual: "missing",
+          nextStepKey: "ui.diagnosticNextAtlas",
+        });
+      }
+      if (version.stateIds.length === 0 && !hasStatic) {
+        failDiagnostic({
+          scope: "candidate",
+          code: "MISSING_STATE",
+          candidateId,
+          field: `Candidate ${candidateId}.stateIds`,
+          expected: "at least one state or a Static study",
+          actual: "no reviewable state",
+          nextStepKey: "ui.diagnosticNextStates",
+        });
+      }
+    }
+    if (
+      version.lookDirectionsAvailable !== undefined &&
+      typeof version.lookDirectionsAvailable !== "boolean"
+    ) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "INVALID_LOOK_DIRECTIONS",
+        candidateId,
+        field: `Candidate ${candidateId}.lookDirectionsAvailable`,
+        expected: "true or false",
+        actual: version.lookDirectionsAvailable,
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+    if (version.lookDirectionsAvailable === true && !hasAtlas) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "MISSING_ATLAS",
+        candidateId,
+        field: `Candidate ${candidateId}.atlasUrl`,
+        expected: "an atlas for look directions",
+        actual: "missing",
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+    const atlasPhase = version.atlasPhase;
+    if (
+      atlasPhase !== undefined &&
+      ![STANDARD_INTERMEDIATE_PHASE, FINAL_V2_PHASE].includes(atlasPhase)
+    ) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "INVALID_ATLAS_PHASE",
+        candidateId,
+        field: `Candidate ${candidateId}.atlasPhase`,
+        expected: [STANDARD_INTERMEDIATE_PHASE, FINAL_V2_PHASE],
+        actual: atlasPhase,
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+    if (atlasPhase !== undefined && !hasAtlas) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "MISSING_ATLAS",
+        candidateId,
+        field: `Candidate ${candidateId}.atlasPhase`,
+        expected: "atlasUrl for a declared atlas phase",
+        actual: "missing atlasUrl",
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+    if (
+      atlasPhase === STANDARD_INTERMEDIATE_PHASE &&
+      version.lookDirectionsAvailable !== false
+    ) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "ATLAS_PHASE_MISMATCH",
+        candidateId,
+        field: `Candidate ${candidateId}.lookDirectionsAvailable`,
+        expected: "false for a standard-intermediate review atlas",
+        actual: version.lookDirectionsAvailable,
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+    if (
+      atlasPhase === FINAL_V2_PHASE &&
+      version.lookDirectionsAvailable !== true
+    ) {
+      failDiagnostic({
+        scope: "candidate",
+        code: "ATLAS_PHASE_MISMATCH",
+        candidateId,
+        field: `Candidate ${candidateId}.lookDirectionsAvailable`,
+        expected: "true for a codex-pet-v2-final atlas",
+        actual: version.lookDirectionsAvailable,
+        nextStepKey: "ui.diagnosticNextAtlas",
+      });
+    }
+  }
+
+  function resolveSafeProjectAssetUrl(
+    path,
+    baseUrl,
+    { candidateId, field, trustedBundled = false },
+  ) {
     if (
       typeof path !== "string" ||
       !path.trim() ||
-      !/^[A-Za-z0-9._~!$&*+,/:@?%#=-]+$/.test(path.trim())
+      (!trustedBundled && !PROJECT_ASSET_URL_PATTERN.test(path.trim()))
     ) {
-      throw new Error(`${label} has an invalid asset URL.`);
+      failDiagnostic({
+        scope: trustedBundled ? "candidate" : "global",
+        code: "UNSAFE_ASSET_URL",
+        candidateId,
+        field,
+        expected: "a safe config-relative asset path",
+        actual: "unsafe or invalid asset reference",
+        nextStepKey: "ui.diagnosticNextSafeUrl",
+      });
     }
     const url = new URL(path.trim(), baseUrl);
     const base = new URL(baseUrl, window.location.href);
@@ -334,7 +714,15 @@
       url.username ||
       url.password
     ) {
-      throw new Error(`${label} must use a same-origin HTTP asset URL.`);
+      failDiagnostic({
+        scope: trustedBundled ? "candidate" : "global",
+        code: "UNSAFE_ASSET_URL",
+        candidateId,
+        field,
+        expected: "a same-origin HTTP asset URL without credentials",
+        actual: "unsafe asset origin",
+        nextStepKey: "ui.diagnosticNextSafeUrl",
+      });
     }
     return url.href;
   }
@@ -402,79 +790,126 @@
     return [...cells.values()];
   }
 
-  function projectAssetEntries(projectConfig, baseUrl) {
+  function projectAssetEntries(
+    version,
+    baseUrl,
+    { trustedBundled = false } = {},
+  ) {
     const entries = [];
-    projectConfig.versions.forEach((version) => {
-      const versionLabel = `Candidate ${String(version.id)}`;
-      if (version.static && version.static.assetUrl) {
-        entries.push({
-          url: resolveSafeProjectAssetUrl(
-            version.static.assetUrl,
-            baseUrl,
-            `${versionLabel} Static`,
-          ),
-          label: `${versionLabel} Static`,
-          kind: "standalone",
-        });
-        if (Array.isArray(version.static.takes)) {
-          version.static.takes.forEach((take) => {
-            if (!take || !take.assetUrl) return;
-            entries.push({
-              url: resolveSafeProjectAssetUrl(
-                take.assetUrl,
-                baseUrl,
-                `${versionLabel} Static Take ${String(take.id)}`,
-              ),
-              label: `${versionLabel} Static Take ${String(take.id)}`,
-              kind: "standalone",
-            });
-          });
-        }
-      }
-      if (version.atlasUrl) {
-        entries.push({
-          url: resolveSafeProjectAssetUrl(
-            version.atlasUrl,
-            baseUrl,
-            `${versionLabel} atlas`,
-          ),
-          label: `${versionLabel} atlas`,
-          kind: "atlas",
-          cells: atlasCellsForVersion(version),
-        });
-      }
-      if (Array.isArray(version.frameTakes)) {
-        version.frameTakes.forEach((group) => {
-          if (!group || !Array.isArray(group.takes)) return;
-          group.takes.forEach((take) => {
-            if (!take || !take.assetUrl) return;
-            entries.push({
-              url: resolveSafeProjectAssetUrl(
-                take.assetUrl,
-                baseUrl,
-                `${versionLabel} runtime Take ${String(take.id)}`,
-              ),
-              label: `${versionLabel} runtime Take ${String(take.id)}`,
-              kind: "runtime-take",
-            });
+    const versionLabel = `Candidate ${String(version.id)}`;
+    const resolveEntryUrl = (path, field) =>
+      resolveSafeProjectAssetUrl(path, baseUrl, {
+        candidateId: version.id,
+        field,
+        trustedBundled,
+      });
+    if (version.static && version.static.assetUrl) {
+      const field = `Candidate ${version.id}.static.assetUrl`;
+      entries.push({
+        url: resolveEntryUrl(version.static.assetUrl, field),
+        label: `${versionLabel} Static`,
+        field,
+        kind: "standalone",
+        candidateId: version.id,
+      });
+      if (Array.isArray(version.static.takes)) {
+        version.static.takes.forEach((take, index) => {
+          if (!take || !take.assetUrl) return;
+          const takeField =
+            `Candidate ${version.id}.static.takes[${index}].assetUrl`;
+          entries.push({
+            url: resolveEntryUrl(take.assetUrl, takeField),
+            label: `${versionLabel} Static Take ${String(take.id)}`,
+            field: takeField,
+            kind: "standalone",
+            candidateId: version.id,
           });
         });
       }
-    });
+    }
+    if (version.atlasUrl) {
+      const field = `Candidate ${version.id}.atlasUrl`;
+      entries.push({
+        url: resolveEntryUrl(version.atlasUrl, field),
+        label: `${versionLabel} atlas`,
+        field,
+        kind: "atlas",
+        cells: atlasCellsForVersion(version),
+        candidateId: version.id,
+      });
+    }
+    if (Array.isArray(version.frameTakes)) {
+      version.frameTakes.forEach((group, groupIndex) => {
+        if (!group || !Array.isArray(group.takes)) return;
+        group.takes.forEach((take, takeIndex) => {
+          if (!take || !take.assetUrl) return;
+          const field =
+            `Candidate ${version.id}.frameTakes[${groupIndex}]` +
+            `.takes[${takeIndex}].assetUrl`;
+          entries.push({
+            url: resolveEntryUrl(take.assetUrl, field),
+            label: `${versionLabel} runtime Take ${String(take.id)}`,
+            field,
+            kind: "runtime-take",
+            candidateId: version.id,
+          });
+        });
+      });
+    }
     return entries;
   }
 
-  function loadAssetForPreflight(assetUrl, label) {
+  function loadAssetForPreflight(entry) {
     return new Promise((resolve, reject) => {
       const probe = new Image();
+      let settled = false;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        callback(value);
+      };
+      const timeoutId = window.setTimeout(
+        () =>
+          finish(
+            reject,
+            new PreviewDiagnosticError(
+              makeDiagnostic({
+                scope: "candidate",
+                code: "ASSET_LOAD_TIMEOUT",
+                candidateId: entry.candidateId,
+                field: entry.field,
+                expected: "a locally readable staged asset",
+                actual: "asset load timed out",
+                nextStepKey: "ui.diagnosticNextRestage",
+              }),
+            ),
+          ),
+        ASSET_PREFLIGHT_TIMEOUT_MS,
+      );
       probe.decoding = "async";
-      probe.addEventListener("load", () => resolve(probe), { once: true });
+      probe.addEventListener("load", () => finish(resolve, probe), {
+        once: true,
+      });
       probe.addEventListener(
         "error",
-        () => reject(new Error(`${label} could not be decoded.`)),
+        () =>
+          finish(
+            reject,
+            new PreviewDiagnosticError(
+              makeDiagnostic({
+                scope: "candidate",
+                code: "ASSET_DECODE_FAILED",
+                candidateId: entry.candidateId,
+                field: entry.field,
+                expected: "a decodable transparent image",
+                actual: "asset could not be decoded",
+              }),
+            ),
+          ),
         { once: true },
       );
-      probe.src = assetUrl;
+      probe.src = entry.url;
     });
   }
 
@@ -490,7 +925,7 @@
     return { hasVisible, hasTransparent };
   }
 
-  function requireTransparentPixels(context, rect, label) {
+  function requireTransparentPixels(context, rect, entry, field = entry.field) {
     const pixels = context.getImageData(
       rect.x,
       rect.y,
@@ -499,22 +934,40 @@
     ).data;
     const facts = alphaFacts(pixels);
     if (!facts.hasVisible) {
-      throw new Error(`${label} is fully transparent.`);
+      failDiagnostic({
+        scope: "candidate",
+        code: "ASSET_FULLY_TRANSPARENT",
+        candidateId: entry.candidateId,
+        field,
+        expected: "visible pixels with transparent background",
+        actual: "fully transparent",
+      });
     }
     if (!facts.hasTransparent) {
-      throw new Error(
-        `${label} is fully opaque; Previewer only accepts transparent assets.`,
-      );
+      failDiagnostic({
+        scope: "candidate",
+        code: "ASSET_FULLY_OPAQUE",
+        candidateId: entry.candidateId,
+        field,
+        expected: "visible pixels with transparent background",
+        actual: "fully opaque",
+        nextStepKey: "ui.diagnosticNextTransparency",
+      });
     }
   }
 
-  async function assertTransparentProjectAssets(projectConfig, baseUrl) {
-    const entries = projectAssetEntries(projectConfig, baseUrl);
+  async function assertTransparentCandidateAssets(
+    version,
+    baseUrl,
+    { trustedBundled = false } = {},
+  ) {
+    assertReviewableCandidate(version);
+    const entries = projectAssetEntries(version, baseUrl, { trustedBundled });
     const imageCache = new Map();
     for (const entry of entries) {
       let imagePromise = imageCache.get(entry.url);
       if (!imagePromise) {
-        imagePromise = loadAssetForPreflight(entry.url, entry.label);
+        imagePromise = loadAssetForPreflight(entry);
         imageCache.set(entry.url, imagePromise);
       }
       const image = await imagePromise;
@@ -526,7 +979,14 @@
         willReadFrequently: true,
       });
       if (!context) {
-        throw new Error("Previewer could not inspect asset transparency.");
+        failDiagnostic({
+          scope: "candidate",
+          code: "ASSET_INSPECTION_FAILED",
+          candidateId: entry.candidateId,
+          field: entry.field,
+          expected: "browser transparency inspection",
+          actual: "canvas unavailable",
+        });
       }
       context.drawImage(image, 0, 0);
       if (entry.kind === "atlas") {
@@ -540,9 +1000,15 @@
           image.naturalWidth !== expectedWidth ||
           image.naturalHeight !== expectedHeight
         ) {
-          throw new Error(
-            `${entry.label} must be ${expectedWidth}x${expectedHeight}.`,
-          );
+          failDiagnostic({
+            scope: "candidate",
+            code: "ATLAS_GEOMETRY_MISMATCH",
+            candidateId: entry.candidateId,
+            field: entry.field,
+            expected: `${expectedWidth}x${expectedHeight}`,
+            actual: `${image.naturalWidth}x${image.naturalHeight}`,
+            nextStepKey: "ui.diagnosticNextAtlas",
+          });
         }
         entry.cells.forEach((cell) => {
           requireTransparentPixels(
@@ -553,7 +1019,8 @@
               width: deliveryTarget.atlas.cellWidthPx,
               height: deliveryTarget.atlas.cellHeightPx,
             },
-            cell.label,
+            entry,
+            `Candidate ${entry.candidateId}.atlas.${cell.label}`,
           );
         });
       } else {
@@ -562,11 +1029,17 @@
           (image.naturalWidth !== deliveryTarget.atlas.cellWidthPx ||
             image.naturalHeight !== deliveryTarget.atlas.cellHeightPx)
         ) {
-          throw new Error(
-            `${entry.label} must be ` +
+          failDiagnostic({
+            scope: "candidate",
+            code: "ASSET_GEOMETRY_MISMATCH",
+            candidateId: entry.candidateId,
+            field: entry.field,
+            expected:
               `${deliveryTarget.atlas.cellWidthPx}x` +
-              `${deliveryTarget.atlas.cellHeightPx}.`,
-          );
+              `${deliveryTarget.atlas.cellHeightPx}`,
+            actual: `${image.naturalWidth}x${image.naturalHeight}`,
+            nextStepKey: "ui.diagnosticNextAtlas",
+          });
         }
         requireTransparentPixels(
           context,
@@ -576,7 +1049,7 @@
             width: image.naturalWidth,
             height: image.naturalHeight,
           },
-          entry.label,
+          entry,
         );
       }
     }
@@ -640,20 +1113,94 @@
     return [...versions, example];
   }
 
-  async function loadConfig() {
+  async function inspectCandidate(
+    version,
+    baseUrl,
+    { trustedBundled = false } = {},
+  ) {
+    try {
+      await assertTransparentCandidateAssets(version, baseUrl, {
+        trustedBundled,
+      });
+      return { status: "valid", diagnostic: null };
+    } catch (error) {
+      console.warn(`Could not validate Candidate ${version.id}.`, error);
+      return {
+        status: "invalid",
+        diagnostic: diagnosticFromError(error, {
+          scope: "candidate",
+          code: "CANDIDATE_INVALID",
+          candidateId: version.id,
+          field: `Candidate ${version.id}`,
+          expected: "a reviewable Candidate",
+          actual: "validation failed",
+        }),
+      };
+    }
+  }
+
+  function preferredCandidate(projectConfig, requestedCandidateId) {
+    if (requestedCandidateId !== null) {
+      return (
+        projectConfig.versions.find(
+          (version) => version.id === requestedCandidateId,
+        ) || null
+      );
+    }
+    return (
+      projectConfig.versions.find((version) => version.isDefault) ||
+      projectConfig.versions[0]
+    );
+  }
+
+  async function loadConfig(requestedReviewContext) {
+    candidateAvailability.clear();
     const configUrl = new URLSearchParams(window.location.search).get("config");
     if (!configUrl) {
+      configReference = safeConfigReference(window.location.href);
       try {
-        assertReviewableProjectConfig(bundledConfig);
-        await assertTransparentProjectAssets(
+        assertProjectEnvelope(bundledConfig, { trustedBundled: true });
+        const selected = preferredCandidate(
           bundledConfig,
-          window.location.href,
+          requestedReviewContext.candidateId,
         );
+        if (!selected) {
+          const diagnostic = makeDiagnostic({
+            scope: "focus",
+            code: "CANDIDATE_NOT_FOUND",
+            candidateId: requestedReviewContext.candidateId,
+            field: "candidate",
+            expected: bundledConfig.versions.map((version) => version.id),
+            actual: requestedReviewContext.candidateId,
+            nextStepKey: "ui.diagnosticNextCandidate",
+          });
+          return {
+            data: bundledConfig,
+            baseUrl: window.location.href,
+            isExternal: false,
+            externalLoadFailed: false,
+            globalDiagnostic: null,
+            activeDiagnostic: diagnostic,
+            selectedCandidateId: requestedReviewContext.candidateId,
+            backgroundCandidates: [...bundledConfig.versions],
+          };
+        }
+        candidateAvailability.set(selected.id, { status: "checking" });
+        const result = await inspectCandidate(selected, window.location.href, {
+          trustedBundled: true,
+        });
+        candidateAvailability.set(selected.id, result);
         return {
           data: bundledConfig,
           baseUrl: window.location.href,
           isExternal: false,
           externalLoadFailed: false,
+          globalDiagnostic: null,
+          activeDiagnostic: result.diagnostic,
+          selectedCandidateId: selected.id,
+          backgroundCandidates: bundledConfig.versions.filter(
+            (version) => version.id !== selected.id,
+          ),
         };
       } catch (error) {
         console.warn("Could not validate bundled preview assets.", error);
@@ -662,29 +1209,92 @@
           baseUrl: window.location.href,
           isExternal: false,
           externalLoadFailed: true,
+          globalDiagnostic: diagnosticFromError(error, {
+            scope: "global",
+            code: "CONFIG_INVALID",
+            field: "bundled Previewer config",
+            expected: "a valid bundled Example",
+            actual: "validation failed",
+          }),
+          activeDiagnostic: null,
+          selectedCandidateId: "",
+          backgroundCandidates: [],
         };
       }
     }
 
     try {
       const resolvedUrl = new URL(configUrl, window.location.href);
+      configReference = safeConfigReference(resolvedUrl.href);
       const response = await window.fetch(resolvedUrl);
       if (!response.ok) {
-        throw new Error(`Config request failed with ${response.status}`);
+        failDiagnostic({
+          scope: "global",
+          code: "CONFIG_FETCH_FAILED",
+          field: "config",
+          expected: "HTTP 200",
+          actual: `HTTP ${response.status}`,
+          nextStepKey: "ui.diagnosticNextConfig",
+        });
       }
-      const data = await response.json();
-      assertCompatibleTarget(data);
-      assertReviewableProjectConfig(data);
-      await assertTransparentProjectAssets(data, resolvedUrl.href);
-      await assertTransparentProjectAssets(
-        bundledConfig,
-        window.location.href,
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        failDiagnostic(
+          {
+            scope: "global",
+            code: "CONFIG_JSON_INVALID",
+            field: "config",
+            expected: "valid JSON",
+            actual: "JSON could not be decoded",
+            nextStepKey: "ui.diagnosticNextConfig",
+          },
+          error,
+        );
+      }
+      assertProjectEnvelope(data);
+      data.versions.forEach((version) =>
+        candidateAvailability.set(version.id, { status: "checking" }),
       );
+      const selected = preferredCandidate(
+        data,
+        requestedReviewContext.candidateId,
+      );
+      if (!selected) {
+        const diagnostic = makeDiagnostic({
+          scope: "focus",
+          code: "CANDIDATE_NOT_FOUND",
+          candidateId: requestedReviewContext.candidateId,
+          field: "candidate",
+          expected: data.versions.map((version) => version.id),
+          actual: requestedReviewContext.candidateId,
+          nextStepKey: "ui.diagnosticNextCandidate",
+        });
+        return {
+          data,
+          baseUrl: resolvedUrl.href,
+          isExternal: true,
+          externalLoadFailed: false,
+          globalDiagnostic: null,
+          activeDiagnostic: diagnostic,
+          selectedCandidateId: requestedReviewContext.candidateId,
+          backgroundCandidates: [...data.versions],
+        };
+      }
+      const result = await inspectCandidate(selected, resolvedUrl.href);
+      candidateAvailability.set(selected.id, result);
       return {
         data,
         baseUrl: resolvedUrl.href,
         isExternal: true,
         externalLoadFailed: false,
+        globalDiagnostic: null,
+        activeDiagnostic: result.diagnostic,
+        selectedCandidateId: selected.id,
+        backgroundCandidates: data.versions.filter(
+          (version) => version.id !== selected.id,
+        ),
       };
     } catch (error) {
       console.warn("Could not load external preview config.", error);
@@ -693,6 +1303,17 @@
         baseUrl: window.location.href,
         isExternal: false,
         externalLoadFailed: true,
+        globalDiagnostic: diagnosticFromError(error, {
+          scope: "global",
+          code: "CONFIG_FETCH_FAILED",
+          field: "config",
+          expected: "a readable project config",
+          actual: "request failed",
+          nextStepKey: "ui.diagnosticNextConfig",
+        }),
+        activeDiagnostic: null,
+        selectedCandidateId: "",
+        backgroundCandidates: [],
       };
     }
   }
@@ -738,6 +1359,39 @@
     return normalized;
   }
 
+  function applyCandidateAvailability(candidateId, result) {
+    candidateAvailability.set(candidateId, result);
+    if (config) populateVersionSelect();
+    if (candidateId === activeVersionId && result.status === "invalid") {
+      showDiagnostic(result.diagnostic, { global: false, focus: true });
+    }
+  }
+
+  function startBackgroundCandidateDiagnostics(loaded) {
+    const jobs = loaded.backgroundCandidates.map((version) =>
+      inspectCandidate(version, loaded.baseUrl).then((result) => {
+        applyCandidateAvailability(version.id, result);
+        return result;
+      }),
+    );
+    const bundledExample = config.versions.find(
+      (version) => version.isBundledExample,
+    );
+    if (bundledExample) {
+      candidateAvailability.set(bundledExample.id, { status: "checking" });
+      jobs.push(
+        inspectCandidate(bundledExample, window.location.href, {
+          trustedBundled: true,
+        }).then((result) => {
+          applyCandidateAvailability(bundledExample.id, result);
+          return result;
+        }),
+      );
+    }
+    populateVersionSelect();
+    void Promise.allSettled(jobs);
+  }
+
   function resolveAssetUrl(path, version = null) {
     if (!path) return null;
     try {
@@ -752,10 +1406,7 @@
   }
 
   function currentVersion() {
-    return (
-      config.versions.find((version) => version.id === activeVersionId) ||
-      config.versions[0]
-    );
+    return config.versions.find((version) => version.id === activeVersionId) || null;
   }
 
   function staticReviewState(version) {
@@ -815,6 +1466,7 @@
   function currentVersionSupportsLook() {
     const version = currentVersion();
     if (!version || !version.atlasUrl) return false;
+    if (version.atlasPhase === STANDARD_INTERMEDIATE_PHASE) return false;
     if (typeof version.lookDirectionsAvailable === "boolean") {
       return version.lookDirectionsAvailable;
     }
@@ -1969,6 +2621,67 @@
     setSpriteFrame(take.atlasSlot.row, take.atlasSlot.column, target);
   }
 
+  function setDiagnosticRow(row, output, value) {
+    const visible = Boolean(value);
+    row.hidden = !visible;
+    output.textContent = visible ? value : "";
+  }
+
+  function showDiagnostic(
+    diagnostic,
+    { global = diagnostic.scope === "global", focus = false } = {},
+  ) {
+    activeDiagnostic = diagnostic;
+    elements.configErrorScope.textContent = t(
+      global ? "ui.diagnosticScopeGlobal" : "ui.diagnosticScopeCandidate",
+    );
+    elements.configErrorTitle.textContent = t(
+      global ? "ui.configErrorTitle" : "ui.candidateErrorTitle",
+    );
+    elements.configErrorSummary.textContent = t(
+      global ? "ui.globalDiagnosticSummary" : "ui.candidateDiagnosticSummary",
+      { candidate: diagnostic.candidateId || t("ui.notAvailable") },
+    );
+    elements.configErrorConfig.textContent =
+      diagnostic.configRef || t("ui.notAvailable");
+    elements.configErrorCode.textContent = diagnostic.code;
+    setDiagnosticRow(
+      elements.configErrorCandidateRow,
+      elements.configErrorCandidate,
+      diagnostic.candidateId,
+    );
+    setDiagnosticRow(
+      elements.configErrorFieldRow,
+      elements.configErrorField,
+      diagnostic.field,
+    );
+    setDiagnosticRow(
+      elements.configErrorExpectedRow,
+      elements.configErrorExpected,
+      diagnostic.expected,
+    );
+    setDiagnosticRow(
+      elements.configErrorActualRow,
+      elements.configErrorActual,
+      diagnostic.actual,
+    );
+    elements.configErrorNextStep.textContent = t(diagnostic.nextStepKey);
+    elements.configError.hidden = false;
+    elements.topbar.hidden = global;
+    elements.workspace.hidden = true;
+    elements.mechanicsBoard.hidden = true;
+    elements.previewFooter.hidden = true;
+    if (focus) elements.configError.focus({ preventScroll: true });
+  }
+
+  function hideDiagnostic() {
+    activeDiagnostic = null;
+    elements.configError.hidden = true;
+    elements.topbar.hidden = false;
+    elements.workspace.hidden = false;
+    elements.previewFooter.hidden = false;
+  }
+
   function applyStaticTranslations() {
     document.documentElement.lang = locale;
     document.title = t("documentTitle");
@@ -1996,13 +2709,41 @@
   }
 
   function populateVersionSelect() {
-    elements.versionSelect.innerHTML = config.versions
+    const options = config.versions
       .map(
-        (version) =>
-          `<option value="${escapeHtml(version.id)}">${escapeHtml(versionLabel(version))}</option>`,
+        (version) => {
+          const availability = candidateAvailability.get(version.id) || {
+            status: "checking",
+          };
+          const unavailable = availability.status !== "valid";
+          const suffix =
+            availability.status === "invalid"
+              ? t("ui.candidateUnavailableReasonSuffix", {
+                  code: availability.diagnostic.code,
+                })
+              : availability.status === "checking"
+                ? t("ui.candidateCheckingSuffix")
+                : "";
+          return (
+            `<option value="${escapeHtml(version.id)}" ` +
+            `${unavailable ? "disabled" : ""}>` +
+            `${escapeHtml(versionLabel(version))}${escapeHtml(suffix)}</option>`
+          );
+        },
       )
       .join("");
-    elements.versionSelect.value = activeVersionId;
+    const missingFocusedCandidate =
+      activeVersionId &&
+      !config.versions.some((version) => version.id === activeVersionId);
+    elements.versionSelect.innerHTML = missingFocusedCandidate
+      ? '<option value="" selected disabled>' +
+        `${escapeHtml(safeFact(activeVersionId))}${escapeHtml(
+          t("ui.candidateUnavailableSuffix"),
+        )}</option>${options}`
+      : options;
+    if (!missingFocusedCandidate) {
+      elements.versionSelect.value = activeVersionId;
+    }
   }
 
   function renderStateList() {
@@ -2736,6 +3477,16 @@
   }
 
   function renderControlLabels() {
+    const reviewOnly =
+      currentVersion() &&
+      currentVersion().atlasPhase === STANDARD_INTERMEDIATE_PHASE;
+    elements.atlasPhaseBadge.hidden = !reviewOnly;
+    elements.atlasPhaseBadge.textContent = reviewOnly
+      ? t("ui.atlasPhaseReviewOnly")
+      : "";
+    elements.atlasPhaseBadge.title = reviewOnly
+      ? t("ui.atlasPhaseReviewOnlyTitle")
+      : "";
     elements.playPauseButton.textContent = isInspectingFrame
       ? t("ui.play")
       : t("ui.pause");
@@ -3605,6 +4356,16 @@
       (version) => version.id === versionId,
     );
     if (!nextVersion) return;
+    const availability = candidateAvailability.get(nextVersion.id);
+    if (!availability || availability.status !== "valid") {
+      if (availability && availability.diagnostic) {
+        showDiagnostic(availability.diagnostic, {
+          global: false,
+          focus: true,
+        });
+      }
+      return;
+    }
 
     clearFrameTakeState();
     const previousStateId = currentState() ? currentState().id : null;
@@ -3612,6 +4373,8 @@
     const wasInspectingFrame = isInspectingFrame;
     clearFrameTimer();
     activeVersionId = nextVersion.id;
+    hideDiagnostic();
+    reviewContextReady = true;
     const nextStates = currentReviewStates();
     const preservedStateIndex = nextStates.findIndex(
       (state) => state.id === previousStateId,
@@ -3657,6 +4420,12 @@
     applyStaticTranslations();
     populateLanguageSelect();
     populateVersionSelect();
+    if (activeDiagnostic) {
+      showDiagnostic(activeDiagnostic, {
+        global: activeDiagnostic.scope === "global",
+      });
+      return;
+    }
     renderStateList();
     if (sectionMode === "look") renderLookDetails();
     else renderDetails();
@@ -3787,39 +4556,34 @@
 
   }
 
-  function initialVersionId() {
-    const defaultVersion = config.versions.find(
-      (version) => version.isDefault,
-    );
-    return (defaultVersion || config.versions[0]).id;
-  }
-
   async function boot() {
     const requestedReviewContext = readReviewContextFromUrl();
-    const loaded = await loadConfig();
+    const loaded = await loadConfig(requestedReviewContext);
     configBaseUrl = loaded.baseUrl;
     config = normalizeConfig(loaded.data, loaded.isExternal);
-    if (loaded.externalLoadFailed) {
-      applyStaticTranslations();
-      elements.configError.hidden = false;
-      elements.topbar.hidden = true;
-      elements.workspace.hidden = true;
-      elements.mechanicsBoard.hidden = true;
-      elements.previewFooter.hidden = true;
-      return;
-    }
-    activeVersionId = initialVersionId();
+    activeVersionId = loaded.selectedCandidateId;
 
     applyStaticTranslations();
     populateLanguageSelect();
     populateVersionSelect();
+    attachEvents();
+    if (loaded.globalDiagnostic) {
+      showDiagnostic(loaded.globalDiagnostic, { global: true, focus: true });
+      return;
+    }
+    if (loaded.activeDiagnostic) {
+      showDiagnostic(loaded.activeDiagnostic, { global: false, focus: true });
+      startBackgroundCandidateDiagnostics(loaded);
+      return;
+    }
+
+    hideDiagnostic();
     renderStateList();
     renderDirectionList();
     renderFrameStrip();
     renderMechanicsBoard();
     renderControlLabels();
     renderTourStatus();
-    attachEvents();
     setBackground(activeBackground);
     setPreviewSize(previewSizePx);
     setState(0);
@@ -3827,6 +4591,7 @@
     restoreReviewContextFromUrl(requestedReviewContext);
     reviewContextReady = true;
     syncReviewContextToUrl();
+    startBackgroundCandidateDiagnostics(loaded);
   }
 
   boot();

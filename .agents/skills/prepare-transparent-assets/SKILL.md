@@ -37,6 +37,12 @@ glow; when only one opaque composite is available, use the strategy's
 conservative review-quality approximation and state the limitation. A
 Delivery Target's required key overrides the near-white default.
 
+When an opaque source already appears to have a flat saturated matte, use the
+shared border/corner detector as contract evidence before selecting another
+key. Reuse only a high-confidence candidate; require an explicit decision for
+medium confidence. A conflicting source, request, style-note, or Delivery
+Target key is a pre-generation error, not permission to tune raster cleanup.
+
 Source-matte planning is upstream of the two deterministic raster stages. It
 does not combine background separation with alpha cleanup and does not change
 their default parameters. Reject or regenerate a bad source instead of tuning

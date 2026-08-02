@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from typing import Any
 
 from PIL import Image, ImageFilter
@@ -24,7 +25,19 @@ CHROMA_CLEANUP_ALGORITHM = (
 )
 AUTO_BORDER_ALGORITHM = "robust-polynomial-auto-border-matte"
 AUTO_BORDER_CLEANUP_ALGORITHM = "background-unmix-alpha-cleanup"
+SATURATED_MATTE_DETECTION_ALGORITHM = (
+    "border-corner-saturated-matte-detection"
+)
 DEFAULT_ATLAS_CELL_SIZE = (192, 208)
+
+# These gates classify only an already-present, deliberately flat saturated
+# matte. They are separate from background-removal and edge-cleanup parameters.
+_MATTE_COLOR_DISTANCE = 24.0
+_MATTE_HIGH_BORDER_COVERAGE = 0.85
+_MATTE_HIGH_EDGE_COVERAGE = 0.75
+_MATTE_MEDIUM_BORDER_COVERAGE = 0.65
+_MATTE_MINIMUM_SATURATION = 0.55
+_MATTE_MINIMUM_VALUE = 0.45
 
 
 class TransparencyError(ValueError):
@@ -55,6 +68,191 @@ def color_distance(
         + (green - key[1]) ** 2
         + (blue - key[2]) ** 2
     )
+
+
+def _rgb_to_hex(color: tuple[int, int, int]) -> str:
+    return f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+
+
+def _mean_color(
+    colors: list[tuple[int, int, int]],
+) -> tuple[int, int, int]:
+    return tuple(
+        round(sum(color[channel] for color in colors) / len(colors))
+        for channel in range(3)
+    )
+
+
+def _quantized_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
+    return tuple(min(255, ((channel + 8) // 16) * 16) for channel in color)
+
+
+def _color_saturation(color: tuple[int, int, int]) -> float:
+    maximum = max(color)
+    if maximum == 0:
+        return 0.0
+    return (maximum - min(color)) / maximum
+
+
+def detect_existing_saturated_matte(image: Image.Image) -> dict[str, Any]:
+    """Detect a deliberate flat saturated matte from border/corner evidence.
+
+    This is a conservative source-classification helper, not a background
+    remover. Bright low-chroma borders intentionally remain outside this
+    detector so the existing material-aware auto-border route is unchanged.
+    """
+    rgba = image.convert("RGBA")
+    alpha_extrema = rgba.getchannel("A").getextrema()
+    if alpha_extrema[0] < 255:
+        return {
+            "algorithm": SATURATED_MATTE_DETECTION_ALGORITHM,
+            "confidence": "none",
+            "reason": "source already contains alpha; saturated matte detection is not applicable",
+        }
+    rgba.thumbnail((256, 256), Image.Resampling.LANCZOS)
+    width, height = rgba.size
+    if width < 4 or height < 4:
+        return {
+            "algorithm": SATURATED_MATTE_DETECTION_ALGORITHM,
+            "confidence": "none",
+            "reason": "image is too small for border and corner evidence",
+        }
+
+    band = max(2, round(min(width, height) * 0.04))
+    band = min(band, max(2, min(width, height) // 4))
+    edge_colors: dict[str, list[tuple[int, int, int]]] = {
+        "top": [],
+        "right": [],
+        "bottom": [],
+        "left": [],
+    }
+    border_colors: list[tuple[int, int, int]] = []
+    corner_colors: list[list[tuple[int, int, int]]] = [[], [], [], []]
+
+    for y in range(height):
+        for x in range(width):
+            red, green, blue, alpha = rgba.getpixel((x, y))
+            if alpha <= 16:
+                continue
+            color = (red, green, blue)
+            is_border = False
+            if y < band:
+                edge_colors["top"].append(color)
+                is_border = True
+            if x >= width - band:
+                edge_colors["right"].append(color)
+                is_border = True
+            if y >= height - band:
+                edge_colors["bottom"].append(color)
+                is_border = True
+            if x < band:
+                edge_colors["left"].append(color)
+                is_border = True
+            if is_border:
+                border_colors.append(color)
+            if x < band and y < band:
+                corner_colors[0].append(color)
+            if x >= width - band and y < band:
+                corner_colors[1].append(color)
+            if x >= width - band and y >= height - band:
+                corner_colors[2].append(color)
+            if x < band and y >= height - band:
+                corner_colors[3].append(color)
+
+    if not border_colors:
+        return {
+            "algorithm": SATURATED_MATTE_DETECTION_ALGORITHM,
+            "confidence": "none",
+            "reason": "visible border evidence is absent",
+        }
+
+    dominant_bucket, _count = Counter(
+        _quantized_color(color) for color in border_colors
+    ).most_common(1)[0]
+    bucket_colors = [
+        color
+        for color in border_colors
+        if _quantized_color(color) == dominant_bucket
+    ]
+    candidate = _mean_color(bucket_colors)
+    distances = sorted(
+        color_distance(*color, candidate) for color in border_colors
+    )
+    matching_border = sum(
+        distance <= _MATTE_COLOR_DISTANCE for distance in distances
+    )
+    border_coverage = matching_border / len(border_colors)
+    p95_index = min(len(distances) - 1, math.ceil(len(distances) * 0.95) - 1)
+    p95_distance = distances[p95_index]
+
+    edge_coverage = {}
+    for edge, colors in edge_colors.items():
+        edge_coverage[edge] = (
+            sum(
+                color_distance(*color, candidate) <= _MATTE_COLOR_DISTANCE
+                for color in colors
+            )
+            / len(colors)
+            if colors
+            else 0.0
+        )
+    corner_matches = sum(
+        bool(colors)
+        and color_distance(*_mean_color(colors), candidate)
+        <= _MATTE_COLOR_DISTANCE
+        for colors in corner_colors
+    )
+    saturation = _color_saturation(candidate)
+    value = max(candidate) / 255
+    saturated = (
+        saturation >= _MATTE_MINIMUM_SATURATION
+        and value >= _MATTE_MINIMUM_VALUE
+    )
+    minimum_edge_coverage = min(edge_coverage.values())
+
+    if (
+        saturated
+        and border_coverage >= _MATTE_HIGH_BORDER_COVERAGE
+        and minimum_edge_coverage >= _MATTE_HIGH_EDGE_COVERAGE
+        and corner_matches >= 3
+    ):
+        confidence = "high"
+        reason = "flat saturated color consistently surrounds the image"
+    elif (
+        saturated
+        and border_coverage >= _MATTE_MEDIUM_BORDER_COVERAGE
+        and corner_matches >= 2
+    ):
+        confidence = "medium"
+        reason = "possible saturated matte needs an explicit key decision"
+    elif not saturated:
+        confidence = "none"
+        reason = "dominant border is not a saturated matte candidate"
+    else:
+        confidence = "none"
+        reason = "border and corner evidence is not consistent enough"
+
+    return {
+        "algorithm": SATURATED_MATTE_DETECTION_ALGORITHM,
+        "confidence": confidence,
+        "candidate_hex": _rgb_to_hex(candidate),
+        "candidate_rgb": list(candidate),
+        "reason": reason,
+        "evidence": {
+            "sample_size": list(rgba.size),
+            "border_band_pixels": band,
+            "visible_border_pixels": len(border_colors),
+            "border_coverage": round(border_coverage, 4),
+            "edge_coverage": {
+                edge: round(coverage, 4)
+                for edge, coverage in edge_coverage.items()
+            },
+            "corner_matches": corner_matches,
+            "p95_distance": round(p95_distance, 2),
+            "saturation": round(saturation, 4),
+            "value": round(value, 4),
+        },
+    }
 
 
 def alpha_summary(image: Image.Image) -> dict[str, int | float | list[int]]:

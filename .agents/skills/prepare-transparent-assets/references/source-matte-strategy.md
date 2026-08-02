@@ -14,12 +14,23 @@ Before generation, record these facts in the visual brief:
 - `source_route`: `true-alpha`, `near-white-matte`, `contrast-key`, or a
   Delivery Target override;
 - `matte_color`: the requested or known flat background color;
+- `detected_matte`: border/corner candidate, confidence, and evidence when an
+  opaque source already has a saturated matte;
 - `separation_mode`: `preserve-alpha`, `auto-border`, or `chroma`;
 - `limitation`: `none` or the exact material uncertainty that requires review.
 
 Classify by the most extraction-sensitive visible boundary, not by the
 dominant interior color. Material sensitivity outranks the convenience of one
 preferred background color.
+
+For an opaque reference that may already carry a deliberate saturated matte,
+inspect all four border bands and corners before choosing a new key. Reuse a
+high-confidence, spatially consistent candidate. Require an explicit key for a
+medium-confidence candidate. If references, request text, style notes, and an
+explicit key disagree, stop before generation or run-folder writes; do not
+silently choose a second color. This detector is only a source-contract guard:
+bright low-chroma borders continue through the material-aware `auto-border`
+route, and none of the alpha, despill, blur, or chroma thresholds change.
 
 ## Choose by color and material
 

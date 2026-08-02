@@ -46,16 +46,19 @@ display name from the actual proposal; do not prescribe a sequential
 `v001`/`v002` convention. Switch the already-running Previewer to that URL and
 verify it before producing later creative layers.
 
-Before rendering, the browser decodes every declared Static, standalone Take,
-and reachable atlas cell and requires both visible and transparent pixels.
-Opaque, unreadable, unsafe, or wrong-size assets invalidate the project
-handoff instead of rendering first and failing later.
+Before rendering, the browser validates the focused Candidate's structure,
+decodes its declared Static, standalone Takes, and reachable atlas cells, and
+requires both visible and transparent pixels. The project-level target,
+schema, and asset boundary remain global gates. An invalid focused or default
+Candidate fails closed; an invalid sibling is diagnosed and disabled without
+blocking a healthy focus. The Previewer never substitutes the bundled Example.
 
 The current Delivery Target contract lives at
 [`delivery-targets/codex-pet-v2.json`](../delivery-targets/codex-pet-v2.json).
-`target-data.js` is a generated browser adapter for that contract so the
-Previewer continues to work from both the local server and `file://`. After an
-intentional contract change, regenerate the adapter with
+`target-data.js` is a generated browser adapter for that contract. Open the
+Previewer through `studio.py preview` on localhost; direct `file://` use is not
+supported because transparent-pixel validation requires a trustworthy browser
+origin. After an intentional contract change, regenerate the adapter with
 `studio.py target sync`; do not edit the adapter by hand.
 
 ## Review-context URLs
@@ -82,10 +85,13 @@ or publish anything.
 
 Unknown or stale values fail closed and are replaced with valid project defaults. URL values are matched only against the loaded config and cannot introduce an arbitrary asset path.
 
-If an explicitly requested external `config` or any required render asset
-fails preflight, the Previewer shows a project error and hides the review
-workspace. It never substitutes the bundled Example for failed project
-context.
+If an explicitly requested external `config` fails a global gate, or if the
+focused/default Candidate fails its own preflight, the Previewer shows an
+actionable local diagnostic and does not render that Candidate. Diagnostics
+identify a safe config reference, Candidate, field/error code, expected and
+actual fact, and next step; they never expose filesystem paths, payloads, or a
+stack trace. A bad sibling remains unavailable in the Candidate selector and
+does not block a healthy focus.
 
 The bundled Example is never project data. Codex must not use it to fill a
 missing project state, replace a failed Static handoff, or claim that project
@@ -134,8 +140,20 @@ focused URL is:
 ?config=../build/review/preview.json&candidate=<semantic-candidate-id>&state=static&frame=1&take=original
 ```
 
-When real runtime rows become available, add an atlas and the exact state
-subset that exists:
+When real runtime rows become available, register them on the same Candidate
+with the official bridge:
+
+```bash
+python3 .agents/skills/pet-studio/scripts/studio.py review stage-runtime \
+  --atlas path/to/spritesheet.png \
+  --candidate <semantic-candidate-id> \
+  --states idle,waving
+```
+
+Use `--check --json` to validate and inspect the complete zero-write plan. The
+command preserves Static, copies source and review assets atomically, updates
+the exact state subset, and returns a focused URL. Its resulting Candidate
+shape is equivalent to:
 
 ```json
 {
@@ -146,6 +164,7 @@ subset that exists:
     "takes": []
   },
   "atlasUrl": "./candidates/<semantic-candidate-id>/spritesheet.webp",
+  "atlasPhase": "standard-intermediate",
   "stateIds": ["idle", "waving"],
   "lookDirectionsAvailable": false
 }
@@ -156,6 +175,12 @@ navigation, playback, and Motion Timing; never duplicate an available row or
 borrow the bundled Example. Add a state only when its real atlas row exists.
 Set `lookDirectionsAvailable` to `true` only when the Candidate has the real
 direction-review asset required by the target.
+
+The bridge accepts an 8x9 source only as `standard-intermediate`, preserves it,
+and creates a review-only 8x11 projection internally. It never treats that
+projection as a completed v2 atlas. A `codex-pet-v2-final` Candidate requires a
+real 8x11 source with every look cell and the neutral reference present. Do not
+copy assets, edit `atlasUrl`/`stateIds`, or add empty padding rows by hand.
 
 For compatibility, an atlas Candidate that omits `stateIds` uses the legacy
 complete target-state interpretation. New progressive configs should always

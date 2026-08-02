@@ -34,24 +34,25 @@ Use `$pet-studio` and its references to route work:
 - one focused Keyframe or Take: use the additive single-frame Take workflow;
 - existing pack repair: validate first and repair only the affected unit;
 - any generated or edited image intended for Previewer: use `$prepare-transparent-assets` before generation to choose a material- and palette-aware source matte, then prepare and validate its transparent derivative before entry, regardless of creative or production stage;
-- preview, validation, packaging, export, or explicit installation: perform it
-  without restarting ideation;
+- preview, validation, packaging, export, or explicit installation: perform it without restarting ideation;
 - repository maintenance: work directly without manufacturing creative gates.
 
-Creative gates apply only to new or reopened decisions. They may combine, but
-unresolved dependencies remain open.
+Creative gates apply only to new or reopened decisions. They may combine, but unresolved dependencies remain open.
+
+Before Hatch generation writes a run, resolve one chroma contract. Reuse a high-confidence saturated matte already present around a source; require an explicit decision for medium confidence; stop on disagreement between source, request, style notes, explicit key, or Delivery Target. Do not tune alpha or despill parameters to conceal a contract conflict.
+
+For Hatch image-generation rows, use `manage_imagegen_jobs.py` for ready/claim/complete/fail/reconcile/reset. Do not edit lifecycle fields with `jq`, clear completed rows with `--force`, or retry a transport failure with a changed prompt. Preserve completed outputs, use finite same-input transport retry, and treat the reported concurrency downgrade and terminal failure as real gates.
 
 ## Image-first alignment
 
-Multimodal alignment is the core creative method. Use a focused visual
-checkpoint for the first character reading, default form, relationship or
-emotional stance, mechanisms, state acting, and motion. Do not defer these
-questions to an all-in-one reveal. Exploratory visuals are not approval. After
-each visual checkpoint, stop before the next dependent layer unless the user
-explicitly asked to combine those exact layers.
+Multimodal alignment is the core creative method. Use a focused visual checkpoint for the first character reading, default form, relationship or emotional stance, mechanisms, state acting, and motion. Do not defer these questions to an all-in-one reveal. Exploratory visuals are not approval. After each visual checkpoint, stop before the next dependent layer unless the user explicitly asked to combine those exact layers.
 
 The first reviewable still must immediately become a Static Candidate. Preserve the exact creative source, run the project-bundled `$prepare-transparent-assets` skill, then stage the source plus its transparent review derivative with `studio.py review stage-static`.
 Validate the project config, switch the running Previewer to the returned focused URL, and verify that it shows the transparent project asset. Do not wait for a spritesheet or all nine runtime states.
+
+When real runtime rows become available, grow the same semantic Candidate with `studio.py review stage-runtime`. Use its `--check` result, phase label, focused URL, and next-step guidance; do not copy runtime files into the review build, edit Previewer JSON, or add transparent padding rows by hand. An 8x9 atlas is a `standard-intermediate` review-only source. Only an 8x11 atlas with real validated look cells is a final v2 artifact.
+
+Treat Previewer diagnostics as scoped evidence. A focused or default Candidate must fail closed when it is invalid; an invalid sibling remains unavailable with its reason and must not block a healthy focused Candidate. Project-level target, schema, or asset-boundary errors still block the project. Never replace any failed project context with the bundled Example.
 
 ## Review and approval boundary
 
@@ -83,8 +84,7 @@ actions such as **Request New Take** or **Install in Codex** to the Previewer.
 
 ## Private workspace and public repository
 
-Never force-add or unignore `.pet-studio-private.json`, `inputs/`, `design/`,
-`build/`, or `dist/`.
+Never force-add or unignore `.pet-studio-private.json`, `inputs/`, `design/`, `build/`, or `dist/`.
 
 Do not commit personal inspiration, names, home imagery, anecdotes, credentials, machine paths, metadata, personal skills, or private UI kits.
 Public examples require project ownership or explicit publication approval, a rights review, and only sanitized final artifacts.

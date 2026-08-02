@@ -47,7 +47,8 @@ button {
 }
 
 button:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.config-error:focus-visible {
   outline: 2px solid #666666;
   outline-offset: 2px;
 }
@@ -78,6 +79,42 @@ select:focus-visible {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.config-error .eyebrow {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.diagnostic-facts {
+  display: grid;
+  gap: 0;
+  margin: 20px 0 0;
+}
+
+.diagnostic-facts > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.32fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.diagnostic-facts dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.diagnostic-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .topbar {
@@ -450,6 +487,29 @@ select:focus-visible {
 
 .stage-dark .stage-status {
   color: rgba(255, 255, 255, 0.66);
+}
+
+.stage-mode-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.atlas-phase-badge {
+  padding: 3px 6px;
+  border: 1px solid rgba(80, 80, 80, 0.24);
+  border-radius: 999px;
+  color: #555555;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+
+.stage-dark .atlas-phase-badge {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #eeeeee;
+  background: rgba(28, 28, 28, 0.72);
 }
 
 .controls,

@@ -4,14 +4,28 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import os
 import re
 import shutil
+import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from PIL import Image, ImageDraw
+
+TRANSPARENCY_SCRIPTS = (
+    Path(__file__).resolve().parents[2]
+    / "prepare-transparent-assets"
+    / "scripts"
+)
+if str(TRANSPARENCY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(TRANSPARENCY_SCRIPTS))
+
+from transparency_core import detect_existing_saturated_matte
 
 ATLAS = {"columns": 8, "rows": 11, "cell_width": 192, "cell_height": 208}
 ATLAS["width"] = ATLAS["columns"] * ATLAS["cell_width"]
@@ -176,6 +190,17 @@ CHROMA_KEY_CANDIDATES = [
     ("orange", "#FF7F00"),
     ("green", "#00FF00"),
 ]
+
+CHROMA_NAME_TO_HEX = {
+    name: hex_color for name, hex_color in CHROMA_KEY_CANDIDATES
+}
+JOB_RETRY_POLICY = {
+    "max_attempts": 3,
+    "transport_backoff_seconds": [5, 15],
+    "initial_concurrency": 3,
+    "degraded_concurrency": 1,
+    "degrade_after_consecutive_transport_failures": 2,
+}
 
 DEFAULT_PET_NAME = "Sprout"
 CANONICAL_BASE_PATH = "references/canonical-base.png"
@@ -467,9 +492,251 @@ def choose_chroma_key(reference_paths: list[Path], requested: str) -> dict[str, 
     }
 
 
+def chroma_name(rgb: tuple[int, int, int], fallback: str) -> str:
+    for name, hex_color in CHROMA_KEY_CANDIDATES:
+        if rgb == parse_hex_color(hex_color):
+            return name
+    return fallback
+
+
+def extract_matte_directives(
+    labelled_texts: list[tuple[str, str]],
+) -> list[dict[str, object]]:
+    token_pattern = re.compile(
+        r"#[0-9a-fA-F]{6}|\b(?:magenta|cyan|yellow|blue|orange|green)\b",
+        re.IGNORECASE,
+    )
+    matte_term = (
+        r"(?:background(?:\s+colou?r)?|matte|chroma(?:\s+key)?|"
+        r"key\s+colou?r|底色|背景)"
+    )
+    connectors = (
+        r"[\s()\[\],:;=\-]*"
+        r"(?:(?:a|an|the|as|be|is|must|of|set|should|to|use|using|with)\s+){0,4}"
+        r"[\s()\[\],:;=\-]*"
+    )
+    directives: list[dict[str, object]] = []
+    for source, text in labelled_texts:
+        for match in token_pattern.finditer(text):
+            before = text[max(0, match.start() - 72) : match.start()]
+            after = text[match.end() : min(len(text), match.end() + 72)]
+            matte_before = re.search(
+                matte_term + connectors + r"$",
+                before,
+                re.IGNORECASE,
+            )
+            matte_after = re.match(
+                r"^" + connectors + matte_term,
+                after,
+                re.IGNORECASE,
+            )
+            if not matte_before and not matte_after:
+                continue
+            token = match.group(0)
+            hex_color = (
+                rgb_to_hex(parse_hex_color(token))
+                if token.startswith("#")
+                else CHROMA_NAME_TO_HEX[token.lower()]
+            )
+            directives.append(
+                {
+                    "source": source,
+                    "hex": hex_color,
+                    "token": token,
+                }
+            )
+    return directives
+
+
+def detect_reference_mattes(
+    reference_paths: list[Path],
+) -> list[dict[str, object]]:
+    reports = []
+    for index, path in enumerate(reference_paths, start=1):
+        try:
+            with Image.open(path) as opened:
+                report = detect_existing_saturated_matte(opened)
+        except OSError as exc:
+            raise SystemExit(f"unable to inspect reference {index}: {exc}") from exc
+        reports.append({"reference_index": index, **report})
+    return reports
+
+
+def distinct_colors(
+    values: list[dict[str, object]],
+) -> list[tuple[int, int, int]]:
+    colors = []
+    for value in values:
+        raw = value.get("candidate_hex") or value.get("hex")
+        if not isinstance(raw, str):
+            continue
+        color = parse_hex_color(raw)
+        if not any(color_distance(color, existing) <= 24 for existing in colors):
+            colors.append(color)
+    return colors
+
+
+def resolve_chroma_contract(
+    reference_paths: list[Path],
+    requested: str,
+    labelled_texts: list[tuple[str, str]],
+) -> dict[str, object]:
+    detections = detect_reference_mattes(reference_paths)
+    high = [report for report in detections if report.get("confidence") == "high"]
+    medium = [
+        report for report in detections if report.get("confidence") == "medium"
+    ]
+    high_colors = distinct_colors(high)
+    if len(high_colors) > 1:
+        raise SystemExit(
+            "conflicting existing saturated mattes were detected across references; "
+            "normalize the references to one matte before generation"
+        )
+
+    directives = extract_matte_directives(labelled_texts)
+    directive_colors = distinct_colors(directives)
+    if len(directive_colors) > 1:
+        sources = ", ".join(
+            sorted({str(directive["source"]) for directive in directives})
+        )
+        raise SystemExit(
+            "conflicting matte keys were declared in request text "
+            f"({sources}); keep one background key before generation"
+        )
+
+    if requested.lower() != "auto":
+        selected = choose_chroma_key(reference_paths, requested)
+        selected_rgb = tuple(selected["rgb"])
+        if high_colors and color_distance(selected_rgb, high_colors[0]) > 24:
+            raise SystemExit(
+                "explicit --chroma-key conflicts with the high-confidence "
+                "existing saturated source matte; make the source and requested "
+                "key identical before generation"
+            )
+        if directive_colors and directive_colors[0] != selected_rgb:
+            raise SystemExit(
+                "explicit --chroma-key conflicts with a matte/background key "
+                "declared in request text; make them identical before generation"
+            )
+    elif directive_colors:
+        selected_rgb = directive_colors[0]
+        if high_colors and color_distance(selected_rgb, high_colors[0]) > 24:
+            raise SystemExit(
+                "the requested matte/background key conflicts with the existing "
+                "saturated source matte; pass an explicit --chroma-key only after "
+                "resolving the source/style contract"
+            )
+        selected = {
+            "hex": rgb_to_hex(selected_rgb),
+            "rgb": list(selected_rgb),
+            "name": chroma_name(selected_rgb, "request-declared"),
+            "selection": "request-declared",
+        }
+    elif high_colors:
+        selected_rgb = high_colors[0]
+        selected = {
+            "hex": rgb_to_hex(selected_rgb),
+            "rgb": list(selected_rgb),
+            "name": chroma_name(selected_rgb, "existing-matte"),
+            "selection": "existing-matte",
+        }
+    elif medium:
+        indexes = ", ".join(str(report["reference_index"]) for report in medium)
+        raise SystemExit(
+            "possible saturated source matte needs confirmation in reference(s) "
+            f"{indexes}; rerun with explicit --chroma-key #RRGGBB"
+        )
+    else:
+        selected = choose_chroma_key(reference_paths, requested)
+
+    selected["contract_version"] = 1
+    selected["requested"] = requested
+    selected["source_matte_detections"] = detections
+    selected["text_matte_directives"] = directives
+    return selected
+
+
+def validate_prompt_chroma_contract(
+    prompt: str,
+    chroma_contract: dict[str, object],
+) -> None:
+    if prompt.count("MATTE CONTRACT") != 1:
+        raise SystemExit("generation prompt must contain exactly one MATTE CONTRACT")
+    selected = str(chroma_contract["hex"])
+    directives = extract_matte_directives([("resolved prompt", prompt)])
+    conflicting = {
+        str(directive["hex"])
+        for directive in directives
+        if directive["hex"] != selected
+    }
+    if conflicting:
+        raise SystemExit(
+            "resolved generation prompt contains a matte key that conflicts with "
+            f"canonical {selected}: {', '.join(sorted(conflicting))}"
+        )
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def contract_fingerprint(
+    args: argparse.Namespace,
+    reference_paths: list[Path],
+) -> str:
+    payload = {
+        "pet_id": args.pet_id,
+        "display_name": args.display_name,
+        "description": args.description,
+        "pet_notes": args.pet_notes,
+        "style_preset": args.style_preset,
+        "style_notes": args.style_notes,
+        "brand_name": args.brand_name,
+        "brand_brief": args.brand_brief,
+        "brand_sources": args.brand_source,
+        "chroma_key": args.chroma_key["hex"],
+        "reference_sha256": [file_sha256(path) for path in reference_paths],
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def atomic_write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, path)
+    finally:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
+
+
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.rstrip() + "\n", encoding="utf-8")
+
+
+def write_generation_prompt(
+    path: Path,
+    text: str,
+    chroma_contract: dict[str, object],
+) -> None:
+    validate_prompt_chroma_contract(text, chroma_contract)
+    write_text(path, text)
 
 
 def resolved_style_contract(style_preset: str, raw_style_notes: str) -> str:
@@ -786,6 +1053,49 @@ Output one centered complete full-body pose with generous padding. Keep the feet
 Do not rotate, skew, or tilt the whole sprite to fake gaze. Do not add replacement eyes, labels, arrows, guide marks, shadows, scenery, detached effects, or chroma-key colors inside the pet."""
 
 
+def generation_prompt_specs(
+    args: argparse.Namespace,
+) -> list[tuple[Path, str]]:
+    specs = [(Path("prompts/base-pet.md"), base_pet_prompt(args))]
+    for state, row, frames, purpose in ROWS:
+        specs.extend(
+            [
+                (
+                    Path(f"prompts/rows/{state}.md"),
+                    row_prompt(args, state, row, frames, purpose),
+                ),
+                (
+                    Path(f"prompts/row-retries/{state}.md"),
+                    retry_row_prompt(args, state, row, frames, purpose),
+                ),
+            ]
+        )
+    for state, row, directions, _purpose in LOOK_ROWS:
+        specs.extend(
+            [
+                (
+                    Path(f"prompts/rows/{state}.md"),
+                    look_row_prompt(args, row, directions),
+                ),
+                (
+                    Path(f"prompts/row-retries/{state}.md"),
+                    retry_look_row_prompt(args, row, directions),
+                ),
+            ]
+        )
+    specs.append(
+        (Path("prompts/look-cardinals.md"), look_cardinal_prompt(args))
+    )
+    specs.extend(
+        (
+            Path(f"prompts/look-anchor-repairs/{label}.md"),
+            look_cardinal_repair_prompt(args, label, expected_direction),
+        )
+        for label, expected_direction in LOOK_CARDINALS
+    )
+    return specs
+
+
 def make_jobs(
     run_dir: Path,
     copied_refs: list[dict[str, object]],
@@ -966,7 +1276,87 @@ def make_jobs(
                 "packaging_eligible": True,
             }
         )
+    for job in jobs:
+        job["attempt_count"] = 0
+        job["max_attempts"] = JOB_RETRY_POLICY["max_attempts"]
+        job["attempts"] = []
     return jobs
+
+
+JOB_LIFECYCLE_FIELDS = {
+    "status",
+    "attempt_count",
+    "max_attempts",
+    "attempts",
+    "last_error",
+    "next_attempt_at",
+    "claim",
+    "completed_at",
+    "source_path",
+    "metadata",
+    "derived_from",
+    "mirror_decision",
+    "request_repair_used",
+    "next_prompt_file",
+    "reset_history",
+    "reconciled_at",
+}
+
+
+def merge_existing_job_lifecycle(
+    new_jobs: list[dict[str, object]],
+    existing_manifest: dict[str, object] | None,
+) -> list[dict[str, object]]:
+    if not existing_manifest:
+        return new_jobs
+    existing_jobs = existing_manifest.get("jobs")
+    if not isinstance(existing_jobs, list):
+        return new_jobs
+    by_id = {
+        str(job.get("id")): job
+        for job in existing_jobs
+        if isinstance(job, dict) and isinstance(job.get("id"), str)
+    }
+    for job in new_jobs:
+        existing = by_id.get(str(job["id"]))
+        if not existing:
+            continue
+        for field in JOB_LIFECYCLE_FIELDS:
+            if field in existing:
+                job[field] = existing[field]
+    return new_jobs
+
+
+def manifest_has_progress(
+    manifest: dict[str, object] | None,
+    run_dir: Path,
+) -> bool:
+    if not manifest:
+        return False
+    jobs = manifest.get("jobs")
+    if not isinstance(jobs, list):
+        return False
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        if job.get("status", "pending") != "pending":
+            return True
+        output_path = job.get("output_path")
+        if isinstance(output_path, str) and (run_dir / output_path).is_file():
+            return True
+    return False
+
+
+def read_json_if_present(path: Path) -> dict[str, object] | None:
+    if not path.is_file():
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"unable to read existing run metadata: {path.name}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise SystemExit(f"existing run metadata must be an object: {path.name}")
+    return value
 
 
 def main() -> None:
@@ -1046,13 +1436,49 @@ def main() -> None:
     if not args.pet_id:
         raise SystemExit("pet id must contain at least one letter or digit")
 
+    # Resolve every matte source before creating or changing the run directory.
+    # A conflict must not leave copied references, prompts, or partial metadata.
+    for index, source in enumerate(raw_reference_paths, start=1):
+        if not source.is_file():
+            raise SystemExit(f"reference {index} not found")
+    if raw_brand_discovery_path is not None and not raw_brand_discovery_path.is_file():
+        raise SystemExit("brand discovery file not found")
+    args.chroma_key = resolve_chroma_contract(
+        raw_reference_paths,
+        args.chroma_key,
+        [
+            ("pet notes", args.pet_notes),
+            ("description", args.description),
+            ("style notes", args.style_notes),
+            ("brand brief", args.brand_brief),
+        ],
+    )
+    fingerprint = contract_fingerprint(args, raw_reference_paths)
+    prompt_specs = generation_prompt_specs(args)
+    for _path, prompt in prompt_specs:
+        validate_prompt_chroma_contract(prompt, args.chroma_key)
+
     run_dir = (
         Path(args.output_dir).expanduser().resolve()
         if args.output_dir
         else default_output_dir(args.pet_id).resolve()
     )
-    if run_dir.exists() and any(run_dir.iterdir()) and not args.force:
+    run_has_content = run_dir.exists() and any(run_dir.iterdir())
+    if run_has_content and not args.force:
         raise SystemExit(f"{run_dir} already exists and is not empty; pass --force to reuse it")
+    existing_request = read_json_if_present(run_dir / "pet_request.json")
+    existing_manifest = read_json_if_present(run_dir / "imagegen-jobs.json")
+    if run_has_content and manifest_has_progress(existing_manifest, run_dir):
+        existing_fingerprint = (
+            existing_request.get("contract_fingerprint")
+            if existing_request
+            else None
+        )
+        if existing_fingerprint != fingerprint:
+            raise SystemExit(
+                "--force cannot replace a run contract after generation progress; "
+                "use a new --output-dir or explicitly reset jobs first"
+            )
     run_dir.mkdir(parents=True, exist_ok=True)
 
     ref_dir = run_dir / "references"
@@ -1072,10 +1498,7 @@ def main() -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     copied_refs: list[dict[str, object]] = []
-    copied_ref_paths: list[Path] = []
     for index, source in enumerate(raw_reference_paths, start=1):
-        if not source.is_file():
-            raise SystemExit(f"reference not found: {source}")
         suffix = source.suffix.lower() or ".png"
         copied = ref_dir / f"reference-{index:02d}{suffix}"
         shutil.copy2(source, copied)
@@ -1083,17 +1506,13 @@ def main() -> None:
         meta["source_path"] = str(source)
         meta["copied_path"] = str(copied)
         copied_refs.append(meta)
-        copied_ref_paths.append(copied)
 
     brand_discovery_path = ""
     if raw_brand_discovery_path is not None:
-        if not raw_brand_discovery_path.is_file():
-            raise SystemExit(f"brand discovery file not found: {raw_brand_discovery_path}")
         copied_discovery = run_dir / BRAND_DISCOVERY_PATH
         shutil.copy2(raw_brand_discovery_path, copied_discovery)
         brand_discovery_path = rel(copied_discovery, run_dir)
 
-    args.chroma_key = choose_chroma_key(copied_ref_paths, args.chroma_key)
     layout_guides = create_layout_guides(run_dir)
 
     request = {
@@ -1131,46 +1550,62 @@ def main() -> None:
         "brand_sources": args.brand_source,
         "pet_safe_style": PET_SAFE_STYLE,
         "primary_generation_skill": "$imagegen",
+        "contract_fingerprint": fingerprint,
     }
     if brand_discovery_path:
         request["brand_discovery_path"] = brand_discovery_path
-    (run_dir / "pet_request.json").write_text(
-        json.dumps(request, indent=2) + "\n", encoding="utf-8"
-    )
+    atomic_write_json(run_dir / "pet_request.json", request)
 
-    write_text(prompt_dir / "base-pet.md", base_pet_prompt(args))
-    for state, row, frames, purpose in ROWS:
-        write_text(
-            row_prompt_dir / f"{state}.md",
-            row_prompt(args, state, row, frames, purpose),
-        )
-        write_text(
-            row_retry_prompt_dir / f"{state}.md",
-            retry_row_prompt(args, state, row, frames, purpose),
-        )
-    for state, row, directions, _purpose in LOOK_ROWS:
-        write_text(
-            row_prompt_dir / f"{state}.md",
-            look_row_prompt(args, row, directions),
-        )
-        write_text(
-            row_retry_prompt_dir / f"{state}.md",
-            retry_look_row_prompt(args, row, directions),
-        )
-    write_text(prompt_dir / "look-cardinals.md", look_cardinal_prompt(args))
-    for label, expected_direction in LOOK_CARDINALS:
-        write_text(
-            look_anchor_repair_prompt_dir / f"{label}.md",
-            look_cardinal_repair_prompt(args, label, expected_direction),
-        )
+    for relative_path, prompt in prompt_specs:
+        write_generation_prompt(run_dir / relative_path, prompt, args.chroma_key)
+    prepared_jobs = merge_existing_job_lifecycle(
+        make_jobs(run_dir, copied_refs),
+        existing_manifest,
+    )
+    existing_revision = (
+        int(existing_manifest.get("revision", 0))
+        if existing_manifest
+        else -1
+    )
+    scheduler = (
+        existing_manifest.get("scheduler")
+        if existing_manifest and isinstance(existing_manifest.get("scheduler"), dict)
+        else {
+            "consecutive_transport_failures": 0,
+            "degraded": False,
+        }
+    )
     jobs = {
-        "schema_version": 1,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "schema_version": 2,
+        "revision": existing_revision + 1,
+        "created_at": (
+            existing_manifest.get("created_at")
+            if existing_manifest and existing_manifest.get("created_at")
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(run_dir),
         "primary_generation_skill": "$imagegen",
-        "jobs": make_jobs(run_dir, copied_refs),
+        "contract_fingerprint": fingerprint,
+        "chroma_contract": {
+            "request_file": "pet_request.json",
+            "json_pointer": "/chroma_key",
+            "contract_fingerprint": fingerprint,
+        },
+        "retry_policy": JOB_RETRY_POLICY,
+        "scheduler": scheduler,
+        "jobs": prepared_jobs,
     }
-    (run_dir / "imagegen-jobs.json").write_text(json.dumps(jobs, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(run_dir / "imagegen-jobs.json", jobs)
+
+    status_by_id = {str(job["id"]): job.get("status") for job in prepared_jobs}
+    ready_jobs = [
+        str(job["id"])
+        for job in prepared_jobs
+        if job.get("status") == "pending"
+        and all(status_by_id.get(str(dependency)) == "complete" for dependency in job.get("depends_on", []))
+        and not (run_dir / str(job["output_path"])).is_file()
+    ]
 
     print(
         json.dumps(
@@ -1179,7 +1614,7 @@ def main() -> None:
                 "run_dir": str(run_dir),
                 "request": str(run_dir / "pet_request.json"),
                 "jobs": str(run_dir / "imagegen-jobs.json"),
-                "ready_jobs": ["base"],
+                "ready_jobs": ready_jobs,
             },
             indent=2,
         )

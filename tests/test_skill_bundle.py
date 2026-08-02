@@ -118,6 +118,10 @@ class SkillBundleTests(unittest.TestCase):
             HATCH_SKILL / "scripts" / "despill_chroma_edges.py"
         ).stat().st_mode
         self.assertTrue(despill_mode & stat.S_IXUSR)
+        manager = HATCH_SKILL / "scripts" / "manage_imagegen_jobs.py"
+        self.assertTrue(manager.is_file())
+        self.assertTrue(manager.stat().st_mode & stat.S_IXUSR)
+        self.assertIn("manage_imagegen_jobs.py", hatch_markdown)
 
     def test_material_aware_source_matte_strategy_is_routed_everywhere(
         self,

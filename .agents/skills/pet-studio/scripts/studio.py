@@ -9,6 +9,7 @@ import fnmatch
 import hashlib
 import http.server
 import http.client
+import io
 import json
 import os
 import re
@@ -103,6 +104,9 @@ TAKE_ASSET_URL_PATTERN = re.compile(
     r"(?:/(?!\.\.(?:/|$))[A-Za-z0-9._~-]+)*"
 )
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+STANDARD_INTERMEDIATE_PHASE = "standard-intermediate"
+FINAL_V2_PHASE = "codex-pet-v2-final"
+ATLAS_PHASES = {STANDARD_INTERMEDIATE_PHASE, FINAL_V2_PHASE}
 
 
 class StudioError(Exception):
@@ -127,6 +131,13 @@ class Finding:
         if self.line is not None:
             result["line"] = self.line
         return result
+
+
+@dataclass(frozen=True)
+class DecodedRgbaPng:
+    width: int
+    height: int
+    rows: tuple[bytes, ...]
 
 
 @dataclass(frozen=True)
@@ -880,7 +891,7 @@ def validate_transparent_png(
     *,
     expected_size: tuple[int, int] | None,
     label: str,
-) -> None:
+) -> DecodedRgbaPng:
     signature = b"\x89PNG\r\n\x1a\n"
     if not data.startswith(signature):
         raise StudioError(f"{label} must be a PNG file: {path}")
@@ -995,6 +1006,7 @@ def validate_transparent_png(
         )
 
     previous = bytearray(row_bytes)
+    decoded_rows: list[bytes] = []
     has_visible_pixel = False
     has_transparent_pixel = False
     raw_offset = 0
@@ -1027,6 +1039,7 @@ def validate_transparent_png(
         for alpha in decoded_row[3::4]:
             has_visible_pixel = has_visible_pixel or alpha > 0
             has_transparent_pixel = has_transparent_pixel or alpha < 255
+        decoded_rows.append(bytes(decoded_row))
         previous = decoded_row
 
     if not has_visible_pixel:
@@ -1037,6 +1050,194 @@ def validate_transparent_png(
             "Run the project-bundled $prepare-transparent-assets skill before "
             "registering anything in Previewer.",
         )
+    return DecodedRgbaPng(width, height, tuple(decoded_rows))
+
+
+def rgba_cell_alpha_facts(
+    image: DecodedRgbaPng,
+    *,
+    row: int,
+    column: int,
+    cell_width: int,
+    cell_height: int,
+) -> tuple[bool, bool]:
+    left = column * cell_width * 4
+    right = left + cell_width * 4
+    top = row * cell_height
+    bottom = top + cell_height
+    has_visible = False
+    has_transparent = False
+    for decoded_row in image.rows[top:bottom]:
+        for alpha in decoded_row[left + 3 : right : 4]:
+            has_visible = has_visible or alpha > 0
+            has_transparent = has_transparent or alpha < 255
+            if has_visible and has_transparent:
+                return True, True
+    return has_visible, has_transparent
+
+
+def require_runtime_atlas_cell(
+    image: DecodedRgbaPng,
+    *,
+    row: int,
+    column: int,
+    label: str,
+    target: dict[str, Any],
+) -> None:
+    atlas = target["atlas"]
+    has_visible, has_transparent = rgba_cell_alpha_facts(
+        image,
+        row=row,
+        column=column,
+        cell_width=atlas["cellWidthPx"],
+        cell_height=atlas["cellHeightPx"],
+    )
+    if not has_visible:
+        raise StudioError(f"Runtime atlas {label} is fully transparent.")
+    if not has_transparent:
+        raise StudioError(
+            f"Runtime atlas {label} is fully opaque.",
+            "Run the project-bundled $prepare-transparent-assets skill before "
+            "registering anything in Previewer.",
+        )
+
+
+def validate_runtime_atlas_cells(
+    image: DecodedRgbaPng,
+    target: dict[str, Any],
+    state_ids: Sequence[str],
+    atlas_phase: str,
+) -> None:
+    atlas = target["atlas"]
+    states = target["states"]
+    states_to_validate = (
+        states
+        if atlas_phase == FINAL_V2_PHASE
+        else [state for state in states if state["id"] in set(state_ids)]
+    )
+    neutral_slot = target["lookDirections"]["neutralReferenceSlot"]
+    for state in states_to_validate:
+        first_column = state["firstColumn"]
+        used_columns = set(
+            range(first_column, first_column + len(state["durationsMs"]))
+        )
+        for column in sorted(used_columns):
+            require_runtime_atlas_cell(
+                image,
+                row=state["row"],
+                column=column,
+                label=f"{state['id']}/frame-{column - first_column + 1}",
+                target=target,
+            )
+        for column in range(atlas["columns"]):
+            if column in used_columns:
+                continue
+            if (
+                atlas_phase == FINAL_V2_PHASE
+                and state["row"] == neutral_slot["row"]
+                and column == neutral_slot["column"]
+            ):
+                continue
+            has_visible, _has_transparent = rgba_cell_alpha_facts(
+                image,
+                row=state["row"],
+                column=column,
+                cell_width=atlas["cellWidthPx"],
+                cell_height=atlas["cellHeightPx"],
+            )
+            if has_visible:
+                raise StudioError(
+                    f"Runtime atlas {state['id']} unused column {column} is not transparent."
+                )
+
+    if atlas_phase == FINAL_V2_PHASE:
+        for slot in target["lookDirections"]["slots"]:
+            require_runtime_atlas_cell(
+                image,
+                row=slot["row"],
+                column=slot["column"],
+                label=f"look-{slot['degree']}-{slot['key']}",
+                target=target,
+            )
+        require_runtime_atlas_cell(
+            image,
+            row=neutral_slot["row"],
+            column=neutral_slot["column"],
+            label="look-neutral",
+            target=target,
+        )
+
+
+def encode_runtime_review_png(
+    image: DecodedRgbaPng,
+    target_height: int,
+) -> bytes:
+    if image.height > target_height:
+        raise StudioError("Runtime review projection cannot shrink an atlas.")
+    row_bytes = image.width * 4
+    transparent_row = bytes(row_bytes)
+    rows = [*image.rows]
+    rows.extend(transparent_row for _ in range(target_height - image.height))
+    scanlines = b"".join(b"\x00" + row for row in rows)
+
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(payload))
+            + kind
+            + payload
+            + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+        )
+
+    header = struct.pack(
+        ">IIBBBBB",
+        image.width,
+        target_height,
+        8,
+        6,
+        0,
+        0,
+        0,
+    )
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(scanlines, level=9))
+        + chunk(b"IEND", b"")
+    )
+
+
+def decode_webp_rgba(
+    data: bytes,
+    path: Path,
+    *,
+    label: str,
+) -> DecodedRgbaPng:
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise StudioError(
+            f"{label} WebP pixel validation requires the bundled Python/Pillow runtime.",
+            "Run this command through Codex's workspace runtime or validate a PNG atlas.",
+        ) from exc
+    try:
+        with Image.open(io.BytesIO(data)) as opened:
+            if opened.format != "WEBP":
+                raise StudioError(f"{label} is not a decodable WebP image: {path}")
+            if getattr(opened, "n_frames", 1) != 1:
+                raise StudioError(f"{label} must be a single-frame WebP image: {path}")
+            rgba = opened.convert("RGBA")
+            width, height = rgba.size
+            raw = rgba.tobytes()
+    except StudioError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise StudioError(f"Cannot decode {label} WebP {path}: {exc}") from exc
+    row_bytes = width * 4
+    return DecodedRgbaPng(
+        width,
+        height,
+        tuple(raw[offset : offset + row_bytes] for offset in range(0, len(raw), row_bytes)),
+    )
 
 
 def validate_take_png(
@@ -1474,6 +1675,32 @@ def validate_preview_config(
                 f"{version_field}.lookDirectionsAvailable requires atlasUrl."
             )
 
+        atlas_phase = version.get("atlasPhase")
+        if atlas_phase is not None and atlas_phase not in ATLAS_PHASES:
+            raise StudioError(
+                f"{version_field}.atlasPhase must be one of: "
+                + ", ".join(sorted(ATLAS_PHASES))
+                + "."
+            )
+        if atlas_phase is not None and not has_atlas:
+            raise StudioError(f"{version_field}.atlasPhase requires atlasUrl.")
+        if (
+            atlas_phase == STANDARD_INTERMEDIATE_PHASE
+            and look_directions_available is not False
+        ):
+            raise StudioError(
+                f"{version_field}.atlasPhase {STANDARD_INTERMEDIATE_PHASE!r} "
+                "requires lookDirectionsAvailable false."
+            )
+        if (
+            atlas_phase == FINAL_V2_PHASE
+            and look_directions_available is not True
+        ):
+            raise StudioError(
+                f"{version_field}.atlasPhase {FINAL_V2_PHASE!r} "
+                "requires lookDirectionsAvailable true."
+            )
+
         groups = version.get("frameTakes", [])
         if not isinstance(groups, list):
             raise StudioError(f"{version_field}.frameTakes must be an array.")
@@ -1849,6 +2076,119 @@ def atomic_stage_static_candidate(
             config_temporary.unlink()
 
 
+def atomic_stage_runtime_candidate(
+    config_path: Path,
+    config_value: dict[str, Any],
+    assets: Sequence[tuple[Path, bytes]],
+    target: dict[str, Any],
+    *,
+    expected_config_bytes: bytes,
+) -> None:
+    created_directories: list[Path] = []
+    for directory in (config_path.parent, *(path.parent for path, _ in assets)):
+        missing: list[Path] = []
+        current = directory
+        while not current.exists():
+            missing.append(current)
+            current = current.parent
+        directory.mkdir(parents=True, exist_ok=True)
+        created_directories.extend(reversed(missing))
+    asset_temporaries: list[tuple[Path, Path]] = []
+    config_temporary: Path | None = None
+    promoted_paths: list[Path] = []
+    completed = False
+    try:
+        for destination, payload in assets:
+            if destination.exists() or destination.is_symlink():
+                if (
+                    destination.is_symlink()
+                    or not destination.is_file()
+                    or read_regular_file_bytes(
+                        destination,
+                        "existing Runtime Candidate asset",
+                        MAX_SCAN_BYTES,
+                    )
+                    != payload
+                ):
+                    raise StudioError(
+                        f"Runtime Candidate asset collision: {destination}",
+                        "Existing review evidence is never overwritten.",
+                    )
+                continue
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=f".{destination.name}.tmp-",
+                dir=destination.parent,
+                delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temporary, 0o644)
+            asset_temporaries.append((temporary, destination))
+
+        encoded_config = (
+            json.dumps(config_value, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        validate_preview_config(
+            json.loads(encoded_config.decode("utf-8")),
+            config_path,
+            target,
+        )
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{config_path.name}.tmp-",
+            dir=config_path.parent,
+            delete=False,
+        ) as handle:
+            config_temporary = Path(handle.name)
+            handle.write(encoded_config)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(config_temporary, config_path.stat().st_mode & 0o777)
+
+        if (
+            not config_path.exists()
+            or config_path.read_bytes() != expected_config_bytes
+        ):
+            raise StudioError(
+                f"Previewer config changed during Runtime staging: {config_path}",
+                "Reload the project state and retry; no files were updated.",
+            )
+
+        for temporary, destination in asset_temporaries:
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as exc:
+                raise StudioError(
+                    f"Runtime Candidate asset appeared during staging: {destination}",
+                    "Reload the project state and retry; no files were updated.",
+                ) from exc
+            promoted_paths.append(destination)
+            temporary.unlink()
+        os.replace(config_temporary, config_path)
+        config_temporary = None
+        completed = True
+    except Exception:
+        for promoted_path in promoted_paths:
+            if promoted_path.exists():
+                promoted_path.unlink()
+        raise
+    finally:
+        for temporary, _destination in asset_temporaries:
+            if temporary.exists():
+                temporary.unlink()
+        if config_temporary is not None and config_temporary.exists():
+            config_temporary.unlink()
+        if not completed:
+            for directory in reversed(created_directories):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+
+
 def validate_pet_dir(
     pet_dir: Path,
     target: dict[str, Any],
@@ -1905,7 +2245,10 @@ def validate_pet_dir(
         raise StudioError(f"{manifest_path}: spritesheetPath escapes the pet folder.") from exc
     if not spritesheet.is_file() or spritesheet.is_symlink():
         raise StudioError(f"Missing regular spritesheet file {spritesheet}.")
-    image_format, width, height = read_image_dimensions(spritesheet)
+    image_format, width, height, spritesheet_bytes = read_image_file(
+        spritesheet,
+        "spritesheet",
+    )
     atlas = target["atlas"]
     expected_width = atlas["columns"] * atlas["cellWidthPx"]
     expected_height = atlas["rows"] * atlas["cellHeightPx"]
@@ -1924,6 +2267,26 @@ def validate_pet_dir(
         or height // atlas["cellHeightPx"] != atlas["rows"]
     ):
         raise StudioError(f"{spritesheet}: atlas cell geometry is invalid.")
+    decoded = (
+        validate_transparent_png(
+            spritesheet_bytes,
+            spritesheet,
+            expected_size=(expected_width, expected_height),
+            label="spritesheet",
+        )
+        if image_format == "PNG"
+        else decode_webp_rgba(
+            spritesheet_bytes,
+            spritesheet,
+            label="spritesheet",
+        )
+    )
+    validate_runtime_atlas_cells(
+        decoded,
+        target,
+        [state["id"] for state in target["states"]],
+        FINAL_V2_PHASE,
+    )
     return {
         "ok": True,
         "petId": pet_id,
@@ -1939,6 +2302,7 @@ def validate_pet_dir(
         "rows": atlas["rows"],
         "cellWidth": atlas["cellWidthPx"],
         "cellHeight": atlas["cellHeightPx"],
+        "pixelValidated": True,
     }
 
 
@@ -2779,6 +3143,253 @@ def command_review_stage_static(args: argparse.Namespace) -> int:
     return 0
 
 
+def selected_runtime_state_ids(
+    raw_value: str,
+    target: dict[str, Any],
+) -> list[str]:
+    requested = [part.strip() for part in raw_value.split(",")]
+    if not requested or any(not part for part in requested):
+        raise StudioError(
+            "--states must be `all` or a comma-separated list of state ids."
+        )
+    target_ids = [state["id"] for state in target["states"]]
+    if requested == ["all"]:
+        return target_ids
+    if "all" in requested:
+        raise StudioError("--states `all` cannot be combined with other state ids.")
+    if len(requested) != len(set(requested)):
+        raise StudioError("--states must not contain duplicate state ids.")
+    unknown = [state_id for state_id in requested if state_id not in target_ids]
+    if unknown:
+        raise StudioError(
+            "--states contains unknown state ids: " + ", ".join(unknown)
+        )
+    requested_set = set(requested)
+    return [state_id for state_id in target_ids if state_id in requested_set]
+
+
+def command_review_stage_runtime(args: argparse.Namespace) -> int:
+    root = resolve_root(args.root)
+    project_config = load_config(root)
+    target = load_delivery_target(root, project_config)
+    if args.host not in LOOPBACK_HOSTS:
+        raise StudioError(
+            f"Runtime review URL must use a loopback host, not {args.host!r}."
+        )
+    if isinstance(args.port, bool) or not 1 <= args.port <= 65535:
+        raise StudioError("Runtime review URL port must be between 1 and 65535.")
+
+    candidate_id = args.candidate.strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", candidate_id):
+        raise StudioError(
+            "Candidate id must be 1–64 ASCII letters, digits, dots, underscores, or hyphens."
+        )
+    state_ids = selected_runtime_state_ids(args.states, target)
+    focus_state = args.focus_state.strip() if args.focus_state else state_ids[0]
+    if focus_state not in state_ids:
+        raise StudioError("--focus-state must be one of the declared --states.")
+
+    raw_atlas_path = Path(args.atlas).expanduser()
+    if raw_atlas_path.is_symlink():
+        raise StudioError(f"Runtime atlas must not be a symlink: {raw_atlas_path}")
+    atlas_source = raw_atlas_path.resolve()
+    atlas_bytes = read_regular_file_bytes(
+        atlas_source,
+        "Runtime atlas",
+        MAX_SCAN_BYTES,
+    )
+    decoded = validate_transparent_png(
+        atlas_bytes,
+        atlas_source,
+        expected_size=None,
+        label="Runtime atlas",
+    )
+
+    atlas_contract = target["atlas"]
+    expected_width = atlas_contract["columns"] * atlas_contract["cellWidthPx"]
+    final_height = atlas_contract["rows"] * atlas_contract["cellHeightPx"]
+    standard_rows = max(state["row"] for state in target["states"]) + 1
+    standard_height = standard_rows * atlas_contract["cellHeightPx"]
+    if decoded.width != expected_width or decoded.height not in {
+        standard_height,
+        final_height,
+    }:
+        raise StudioError(
+            f"Runtime atlas must be {expected_width}x{standard_height} "
+            f"standard-intermediate or {expected_width}x{final_height} final; "
+            f"got {decoded.width}x{decoded.height}."
+        )
+    atlas_phase = (
+        STANDARD_INTERMEDIATE_PHASE
+        if decoded.height == standard_height
+        else FINAL_V2_PHASE
+    )
+    validate_runtime_atlas_cells(decoded, target, state_ids, atlas_phase)
+
+    projected = atlas_phase == STANDARD_INTERMEDIATE_PHASE
+    review_bytes = (
+        encode_runtime_review_png(decoded, final_height)
+        if projected
+        else atlas_bytes
+    )
+    validate_transparent_png(
+        review_bytes,
+        atlas_source,
+        expected_size=(expected_width, final_height),
+        label="Runtime review asset",
+    )
+    look_directions_available = atlas_phase == FINAL_V2_PHASE
+
+    raw_config_path = Path(args.config)
+    config_path = (
+        raw_config_path.expanduser().resolve()
+        if raw_config_path.is_absolute()
+        else (root / raw_config_path).resolve()
+    )
+    contained_path(config_path, root / "build", "Previewer config")
+    if config_path.suffix.casefold() != ".json":
+        raise StudioError("Previewer config must be a JSON file.")
+    if config_path.is_symlink():
+        raise StudioError(f"Previewer config must not be a symlink: {config_path}")
+    if not config_path.is_file():
+        raise StudioError(
+            f"Missing Previewer config {config_path}.",
+            "Stage the Candidate Static image before adding runtime review assets.",
+        )
+    preview_config, expected_config_bytes = load_preview_config(config_path, target)
+    candidate = next(
+        (
+            version
+            for version in preview_config["versions"]
+            if version.get("id") == candidate_id
+        ),
+        None,
+    )
+    if candidate is None:
+        raise StudioError(
+            f"Candidate {candidate_id!r} is not present in {config_path}.",
+            "Stage its Static image first; runtime grows the same Candidate.",
+        )
+    if not isinstance(candidate.get("static"), dict):
+        raise StudioError(
+            f"Candidate {candidate_id!r} has no Static review evidence.",
+            "Stage its Static image first; runtime grows the same Candidate.",
+        )
+
+    candidate_segment = safe_take_candidate_segment(candidate_id)
+    digest = hashlib.sha256(atlas_bytes).hexdigest()[:16]
+    runtime_dir = contained_path(
+        config_path.parent / "candidates" / candidate_segment / "runtime",
+        root / "build",
+        "Runtime Candidate directory",
+    )
+    source_destination = contained_path(
+        runtime_dir / f"source-{digest}.png",
+        root / "build",
+        "Runtime Candidate source",
+    )
+    asset_destination = contained_path(
+        runtime_dir / f"{atlas_phase}-{digest}.png",
+        root / "build",
+        "Runtime Candidate review asset",
+    )
+    asset_url = os.path.relpath(
+        asset_destination,
+        start=config_path.parent,
+    ).replace(os.sep, "/")
+    if not asset_url.startswith("."):
+        asset_url = f"./{asset_url}"
+    validate_take_asset_url(asset_url, "Runtime Candidate atlasUrl")
+
+    candidate["atlasUrl"] = asset_url
+    candidate["stateIds"] = state_ids
+    candidate["lookDirectionsAvailable"] = look_directions_available
+    candidate["atlasPhase"] = atlas_phase
+    validate_preview_config(preview_config, config_path, target)
+
+    preview_relative = project_config["paths"]["previewer"]
+    preview_dir = project_path(root, preview_relative, "paths.previewer")
+    config_reference = os.path.relpath(
+        config_path,
+        start=preview_dir,
+    ).replace(os.sep, "/")
+    query = urllib.parse.urlencode(
+        {
+            "config": config_reference,
+            "candidate": candidate_id,
+            "state": focus_state,
+            "frame": "1",
+            "take": "original",
+        }
+    )
+    quoted_preview_path = "/".join(
+        urllib.parse.quote(part)
+        for part in PurePosixPath(preview_relative).parts
+    )
+    review_host = f"[{args.host}]" if ":" in args.host else args.host
+    review_url = (
+        f"http://{review_host}:{args.port}/{quoted_preview_path}/?{query}"
+    )
+    next_step = (
+        "Complete real look rows 9-10 with assemble_extended_atlas.py, then "
+        "stage the resulting spritesheet-extended.png."
+        if projected
+        else "Review this Candidate; final packaging still requires Hatch QA and "
+        "validate_atlas.py --phase codex-pet-v2-final."
+    )
+
+    if not args.check:
+        with exclusive_preview_config_lock(config_path):
+            atomic_stage_runtime_candidate(
+                config_path,
+                preview_config,
+                (
+                    (source_destination, atlas_bytes),
+                    (asset_destination, review_bytes),
+                ),
+                target,
+                expected_config_bytes=expected_config_bytes,
+            )
+
+    result = {
+        "ok": True,
+        "checkOnly": bool(args.check),
+        "candidateId": candidate_id,
+        "artifactKind": "runtime-atlas",
+        "atlasPhase": atlas_phase,
+        "reviewOnly": projected,
+        "projected": projected,
+        "sourceWidth": decoded.width,
+        "sourceHeight": decoded.height,
+        "reviewWidth": expected_width,
+        "reviewHeight": final_height,
+        "stateIds": state_ids,
+        "lookDirectionsAvailable": look_directions_available,
+        "sourceAsset": str(source_destination),
+        "asset": str(asset_destination),
+        "assetUrl": asset_url,
+        "config": str(config_path),
+        "reviewUrl": review_url,
+        "nextStep": next_step,
+    }
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        action = "validated" if args.check else "staged"
+        qualifier = "review-only projection" if projected else "real-look final"
+        print(
+            f"OK: {action} Runtime Candidate {candidate_id!r} — "
+            f"{atlas_phase} ({qualifier})"
+        )
+        print(f"  states: {', '.join(state_ids)}")
+        print(f"  config: {config_path}")
+        print(f"  source: {source_destination}")
+        print(f"  asset: {asset_destination}")
+        print(f"  review: {review_url}")
+        print(f"  next: {next_step}")
+    return 0
+
+
 def command_privacy_check(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
     config = load_config(root, required=False)
@@ -3306,6 +3917,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit machine-readable JSON",
     )
     review_stage_static_parser.set_defaults(func=command_review_stage_static)
+
+    review_stage_runtime_parser = review_subparsers.add_parser(
+        "stage-runtime",
+        help="atomically add a runtime atlas to an existing Static Candidate",
+    )
+    add_root_argument(review_stage_runtime_parser)
+    review_stage_runtime_parser.add_argument(
+        "--atlas",
+        required=True,
+        help=(
+            "8-bit non-interlaced RGBA PNG; accepts a 1536x1872 "
+            "standard-intermediate or real-look 1536x2288 final atlas"
+        ),
+    )
+    review_stage_runtime_parser.add_argument(
+        "--candidate",
+        required=True,
+        help="existing Static Candidate id to grow with runtime review",
+    )
+    review_stage_runtime_parser.add_argument(
+        "--states",
+        required=True,
+        help="`all` or a comma-separated exact runtime state subset",
+    )
+    review_stage_runtime_parser.add_argument(
+        "--focus-state",
+        help="state for the returned focused URL (default: first declared state)",
+    )
+    review_stage_runtime_parser.add_argument(
+        "--config",
+        default="build/review/preview.json",
+        help="existing review config under build/ (default: build/review/preview.json)",
+    )
+    review_stage_runtime_parser.add_argument("--host", default="127.0.0.1")
+    review_stage_runtime_parser.add_argument("--port", type=int, default=8765)
+    review_stage_runtime_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate and report without writing files",
+    )
+    review_stage_runtime_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit machine-readable JSON",
+    )
+    review_stage_runtime_parser.set_defaults(func=command_review_stage_runtime)
 
     validate_parser = subparsers.add_parser("validate", help="validate a Codex Pet v2 package")
     add_root_argument(validate_parser)
